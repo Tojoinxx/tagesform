@@ -7,6 +7,21 @@ import { uid, n1, num, vibrate, fmtShortDate } from '../lib/util.js';
 import { Check, Plus, Info, Repeat, X, Timer, Flag, Trash2, ExternalLink, Search } from 'lucide-preact';
 import { nav } from './router.js';
 
+/** Batterie wie bei MCI: 0 = leer (am Limit) … 3+ = voll (viel Reserve) */
+export function Battery({ v, size = 26 }) {
+  const has = v != null && v !== '';
+  const n = has ? Math.min(3, Number(v)) : 0;
+  const col = !has ? 'var(--line)' : n === 0 ? 'var(--danger)' : n === 1 ? 'var(--c)' : n === 2 ? 'var(--text)' : 'var(--fv)';
+  return (
+    <svg width={size} height={size * 0.55} viewBox="0 0 26 14" aria-hidden="true" class="battery">
+      <rect x="1" y="1" width="21" height="12" rx="3" fill="none" stroke={col} stroke-width="1.8" />
+      <rect x="22.5" y="4.5" width="2.5" height="5" rx="1" fill={col} />
+      {[0, 1, 2].map((k) => k < n && <rect x={3.5 + k * 6} y="3.5" width="4.6" height="7" rx="1.2" fill={col} />)}
+      {!has && <text x="11.5" y="10.5" font-size="8" text-anchor="middle" fill="var(--muted)">–</text>}
+    </svg>
+  );
+}
+
 const mmss = (sec) => {
   const s = Math.max(0, Math.round(sec));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -27,6 +42,7 @@ export function Workout() {
   const [rest, setRest] = useState(null); // {until, total}
   const [swapFor, setSwapFor] = useState(null);
   const [cueFor, setCueFor] = useState(null);
+  const [rirOpen, setRirOpen] = useState(null); // {i, j}
   const saveT = useRef();
 
   useEffect(() => {
@@ -70,6 +86,7 @@ export function Workout() {
     };
     persist(next, true);
     vibrate(25);
+    if (it.unit !== 'Sek.') setRirOpen({ i, j });
     const secs = it.main ? 120 : 75;
     const allDone = next.items[i].sets.every((x) => x.done);
     if (!(allDone && i === w.items.length - 1)) setRest({ until: Date.now() + secs * 1000, total: secs });
@@ -118,7 +135,7 @@ export function Workout() {
       comeback: w.comeback || null,
       cycle: w.cycle || null,
       items: w.items
-        .map((it) => ({ exId: it.exId, name: it.name, unit: it.unit, sets: it.sets.filter((x) => x.done).map((x) => ({ w: num(x.w), r: num(x.r), done: true })) }))
+        .map((it) => ({ exId: it.exId, name: it.name, unit: it.unit, targetRir: it.target ? it.target.rir ?? null : null, sets: it.sets.filter((x) => x.done).map((x) => ({ w: num(x.w), r: num(x.r), rir: x.rir ?? null, done: true })) }))
         .filter((it) => it.sets.length),
     };
     const volume = record.items.reduce((a, it) => a + it.sets.reduce((b, x) => b + x.w * x.r, 0), 0);
@@ -201,9 +218,17 @@ export function Workout() {
                 <span>Satz</span>
                 <span>kg</span>
                 <span>{it.unit}</span>
+                {it.unit !== 'Sek.' ? (
+                  <button class="sets__rirh" onClick={() => openSheet('rir')} aria-label="Was ist RIR?">
+                    RIR <Info size={12} />
+                  </button>
+                ) : (
+                  <span />
+                )}
                 <span />
               </div>
               {it.sets.map((st, j) => (
+                <>
                 <div class={'sets__row' + (st.done ? ' sets__row--done' : '')}>
                   <span class="sets__n tnum">{j + 1}</span>
                   <input
@@ -222,10 +247,37 @@ export function Workout() {
                     onInput={(e) => upSet(i, j, { r: e.currentTarget.value })}
                     aria-label={`Wiederholungen Satz ${j + 1}`}
                   />
+                  {it.unit !== 'Sek.' ? (
+                    <button class={'rirbtn' + (rirOpen && rirOpen.i === i && rirOpen.j === j ? ' rirbtn--open' : '')} onClick={() => setRirOpen(rirOpen && rirOpen.i === i && rirOpen.j === j ? null : { i, j })} aria-label={`RIR Satz ${j + 1}: ${st.rir ?? 'leer'}`}>
+                      <Battery v={st.rir} />
+                    </button>
+                  ) : (
+                    <span />
+                  )}
                   <button class={'setcheck' + (st.done ? ' setcheck--on' : '')} onClick={() => toggleDone(i, j)} aria-label={`Satz ${j + 1} ${st.done ? 'zurücksetzen' : 'abhaken'}`}>
                     <Check size={20} />
                   </button>
                 </div>
+                {rirOpen && rirOpen.i === i && rirOpen.j === j && (
+                  <div class="rirpick">
+                    <span class="small">Wie viele Wdh. wären noch gegangen?{it.target && it.target.rir != null ? ` (Ziel: ${it.target.rir})` : ''}</span>
+                    <div class="rirpick__opts">
+                      {[0, 1, 2, 3].map((v) => (
+                        <button
+                          class={'rirpick__o' + (st.rir === v ? ' rirpick__o--on' : '')}
+                          onClick={() => {
+                            upSet(i, j, { rir: v }, true);
+                            setRirOpen(null);
+                          }}
+                        >
+                          <b>{v === 3 ? '3+' : v}</b>
+                          <Battery v={v} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                </>
               ))}
             </div>
             <div class="row">

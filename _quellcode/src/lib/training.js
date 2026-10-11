@@ -109,7 +109,7 @@ export function lastFor(exId, before = null) {
       fallback = fallback || { date: w.date, sets };
       continue;
     }
-    return { date: w.date, sets, imported: w.imported ? w.source || 'Import' : null };
+    return { date: w.date, sets, imported: w.imported ? w.source || 'Import' : null, targetRir: it.targetRir ?? null };
   }
   if (fallback) return fallback;
   // übernommene Startwerte (z. B. aus MCI)
@@ -130,14 +130,29 @@ export function progression(ex, last) {
   const top = last.sets.filter((s) => (s.w || 0) === w);
   const minR = Math.min(...top.map((s) => s.r));
   const maxR = Math.max(...top.map((s) => s.r));
+  // RIR (Wdh. in Reserve), falls eingetragen: genauere Steuerung
+  const rated = top.filter((x) => x.rir != null && x.rir !== '');
+  const tgt = last.targetRir ?? 2;
+  const avgRir = rated.length >= Math.ceil(top.length / 2) ? rated.reduce((a, x) => a + Number(x.rir), 0) / rated.length : null;
+  const zeros = rated.filter((x) => Number(x.rir) === 0).length;
+  // 3 = „3+“: höchste Stufe → gilt als zu leicht, wenn das Ziel darunter lag
+  const tooEasy = avgRir != null && avgRir > tgt && avgRir >= Math.min(3, tgt + 2) && minR >= lo;
+  const failTip = zeros >= 2 ? ' Tipp: Nicht jeden Satz bis zum Limit – die Reserve spart Erholung.' : '';
+  const rirTxt = avgRir != null ? String(Math.round(avgRir * 10) / 10).replace('.', ',') : '';
   if (ex.inc === 0) {
+    if (tooEasy && minR < hi) {
+      const step = ex.unit === 'Sek.' ? 10 : 2;
+      return { w, reps: Math.min(hi, minR + step), note: `Letztes Mal zu leicht (RIR Ø ${rirTxt}) – heute ${Math.min(hi, minR + step)} ${ex.unit}.` };
+    }
     if (minR >= hi) return { w, reps: hi, note: `Oberes Ziel erreicht – mach es schwerer${ex.unit === 'Sek.' ? ' oder länger' : ' (langsamer, mit Gewicht)'}.`, up: true };
     const step = ex.unit === 'Sek.' ? 5 : 1;
     return { w, reps: Math.min(hi, minR + step), note: `Letztes Mal ${minR} ${ex.unit} – heute ${Math.min(hi, minR + step)}.` };
   }
   if (minR >= hi) return { w: roundTo(w + ex.inc, ex.inc / 2 || 0.5), reps: lo, note: `Alle Sätze mit ${hi} Wdh. geschafft → +${String(ex.inc).replace('.', ',')} kg 💪`, up: true };
+  if (tooEasy) return { w: roundTo(w + ex.inc, ex.inc / 2 || 0.5), reps: Math.max(lo, minR - 2), note: `Letztes Mal zu leicht (RIR Ø ${rirTxt} statt ${tgt}) → +${String(ex.inc).replace('.', ',')} kg 💪`, up: true };
   if (maxR < lo) return { w: roundTo(w * 0.9, ex.inc / 2 || 0.5), reps: lo, note: 'Letztes Mal zu schwer – heute etwas leichter, saubere Technik.' };
-  return { w, reps: Math.min(hi, minR + 1), note: `Gleiches Gewicht, Ziel: ${Math.min(hi, minR + 1)} Wdh. pro Satz.` };
+  if (zeros && tgt >= 1) return { w, reps: Math.max(lo, minR), note: `Letztes Mal bis zum Limit (RIR 0) – gleiches Ziel, diesmal mit Reserve.${failTip}` };
+  return { w, reps: Math.min(hi, minR + 1), note: `Gleiches Gewicht, Ziel: ${Math.min(hi, minR + 1)} Wdh. pro Satz.${failTip}` };
 }
 
 // ---------- Tagesform ----------

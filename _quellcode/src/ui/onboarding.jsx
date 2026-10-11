@@ -3,9 +3,10 @@ import { useS, saveProfile, S } from '../lib/store.js';
 import { num } from '../lib/util.js';
 import { BodyFields, ActivityFields, GoalFields, TargetsCard, PrefsFields, AiSetup } from './profile.jsx';
 import { Logo } from './logo.jsx';
+import { SetupCard } from './training.jsx';
 import { ChevronLeft } from 'lucide-preact';
 
-const STEPS = ['start', 'body', 'activity', 'goal', 'targets', 'prefs', 'ai'];
+const STEPS = ['start', 'body', 'activity', 'goal', 'targets', 'prefs', 'training', 'ai'];
 
 export function Onboarding() {
   useS();
@@ -20,6 +21,7 @@ export function Onboarding() {
     goal: !!p.goal,
     targets: true,
     prefs: true,
+    training: true,
     ai: true,
   }[step];
   const finish = () => {
@@ -51,7 +53,7 @@ export function Onboarding() {
               <li>🍽️ Essen tracken – per Suche, Barcode oder Foto</li>
               <li>✨ „Was soll ich jetzt essen?“ – passend zu deinem Tag</li>
               <li>📊 Wochen-Check am Sonntag mit konkreten Tipps</li>
-              <li>💪 Tagesform & Schmerzen – Training passt sich an</li>
+              <li>💪 Trainingsplan fürs Gym – passt sich an Tagesform, Sport & Schmerzen an</li>
             </ul>
             <p class="small muted">Dauert ca. 2 Minuten. Alles kannst du später in den Einstellungen ändern.</p>
           </div>
@@ -89,6 +91,13 @@ export function Onboarding() {
             <PrefsFields p={p} set={set} />
           </>
         )}
+        {step === 'training' && (
+          <>
+            <h1>Dein Trainingsplan</h1>
+            <p class="muted">Gehst du ins Fitnessstudio? Dann stellt dir die App einen Plan zusammen – passend zu deinem Sport, deinen Tagen und deiner Erfahrung. Alles später änderbar.</p>
+            <SetupCard embedded onDone={() => setI(i + 1)} />
+          </>
+        )}
         {step === 'ai' && (
           <>
             <h1>KI einschalten</h1>
@@ -98,8 +107,8 @@ export function Onboarding() {
         )}
       </div>
       <div class="onb__foot">
-        <button class="btn btn--primary btn--block btn--lg" onClick={next} disabled={!valid}>
-          {step === 'start' ? 'Los geht’s' : step === 'ai' ? (S.ai && S.ai.apiKey ? 'Fertig' : 'Später einrichten & starten') : step === 'prefs' ? 'Weiter' : 'Weiter'}
+        <button class={'btn btn--block btn--lg' + (step === 'training' ? '' : ' btn--primary')} onClick={next} disabled={!valid}>
+          {step === 'start' ? 'Los geht’s' : step === 'training' ? 'Ohne Gym-Plan weiter' : step === 'ai' ? (S.ai && S.ai.apiKey ? 'Fertig' : 'Später einrichten & starten') : step === 'prefs' ? 'Weiter' : 'Weiter'}
         </button>
       </div>
     </div>

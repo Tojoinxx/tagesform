@@ -2,6 +2,7 @@ import { useS, saveTraining, S, toast } from '../lib/store.js';
 import { CYCLE, cycleWeek, weeklyVolume, MUSCLE_LABEL, setupOf, sportOf, hasSport } from '../lib/training.js';
 import { todayKey, n1 } from '../lib/util.js';
 import { Sheet } from './common.jsx';
+import { Battery } from './workout.jsx';
 import { TrendingUp, Repeat, Layers, Gauge, HeartPulse, Shield, BookOpen, CalendarRange } from 'lucide-preact';
 
 function Sec({ icon, title, children }) {
@@ -240,6 +241,40 @@ export function AlgoSheet() {
         </ul>
         <p class="small muted">Hinweis: Das ist eine allgemeine Trainingslogik, keine medizinische Beratung. Bei anhaltenden Schmerzen lieber ärztlich oder physiotherapeutisch abklären lassen.</p>
       </Sec>
+    </Sheet>
+  );
+}
+
+export function RirSheet() {
+  return (
+    <Sheet title="Was ist RIR?">
+      <div class="rirlegend">
+        {[0, 1, 2, 3].map((v) => (
+          <span>
+            <b>{v === 3 ? '3+' : v}</b> <Battery v={v} />
+          </span>
+        ))}
+      </div>
+      <p>
+        <b>Reps in Reserve (RIR)</b> gibt an, <b>wie viele saubere Wiederholungen du am Ende eines Satzes noch geschafft hättest</b>.
+      </p>
+      <p class="muted">RIR 0 heißt: keine weitere Wiederholung mehr möglich – du bist am Limit. RIR 2 heißt: zwei wären noch gegangen.</p>
+      <section class="card algo__sec">
+        <h3>So nutzt die App deine Angabe</h3>
+        <ul class="algo__list">
+          <li>
+            <b>Viel leichter als geplant</b> (z. B. 3+ statt 2): nächstes Mal sofort mehr Gewicht.
+          </li>
+          <li>
+            <b>RIR 0, obwohl Reserve geplant war:</b> nächstes Mal gleiches Ziel statt noch mehr.
+          </li>
+          <li>
+            <b>Mehrere Sätze bis zum Limit:</b> Hinweis, etwas Reserve zu lassen – das spart Erholung.
+          </li>
+          <li>Kein Eintrag? Dann steigert die App wie bisher nur über die Wiederholungen.</li>
+        </ul>
+      </section>
+      <p class="small muted">Das Ziel-RIR hängt von der Zykluswoche ab (3 → 2 → 1, Deload 4). Halte es möglichst ein – so trainierst du hart genug für Wachstum, ohne dich auszubrennen.</p>
     </Sheet>
   );
 }

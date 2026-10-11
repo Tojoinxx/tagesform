@@ -21,7 +21,7 @@ export const fmtTarget = (it) => {
 import { ExCard, ExAnim, startWorkout } from './exui.jsx';
 export { startWorkout };
 
-function SetupCard({ onDone, initial }) {
+export function SetupCard({ onDone, initial, embedded }) {
   const [st, setSt] = useState(initial || defaultSetup());
   const set = (p) => setSt((o) => ({ ...o, ...p }));
   const toggleDay = (d) => set({ handballDays: st.handballDays.includes(d) ? st.handballDays.filter((x) => x !== d) : [...st.handballDays, d] });
@@ -32,10 +32,14 @@ function SetupCard({ onDone, initial }) {
   const sp = st.sport === 'andere' ? { ...SPORTS.find((x) => x.id === 'andere'), name: (st.sportName || '').trim() || 'Sport' } : SPORTS.find((x) => x.id === st.sport) || SPORTS[0];
   return (
     <section class="card form">
-      <h3>
-        <Sparkles size={18} /> Dein Trainingsplan
-      </h3>
-      <p class="small muted">Ich baue dir einen Plan fürs Studio, der um deinen Sport herum läuft und sich an Tagesform und Schmerzen anpasst.</p>
+      {!embedded && (
+        <>
+          <h3>
+            <Sparkles size={18} /> Dein Trainingsplan
+          </h3>
+          <p class="small muted">Ich baue dir einen Plan fürs Studio, der um deinen Sport herum läuft und sich an Tagesform und Schmerzen anpasst.</p>
+        </>
+      )}
       <Field group label="Trainingserfahrung im Gym">
         <div class="opts opts--row">
           {EXPERIENCE.map((x) => (
@@ -154,7 +158,7 @@ function SetupCard({ onDone, initial }) {
           onDone && onDone();
         }}
       >
-        <Check size={18} /> {initial ? 'Plan aktualisieren' : 'Plan erstellen'}
+        <Check size={18} /> {initial ? 'Plan aktualisieren' : embedded ? 'Plan erstellen & weiter' : 'Plan erstellen'}
       </button>
       <button type="button" class="btn--link small center" onClick={() => openSheet('import')}>
         <Download size={14} /> Plan & Gewichte aus einer anderen App übernehmen (Code)
