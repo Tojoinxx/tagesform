@@ -1,0 +1,16 @@
+{
+  "name": "Tagesform",
+  "short_name": "Tagesform",
+  "description": "Training & Ernährung – dein eigener Coach.",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f2f3f6",
+  "theme_color": "#0fb36d",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
