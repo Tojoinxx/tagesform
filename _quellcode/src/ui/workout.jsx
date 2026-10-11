@@ -114,6 +114,8 @@ export function Workout() {
       finishedAt: Date.now(),
       minutes,
       mode: w.mode || 'normal',
+      deload: !!w.deload,
+      cycle: w.cycle || null,
       items: w.items
         .map((it) => ({ exId: it.exId, name: it.name, unit: it.unit, sets: it.sets.filter((x) => x.done).map((x) => ({ w: num(x.w), r: num(x.r), done: true })) }))
         .filter((it) => it.sets.length),
@@ -187,6 +189,11 @@ export function Workout() {
             <div class="wex__info small">
               {lastText(it) ? <span class="muted">Letztes Mal {lastText(it)}</span> : null}
               {it.note && <span class="wex__note">{it.note}</span>}
+              {it.target && it.target.rir != null && it.unit !== 'Sek.' && (
+                <span class="wex__rir">
+                  Ziel {it.target.reps} Wdh. · aufhören, wenn noch <b>{it.target.rir}</b> {it.target.rir === 1 ? 'Wiederholung' : 'Wiederholungen'} gehen würden
+                </span>
+              )}
             </div>
             <div class="sets">
               <div class="sets__h small muted">

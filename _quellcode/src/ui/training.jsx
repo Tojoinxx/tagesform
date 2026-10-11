@@ -1,11 +1,11 @@
 import { useState } from 'preact/hooks';
-import { useS, S, saveTraining, saveActive, toast, patchDay } from '../lib/store.js';
-import { EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName } from '../lib/training.js';
+import { useS, S, saveTraining, saveActive, toast, patchDay, openSheet } from '../lib/store.js';
+import { EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName, SPORTS, sportOf, cycleWeek } from '../lib/training.js';
 import { SESSIONS, ROTATIONS, EXERCISES } from '../lib/exercises.js';
 import { todayKey, uid, n1 } from '../lib/util.js';
 import { Chip, Seg, Field } from './common.jsx';
 import { FormCard, OtherTrainingCard, Last7Card } from './form.jsx';
-import { Dumbbell, Play, Check, Settings2, ChevronRight, Sparkles, TriangleAlert } from 'lucide-preact';
+import { Dumbbell, Play, Check, Settings2, ChevronRight, Sparkles, TriangleAlert, Info } from 'lucide-preact';
 import { nav } from './router.js';
 
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
@@ -24,12 +24,15 @@ function SetupCard({ onDone, initial }) {
   const [st, setSt] = useState(initial || defaultSetup());
   const set = (p) => setSt((o) => ({ ...o, ...p }));
   const toggleDay = (d) => set({ handballDays: st.handballDays.includes(d) ? st.handballDays.filter((x) => x !== d) : [...st.handballDays, d] });
+  const gymDays = st.gymDays || [];
+  const toggleGym = (d) => set({ gymDays: gymDays.includes(d) ? gymDays.filter((x) => x !== d) : [...gymDays, d] });
+  const sp = st.sport === 'andere' ? { ...SPORTS.find((x) => x.id === 'andere'), name: (st.sportName || '').trim() || 'Sport' } : SPORTS.find((x) => x.id === st.sport) || SPORTS[0];
   return (
     <section class="card form">
       <h3>
         <Sparkles size={18} /> Dein Trainingsplan
       </h3>
-      <p class="small muted">Ich baue dir einen Plan fürs Studio, der um dein Handball herum läuft und sich an Tagesform und Schmerzen anpasst.</p>
+      <p class="small muted">Ich baue dir einen Plan fürs Studio, der um deinen Sport herum läuft und sich an Tagesform und Schmerzen anpasst.</p>
       <Field group label="Trainingserfahrung im Gym">
         <div class="opts opts--row">
           {EXPERIENCE.map((x) => (
@@ -62,30 +65,61 @@ function SetupCard({ onDone, initial }) {
           ]}
         />
       </Field>
-      <Field group label="Handball-Training an">
-        <div class="daypick">
-          {WEEK.map((d) => (
-            <button type="button" class={'daypick__d' + (st.handballDays.includes(d) ? ' daypick__d--on' : '')} onClick={() => toggleDay(d)} aria-pressed={st.handballDays.includes(d)}>
-              {dayShort(d)}
-            </button>
+      <Field group label="Vereinssport / weitere Sportart" hint="Plan legt keine schweren Beine direkt davor und ergänzt passende Vorbeugeübungen">
+        <div class="chips chips--wrap">
+          {SPORTS.map((x) => (
+            <Chip small active={st.sport === x.id} onClick={() => set({ sport: x.id, ...(x.id === 'keiner' ? { handballDays: [], gameDay: null } : {}), ...(x.games ? {} : { gameDay: null }) })}>
+              {x.emoji ? x.emoji + ' ' : ''}
+              {x.name}
+            </Chip>
           ))}
         </div>
       </Field>
-      <Field group label="Spieltag (falls Saison)">
-        <Seg
-          value={String(st.gameDay ?? 'x')}
-          onChange={(v) => set({ gameDay: v === 'x' ? null : Number(v) })}
-          options={[
-            { id: 'x', label: 'Keiner / wechselnd' },
-            { id: '6', label: 'Samstag' },
-            { id: '0', label: 'Sonntag' },
-          ]}
-        />
+      {st.sport === 'andere' && (
+        <Field label="Welche Sportart?">
+          <input class="input" value={st.sportName || ''} placeholder="z. B. Badminton, Klettern" onInput={(e) => set({ sportName: e.currentTarget.value })} />
+        </Field>
+      )}
+      {st.sport !== 'keiner' && (
+        <Field group label={`${sp.name}-Training an`}>
+          <div class="daypick">
+            {WEEK.map((d) => (
+              <button type="button" class={'daypick__d' + (st.handballDays.includes(d) ? ' daypick__d--on' : '')} onClick={() => toggleDay(d)} aria-pressed={st.handballDays.includes(d)}>
+                {dayShort(d)}
+              </button>
+            ))}
+          </div>
+        </Field>
+      )}
+      {st.sport !== 'keiner' && sp.games && (
+        <Field group label="Spiel- / Wettkampftag (falls Saison)">
+          <Seg
+            value={String(st.gameDay ?? 'x')}
+            onChange={(v) => set({ gameDay: v === 'x' ? null : Number(v) })}
+            options={[
+              { id: 'x', label: 'Keiner / wechselnd' },
+              { id: '6', label: 'Samstag' },
+              { id: '0', label: 'Sonntag' },
+            ]}
+          />
+        </Field>
+      )}
+      <Field group label="Wann kannst du ins Gym?" hint={gymDays.length ? `${gymDays.length} Tage ausgewählt – die App plant nur hier.` : 'Nichts gewählt = flexibel: 1–2 Tage unter der Woche, Rest am Wochenende.'}>
+        <div class="daypick">
+          {WEEK.map((d) => {
+            const blocked = st.handballDays.includes(d);
+            return (
+              <button type="button" disabled={blocked} class={'daypick__d' + (gymDays.includes(d) ? ' daypick__d--on' : '')} onClick={() => toggleGym(d)} aria-pressed={gymDays.includes(d)}>
+                {dayShort(d)}
+              </button>
+            );
+          })}
+        </div>
       </Field>
       <button
         class="btn btn--primary btn--block btn--lg"
         onClick={() => {
-          saveTraining({ setup: st, createdAt: (S.training && S.training.createdAt) || Date.now() });
+          saveTraining({ setup: { ...st, cycleStart: st.cycleStart || todayKey() }, createdAt: (S.training && S.training.createdAt) || Date.now() });
           toast('Plan erstellt 💪');
           onDone && onDone();
         }}
@@ -104,19 +138,19 @@ function WeekRhythm({ setup }) {
     {plan.dropped && plan.dropped.length > 0 && (
       <div class="notice notice--warn small" style={{ marginBottom: '10px' }}>
         <span>
-          Mit diesen Handball-Tagen passt {plan.dropped.map((x) => SESSIONS[x].name).join(', ')} nirgends hin, ohne dass Beine direkt vor Training oder Spiel liegen – also {plan.length}× Gym diese Woche.
+          Mit diesen Tagen passt {plan.dropped.map((x) => SESSIONS[x].name).join(', ')} nirgends hin, ohne dass Beine direkt vor Training oder Spiel liegen – also {plan.length}× Gym diese Woche.
         </span>
       </div>
     )}
     <div class="rhythm">
       {WEEK.map((d) => {
         const p = plan.find((x) => x.d === d);
-        const hb = setup.handballDays.includes(d);
+        const hb = (setup.handballDays || []).includes(d);
         const game = setup.gameDay === d;
         return (
           <div class={'rhythm__d' + (d === today ? ' rhythm__d--today' : '') + (p ? ' rhythm__d--gym' : hb || game ? ' rhythm__d--hb' : '')}>
             <span class="rhythm__wd">{dayShort(d)}</span>
-            <span class="rhythm__what">{p ? SESSIONS[p.sessionId].short : game ? 'Spiel' : hb ? '🤾' : '–'}</span>
+            <span class="rhythm__what">{p ? SESSIONS[p.sessionId].short : game ? 'Spiel' : hb ? sportOf(setup).emoji || '🏅' : '–'}</span>
           </div>
         );
       })}
@@ -163,7 +197,9 @@ function TodayCard({ setup }) {
         <div>
           {rec.status === 'handball' && !pick ? (
             <>
-              <h2>Heute Handball 🤾</h2>
+              <h2>
+                Heute {sportOf(setup).name} {sportOf(setup).emoji}
+              </h2>
               <p class="muted small">Kein Gym nötig – trag das Training danach unten ein.</p>
             </>
           ) : rec.status === 'done' && !pick ? (
@@ -188,6 +224,9 @@ function TodayCard({ setup }) {
 
       {showPlan && (
         <>
+          <button class={'cyclechip' + (sess.cycle && sess.cycle.deload ? ' cyclechip--deload' : '')} onClick={() => openSheet('algo')}>
+            Woche {sess.cycle.n}/5 · {sess.cycle.label} · RIR {sess.cycle.rir} <Info size={14} />
+          </button>
           {!pick && rec.reasons.filter((r) => rec.status !== 'free' || !r.startsWith('Kein fester')).map((r) => <div class="notice small"><span>{r}</span></div>)}
           {sess.modeLabel && (
             <div class={'notice small ' + (sess.mode === 'light' ? 'notice--info' : 'notice--ok')}>
@@ -278,11 +317,16 @@ export function Training() {
     <div class="page">
       <header class="pagehead">
         <h1>Training</h1>
-        {hasSetup && (
-          <button class="iconbtn" onClick={() => setEditing(!editing)} aria-label="Plan anpassen">
-            <Settings2 size={20} />
+        <div class="row">
+          <button class="iconbtn" onClick={() => openSheet('algo')} aria-label="So funktioniert der Trainingsplan">
+            <Info size={21} />
           </button>
-        )}
+          {hasSetup && (
+            <button class="iconbtn" onClick={() => setEditing(!editing)} aria-label="Plan anpassen">
+              <Settings2 size={20} />
+            </button>
+          )}
+        </div>
       </header>
 
       {s.active && (
@@ -307,7 +351,7 @@ export function Training() {
           <section class="card">
             <WeekRhythm setup={setup} />
             <p class="small muted" style={{ marginTop: '10px' }}>
-              Beine nie am Tag vor dem Handball. Hast du an einem Tag keine Zeit, nimmst du einfach die nächste Einheit – die App merkt sich, wo du stehst.
+              {sportOf(setup).id !== 'keiner' ? `Schwere Beine nie am Tag vor ${sportOf(setup).name} oder Spiel. ` : ''}Hast du an einem Tag keine Zeit, nimmst du einfach die nächste Einheit – die App merkt sich, wo du stehst.
             </p>
           </section>
           <OtherTrainingCard />

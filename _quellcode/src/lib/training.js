@@ -1,7 +1,7 @@
-// Trainingsplan-Logik: Wochenrhythmus um Handball, Anpassung an Tagesform & Schmerzen, Progression
+// Trainingsplan-Logik: Wochenrhythmus um den Vereinssport, 5-Wochen-Zyklus, Anpassung an Tagesform & Schmerzen, Progression
 import { S, getDay } from './store.js';
 import { EXERCISES, SESSIONS, ROTATIONS } from './exercises.js';
-import { addDays, parseKey, todayKey, weekStart, WD_SHORT, WD_LONG } from './util.js';
+import { addDays, parseKey, todayKey, weekStart, WD_SHORT, WD_LONG, dateKey } from './util.js';
 
 export const EXPERIENCE = [
   { id: 'anfaenger', label: 'Einsteiger', hint: 'unter 1 Jahr regelmäßig' },
@@ -9,8 +9,66 @@ export const EXPERIENCE = [
   { id: 'erfahren', label: 'Erfahren', hint: 'über 3 Jahre' },
 ];
 
-export const defaultSetup = () => ({ experience: 'fortgeschritten', perWeek: 3, minutes: 60, handballDays: [1, 3], gameDay: null });
-export const setupOf = () => ({ ...defaultSetup(), ...((S.training && S.training.setup) || {}) });
+// Sportarten: overhead = Wurf-/Überkopfsport (Schulter-Prävention), sprint = Sprints & Richtungswechsel (Beinbeuger/Leiste)
+export const SPORTS = [
+  { id: 'keiner', name: 'Kein Vereinssport', emoji: '' },
+  { id: 'handball', name: 'Handball', emoji: '🤾', overhead: true, sprint: true, games: true },
+  { id: 'fussball', name: 'Fußball', emoji: '⚽', sprint: true, games: true },
+  { id: 'basketball', name: 'Basketball', emoji: '🏀', sprint: true, games: true },
+  { id: 'volleyball', name: 'Volleyball', emoji: '🏐', overhead: true, games: true },
+  { id: 'hockey', name: 'Hockey', emoji: '🏑', sprint: true, games: true },
+  { id: 'tennis', name: 'Tennis', emoji: '🎾', overhead: true, sprint: true, games: true },
+  { id: 'laufen', name: 'Laufen', emoji: '🏃', sprint: true },
+  { id: 'schwimmen', name: 'Schwimmen', emoji: '🏊', overhead: true },
+  { id: 'kampfsport', name: 'Kampfsport', emoji: '🥋', games: true },
+  { id: 'radfahren', name: 'Radfahren', emoji: '🚴' },
+  { id: 'andere', name: 'Andere', emoji: '🏅', games: true },
+];
+
+export const defaultSetup = () => ({ experience: 'fortgeschritten', perWeek: 3, minutes: 60, sport: 'keiner', handballDays: [], gameDay: null, gymDays: null });
+export const setupOf = () => {
+  const raw = (S.training && S.training.setup) || {};
+  const st = { ...defaultSetup(), ...raw };
+  // ältere Pläne: Handball-Tage ohne Sportart
+  if (!raw.sport) st.sport = (raw.handballDays || []).length ? 'handball' : 'keiner';
+  if (st.sport === 'keiner') {
+    st.handballDays = [];
+    st.gameDay = null;
+  }
+  return st;
+};
+export const sportOf = (setup = setupOf()) => {
+  const sp = SPORTS.find((x) => x.id === setup.sport) || SPORTS[0];
+  return sp.id === 'andere' ? { ...sp, name: (setup.sportName || '').trim() || 'Sport' } : sp;
+};
+export const hasSport = (setup = setupOf()) => setup.sport !== 'keiner' && (setup.handballDays || []).length > 0;
+
+// ---------- 5-Wochen-Zyklus ----------
+export const CYCLE = [
+  { label: 'Einstieg', rir: 3, extra: 0, text: 'Technik sauber, 3 Wdh. Reserve' },
+  { label: 'Aufbau', rir: 2, extra: 0, text: '2 Wdh. Reserve' },
+  { label: 'Mehr Volumen', rir: 2, extra: 1, text: '+1 Satz bei Hauptübungen' },
+  { label: 'Intensiv', rir: 1, extra: 1, text: 'bis 1 Wdh. vor dem Versagen' },
+  { label: 'Deload', rir: 4, extra: 0, deload: true, text: 'halbe Sätze, ~10 % leichter – Erholung' },
+];
+export function cycleWeek(k = todayKey()) {
+  const tr = S.training || {};
+  const start = (tr.setup && tr.setup.cycleStart) || (tr.createdAt ? dateKey(new Date(tr.createdAt)) : k);
+  const weeks = Math.round((parseKey(weekStart(k)) - parseKey(weekStart(start))) / (7 * 864e5));
+  const i = ((weeks % CYCLE.length) + CYCLE.length) % CYCLE.length;
+  return { ...CYCLE[i], index: i, n: i + 1 };
+}
+
+/** Vorlage an die Sportart anpassen (Prävention nur, wo sie Sinn ergibt) */
+function templateIds(tpl, setup) {
+  const sp = sportOf(setup);
+  return tpl.ex.map((id) => {
+    if (id === 'aussenrotation' && !sp.overhead) return 'reverse-fly';
+    if (id === 'nordic' && !sp.sprint) return 'beinbeuger';
+    if (id === 'copenhagen' && !sp.sprint) return 'pallof';
+    return id;
+  });
+}
 
 const exCount = (minutes) => (minutes <= 45 ? 5 : minutes >= 75 ? 7 : 6);
 
@@ -26,13 +84,20 @@ export function workoutLog() {
 }
 
 export function lastFor(exId, before = null) {
+  let fallback = null;
   for (const w of workoutLog()) {
     if (before && w.date >= before) continue;
     const it = (w.items || []).find((i) => i.exId === exId);
     const sets = it && (it.sets || []).filter((s) => s.done && s.r > 0);
-    if (sets && sets.length) return { date: w.date, sets };
+    if (!sets || !sets.length) continue;
+    // Deload- und „leichte“ Einheiten zählen nicht als Maßstab für die Steigerung
+    if (w.deload || w.mode === 'light' || w.mode === 'deload') {
+      fallback = fallback || { date: w.date, sets };
+      continue;
+    }
+    return { date: w.date, sets };
   }
-  return null;
+  return fallback;
 }
 
 const roundTo = (v, step) => (step > 0 ? Math.round(v / step) * step : v);
@@ -74,7 +139,8 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
   const fm = formMode(form);
   const painAreas = fm.pains.map((p) => p.area);
   const strongPain = fm.pains.filter((p) => p.level >= 7).map((p) => p.area);
-  let ids = tpl.ex.slice();
+  let ids = templateIds(tpl, setup);
+  const cw = cycleWeek();
   if (setup.experience === 'anfaenger') ids = ids.map((id) => (id === 'kniebeuge' ? 'goblet' : id === 'rdl' ? 'hip-thrust' : id === 'klimmzug-assist' ? 'latzug' : id));
   const used = new Set();
   const items = [];
@@ -108,7 +174,18 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
     let w = pr.w;
     let reps = pr.reps;
     let note = pr.note;
-    if (fm.mode === 'light') {
+    let rir = ex.main ? cw.rir : Math.max(0, cw.rir - 1);
+    if (cw.extra && ex.main && setup.experience !== 'anfaenger') sets = Math.min(5, sets + cw.extra);
+    if (cw.deload) {
+      sets = Math.max(1, Math.ceil(sets / 2));
+      if (pr.up && last) {
+        w = Math.max(...last.sets.map((s) => s.w || 0));
+        reps = ex.reps[0];
+      }
+      if (w) w = roundTo(w * 0.9, ex.inc / 2 || 0.5);
+      rir = 4;
+      note = 'Deload-Woche: leichter und weniger Sätze – die Erholung macht dich nächste Woche stärker.';
+    } else if (fm.mode === 'light') {
       sets = Math.max(2, sets - 1);
       if (w) w = roundTo(w * 0.9, ex.inc / 2 || 0.5);
       if (pr.up && last) {
@@ -129,14 +206,14 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
       main: !!ex.main,
       repRange: ex.reps,
       inc: ex.inc,
-      target: { w, reps },
+      target: { w, reps, rir },
       sets: Array.from({ length: sets }, () => ({ w: w ?? '', r: '', done: false })),
       last,
       note,
       adaptedFrom: adaptedFrom && !adaptedFrom.keep ? adaptedFrom : null,
     };
   });
-  return { sessionId, name: tpl.name, focus: tpl.focus, items: out, mode: fm.mode, modeLabel: fm.label, notes, pains: fm.pains };
+  return { sessionId, name: tpl.name, focus: tpl.focus, items: out, mode: cw.deload ? 'deload' : fm.mode, modeLabel: cw.deload ? 'Deload-Woche: halbe Sätze, ~10 % weniger Gewicht' : fm.label, notes, pains: fm.pains, cycle: cw };
 }
 
 /** Übung im laufenden Training tauschen (z. B. Gerät besetzt) */
@@ -155,7 +232,8 @@ export function itemFor(exId, setup = setupOf()) {
   const last = lastFor(ex.id);
   const pr = progression(ex, last);
   const sets = ex.main ? 3 : setup.experience === 'anfaenger' ? 2 : 3;
-  return { exId: ex.id, name: ex.name, equip: ex.equip, unit: ex.unit, cue: ex.cue, main: !!ex.main, repRange: ex.reps, inc: ex.inc, target: { w: pr.w, reps: pr.reps }, sets: Array.from({ length: sets }, () => ({ w: pr.w ?? '', r: '', done: false })), last, note: pr.note, adaptedFrom: null };
+  const cw = cycleWeek();
+  return { exId: ex.id, name: ex.name, equip: ex.equip, unit: ex.unit, cue: ex.cue, main: !!ex.main, repRange: ex.reps, inc: ex.inc, target: { w: pr.w, reps: pr.reps, rir: ex.main ? cw.rir : Math.max(0, cw.rir - 1) }, sets: Array.from({ length: sets }, () => ({ w: pr.w ?? '', r: '', done: false })), last, note: pr.note, adaptedFrom: null };
 }
 
 // ---------- Wochenrhythmus ----------
@@ -166,7 +244,7 @@ const isHB = (setup, d) => (setup.handballDays || []).includes(d) || setup.gameD
 export function weekPlan(setup = setupOf()) {
   const rot = ROTATIONS[setup.perWeek] || ROTATIONS[3];
   const order = [1, 2, 3, 4, 5, 6, 0];
-  const free = order.filter((d) => !isHB(setup, d));
+  const free = order.filter((d) => !isHB(setup, d) && (!setup.gymDays || !setup.gymDays.length || setup.gymDays.includes(d)));
   const n = Math.min(rot.length, free.length);
   const combos = [];
   const pick = (start, acc) => {
@@ -185,6 +263,7 @@ export function weekPlan(setup = setupOf()) {
     });
   };
   perm(rot.slice(0, n), []);
+  if (!n) return Object.assign([], { dropped: rot.slice() });
   const legs = (sid) => SESSIONS[sid].legs;
   let best = null;
   for (const days of combos) {
@@ -192,8 +271,10 @@ export function weekPlan(setup = setupOf()) {
       let sc = 0;
       const plan = days.map((d, i) => ({ d, sessionId: ses[i] }));
       const wk = plan.filter((p) => p.d >= 1 && p.d <= 5).length;
-      if (wk > 2) sc += 8 * (wk - 2);
-      [6, 0].forEach((d) => !isHB(setup, d) && !days.includes(d) && (sc += 3));
+      if (!setup.gymDays || !setup.gymDays.length) {
+        if (wk > 2) sc += 8 * (wk - 2);
+        [6, 0].forEach((d) => !isHB(setup, d) && !days.includes(d) && (sc += 3));
+      }
       plan.forEach((p, i) => {
         const L = legs(p.sessionId);
         if (L && isHB(setup, (p.d + 1) % 7)) sc += 100;
@@ -251,9 +332,9 @@ export function recommend(setup = setupOf(), k = todayKey()) {
   else sessionId = left.find((s) => !(SESSIONS[s].legs && legsBlocked));
   if (!sessionId && left.length) {
     sessionId = rot.find((s) => !SESSIONS[s].legs) || left[0];
-    reasons.push(tomorrowHB ? `Offen wäre noch ${SESSIONS[left[0]].name} – aber morgen ${setup.gameDay === (d + 1) % 7 ? 'Spiel' : 'Handball'}. Heute lieber Oberkörper, Beine an einem anderen Tag.` : 'Beine sind heute angeschlagen – Oberkörper geht vor.');
+    reasons.push(tomorrowHB ? `Offen wäre noch ${SESSIONS[left[0]].name} – aber morgen ${setup.gameDay === (d + 1) % 7 ? 'Spiel' : sportOf(setup).name}. Heute lieber Oberkörper, Beine an einem anderen Tag.` : 'Beine sind heute angeschlagen – Oberkörper geht vor.');
   } else if (planned && sessionId !== planned.sessionId && left.includes(planned.sessionId)) {
-    reasons.push(tomorrowHB ? `Morgen ${setup.gameDay === (d + 1) % 7 ? 'Spiel' : 'Handball'} – Beine lieber an einem anderen Tag.` : 'Beine sind heute angeschlagen – Oberkörper geht vor.');
+    reasons.push(tomorrowHB ? `Morgen ${setup.gameDay === (d + 1) % 7 ? 'Spiel' : sportOf(setup).name} – Beine lieber an einem anderen Tag.` : 'Beine sind heute angeschlagen – Oberkörper geht vor.');
   } else if (!planned && sessionId && left.length) {
     reasons.push('Kein fester Gym-Tag – aber passt gut, wenn du Zeit hast.');
   }
@@ -269,3 +350,37 @@ export function recommend(setup = setupOf(), k = todayKey()) {
   else if (!planned) status = 'free';
   return { sessionId, status, reasons, doneThisWeek: doneThisWeek.length, perWeek: plan.length, planned: !!planned, rot, doneToday: doneToday[0] || null, left };
 }
+
+// ---------- Wochenvolumen pro Muskel ----------
+// primär = 1 Satz, sekundär = 0,5 Satz (übliche Zählweise in der Forschung)
+const MG = {
+  bankdruecken: 'brust|trizeps,schulter', 'kh-bank': 'brust|trizeps,schulter', 'schraeg-kh': 'brust|schulter,trizeps', brustpresse: 'brust|trizeps', liegestuetz: 'brust|trizeps',
+  schulterdruecken: 'schulter|trizeps', schulterpresse: 'schulter|trizeps', seitheben: 'schulter|', 'seitheben-kabel': 'schulter|',
+  'trizeps-kabel': 'trizeps|', 'trizeps-ueberkopf': 'trizeps|',
+  latzug: 'ruecken|bizeps', 'latzug-eng': 'ruecken|bizeps', 'klimmzug-assist': 'ruecken|bizeps', 'rudern-kabel': 'ruecken|bizeps,schulter', 'rudern-brust': 'ruecken|bizeps,schulter', 'rudern-kh': 'ruecken|bizeps',
+  facepull: 'schulter|ruecken', 'reverse-fly': 'schulter|ruecken', aussenrotation: 'schulter|',
+  'bizeps-kh': 'bizeps|', 'bizeps-kabel': 'bizeps|', hammercurls: 'bizeps|',
+  kniebeuge: 'quad|po', beinpresse: 'quad|po', goblet: 'quad|po', rdl: 'beinbeuger|po', 'hip-thrust': 'po|beinbeuger', beinbeuger: 'beinbeuger|', beinstrecker: 'quad|',
+  'split-squat': 'quad|po', ausfallschritte: 'quad|po', nordic: 'beinbeuger|', copenhagen: 'rumpf|', wadenheben: 'waden|', pallof: 'rumpf|', plank: 'rumpf|', deadbug: 'rumpf|', kabelcrunch: 'rumpf|',
+};
+export const MUSCLE_LABEL = { brust: 'Brust', ruecken: 'Rücken', schulter: 'Schultern', bizeps: 'Bizeps', trizeps: 'Trizeps', quad: 'Oberschenkel vorne', beinbeuger: 'Beinbeuger', po: 'Po', waden: 'Waden', rumpf: 'Rumpf' };
+
+export function weeklyVolume(setup = setupOf()) {
+  const vol = Object.fromEntries(Object.keys(MUSCLE_LABEL).map((k) => [k, 0]));
+  weekPlan(setup).forEach((p) => {
+    buildSession(p.sessionId, setup, null).items.forEach((it) => {
+      const [pri, sec] = (MG[it.exId] || '|').split('|');
+      const n = it.sets.length;
+      pri.split(',').filter(Boolean).forEach((m) => (vol[m] += n));
+      (sec || '').split(',').filter(Boolean).forEach((m) => (vol[m] += n / 2));
+    });
+  });
+  return vol;
+}
+
+/** Ist ein Trainingseintrag Vereinssport? */
+export const isSportEntry = (t, setup = setupOf()) => {
+  if (!t || t.type === 'Kraft') return false;
+  const sp = sportOf(setup);
+  return !!t.sport || (sp.id !== 'keiner' && String(t.type || '').startsWith(sp.name)) || /Handball/.test(t.type || '');
+};

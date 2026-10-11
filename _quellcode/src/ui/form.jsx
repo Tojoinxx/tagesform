@@ -2,6 +2,7 @@ import { useState, useEffect } from 'preact/hooks';
 import { useS, getDay, patchDay, toast } from '../lib/store.js';
 import { todayKey, addDays, WD_SHORT, parseKey, uid } from '../lib/util.js';
 import { Chip, Field } from './common.jsx';
+import { sportOf, isSportEntry } from '../lib/training.js';
 import { Dumbbell, HeartPulse, Check, Trash2, Pencil } from 'lucide-preact';
 
 export const ENERGY = [
@@ -14,7 +15,8 @@ export const ENERGY = [
 const SLEEP = ['< 6 h', '6 h', '7 h', '8 h', '9 h +'];
 const SORE = ['keiner', 'leicht', 'stark'];
 export const AREAS = ['Schulter', 'Nacken', 'Rücken oben', 'Rücken unten', 'Ellbogen', 'Handgelenk', 'Hüfte', 'Knie', 'Sprunggelenk', 'Wade', 'Oberschenkel'];
-const TYPES = ['Handball', 'Handball-Spiel', 'Laufen / Cardio', 'Mobility', 'Sonstiges'];
+const OTHER = ['Laufen / Cardio', 'Mobility', 'Sonstiges'];
+const typesFor = (sp) => (sp.id === 'keiner' ? OTHER : [sp.name, ...(sp.games ? [`${sp.name}-Spiel`] : []), ...OTHER.filter((x) => !(sp.id === 'laufen' && x.startsWith('Laufen')))]);
 const RPE = ['locker', 'mittel', 'hart'];
 
 /** Tagesform-Check (eingeklappt, wenn schon ausgefüllt) */
@@ -106,7 +108,7 @@ export function FormCard() {
         </div>
       ))}
       <Field label="Notiz (optional)">
-        <input class="input" value={f.note || ''} placeholder="z. B. Knie nach Handball etwas dick" onInput={(e) => setF({ ...f, note: e.currentTarget.value })} />
+        <input class="input" value={f.note || ''} placeholder="z. B. Knie nach dem Training etwas dick" onInput={(e) => setF({ ...f, note: e.currentTarget.value })} />
       </Field>
       <button class="btn btn--primary btn--block" onClick={save} disabled={!f.energy}>
         <Check size={18} /> {day.form ? 'Aktualisieren' : 'Speichern'}
@@ -115,15 +117,18 @@ export function FormCard() {
   );
 }
 
-/** Handball & sonstiges Training eintragen */
+/** Vereinssport & sonstiges Training eintragen */
 export function OtherTrainingCard({ preset }) {
   useS();
   const k = todayKey();
   const day = getDay(k);
   const [tr, setTr] = useState({ type: preset || '', minutes: 90, rpe: 'mittel' });
+  const sp = sportOf();
+  const TYPES = typesFor(sp);
   const add = () => {
     if (!tr.type) return;
-    patchDay(k, (d) => ({ training: [...(d.training || []), { id: uid(), ...tr, at: Date.now() }] }));
+    const sport = sp.id !== 'keiner' && tr.type.startsWith(sp.name);
+    patchDay(k, (d) => ({ training: [...(d.training || []), { id: uid(), ...tr, sport, at: Date.now() }] }));
     setTr({ type: '', minutes: 90, rpe: 'mittel' });
     toast(`${tr.type} eingetragen 💪`);
   };
@@ -206,7 +211,7 @@ export function Last7Card() {
             <div class="week7__d">
               <span class={'small ' + (key === k ? '' : 'muted')}>{WD_SHORT[parseKey(key).getDay()]}</span>
               <span class="week7__e">{e ? ENERGY[e - 1].e : '·'}</span>
-              <span class="week7__t">{tr.some((t) => /Handball/.test(t.type)) ? '🤾' : ''}{tr.some((t) => t.type === 'Kraft') ? '🏋️' : ''}</span>
+              <span class="week7__t">{tr.some((t) => isSportEntry(t)) ? sportOf().emoji || '🏅' : ''}{tr.some((t) => t.type === 'Kraft') ? '🏋️' : ''}</span>
               {d.form && (d.form.pains || []).length > 0 && <span class="week7__p" title={(d.form.pains || []).map((p) => p.area).join(', ')} />}
             </div>
           );

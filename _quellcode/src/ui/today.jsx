@@ -1,7 +1,7 @@
 import { useS, getDay, patchDay, openSheet, setS } from '../lib/store.js';
 import { daySums, mealSums, MEALS, targetsOf } from '../lib/nutrition.js';
 import { addDays, fmtDayTitle, fmtShortDate, liters, n0, todayKey, parseKey, n1, isoWeek, weekStart, WD_SHORT } from '../lib/util.js';
-import { weekPlan, setupOf } from '../lib/training.js';
+import { weekPlan, setupOf, sportOf, isSportEntry } from '../lib/training.js';
 import { SESSIONS } from '../lib/exercises.js';
 import { S } from '../lib/store.js';
 import { Ring, Bar } from './common.jsx';
@@ -199,7 +199,7 @@ function MiniRing({ pct, over, size = 36 }) {
   );
 }
 
-/** Wochenkalender: Kalorien-Ring, Training & Handball pro Tag */
+/** Wochenkalender: Kalorien-Ring, Gym & Vereinssport pro Tag */
 function WeekStrip({ k, target }) {
   const ws = weekStart(k);
   const today = todayKey();
@@ -215,7 +215,7 @@ function WeekStrip({ k, target }) {
         const day = getDay(key);
         const sum = daySums(day);
         const workouts = day.workouts || [];
-        const hbDone = (day.training || []).some((t) => /Handball/.test(t.type));
+        const hbDone = (day.training || []).some((t) => isSportEntry(t, setup));
         const hbPlanned = hasPlan && ((setup.handballDays || []).includes(wd) || setup.gameDay === wd);
         const gym = plan.find((p) => p.d === wd);
         return (
@@ -237,7 +237,7 @@ function WeekStrip({ k, target }) {
                   <Dumbbell size={11} /> ✓
                 </span>
               ) : hbDone || hbPlanned ? (
-                <span class={'wk__tag' + (hbDone ? ' wk__tag--done' : '')}>{setup.gameDay === wd ? 'Spiel' : '🤾'}</span>
+                <span class={'wk__tag' + (hbDone ? ' wk__tag--done' : '')}>{setup.gameDay === wd ? 'Spiel' : sportOf(setup).emoji || '🏅'}</span>
               ) : gym && key >= today ? (
                 <span class="wk__tag wk__tag--plan">{SESSIONS[gym.sessionId].short}</span>
               ) : (

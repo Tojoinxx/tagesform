@@ -6,12 +6,12 @@ import { buildSession, swapOptions, itemFor, setupOf } from '../lib/training.js'
 import { getDay } from '../lib/store.js';
 import { todayKey, n1, uid } from '../lib/util.js';
 import { Sheet } from './common.jsx';
-import { Repeat, ChevronLeft, Play, CalendarDays, Clock, MapPin, TriangleAlert, ExternalLink, Lightbulb, Check } from 'lucide-preact';
+import { Repeat, ChevronLeft, Play, CalendarDays, Clock, MapPin, TriangleAlert, ExternalLink, Lightbulb, Check, Gauge } from 'lucide-preact';
 import { nav } from './router.js';
 
 export function startWorkout(sessionId, items) {
   const s = buildSession(sessionId);
-  saveActive({ id: uid(), sessionId, name: s.name, focus: s.focus, startedAt: Date.now(), dayKey: todayKey(), items: items || s.items, mode: s.mode, modeLabel: s.modeLabel, notes: s.notes });
+  saveActive({ id: uid(), sessionId, name: s.name, focus: s.focus, startedAt: Date.now(), dayKey: todayKey(), items: items || s.items, mode: s.mode, modeLabel: s.modeLabel, notes: s.notes, cycle: s.cycle.n, deload: !!s.cycle.deload });
   nav('/workout');
 }
 
@@ -119,7 +119,7 @@ export function ExerciseSheet({ exId, item }) {
   );
 }
 
-const MODE_LABEL = { normal: 'Normal', light: 'Leicht', push: 'Top-Form' };
+const MODE_LABEL = { normal: 'Normal', light: 'Leicht', push: 'Top-Form', deload: 'Deload' };
 const estMinutes = (items) => Math.round(items.reduce((a, it) => a + it.sets.length * (it.main ? 3.2 : 2.4), 0) + 6);
 
 /** Einheit ansehen (wie bei MCI): Pills oben, Übungskarten, Starten unten */
@@ -143,8 +143,11 @@ export function SessionPage({ query }) {
         <h1>{tpl.name}</h1>
       </header>
       <div class="pills">
+        <button class="pill" onClick={() => openSheet('algo')}>
+          <CalendarDays size={16} /> Woche {base.cycle.n}/5 · {base.cycle.label}
+        </button>
         <span class="pill">
-          <CalendarDays size={16} /> {MODE_LABEL[base.mode] || 'Normal'}
+          <Gauge size={16} /> RIR {base.cycle.rir} · {MODE_LABEL[base.mode] || 'Normal'}
         </span>
         <span class="pill">
           <Clock size={16} /> ~{estMinutes(items)} Minuten
