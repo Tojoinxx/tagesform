@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'preact/hooks';
-import { useS, getDay, patchDay, toast } from '../lib/store.js';
+import { useS, getDay, patchDay, toast, closeSheet } from '../lib/store.js';
+import { Sheet } from './common.jsx';
+import { startWorkout } from './exui.jsx';
 import { todayKey, addDays, WD_SHORT, parseKey, uid } from '../lib/util.js';
 import { Chip, Field } from './common.jsx';
 import { sportOf, isSportEntry } from '../lib/training.js';
@@ -218,5 +220,116 @@ export function Last7Card() {
         })}
       </div>
     </section>
+  );
+}
+
+const FIT = ['Total K.O.', 'Eher schlapp', 'Normal', 'Fit', 'Sehr fit'];
+
+/** Wellness-Abfrage vor dem Training (wie bei MCI), Schritt für Schritt */
+export function WellnessSheet({ sessionId }) {
+  const k = todayKey();
+  const prev = getDay(k).form;
+  const [step, setStep] = useState(0);
+  const [f, setF] = useState(() => ({ energy: 4, sleep: '7 h', soreness: 'keiner', pains: [], note: '', ...(prev && prev.energy ? prev : {}) }));
+  const STEPS = 4;
+  const finish = (skipped) => {
+    patchDay(k, { form: skipped ? { ...(prev || {}), skipped: true, at: Date.now() } : { ...f, skipped: false, at: Date.now() } });
+    closeSheet();
+    if (sessionId) startWorkout(sessionId, null, { skipCheck: true });
+    else toast('Tagesform gespeichert');
+  };
+  const togglePain = (area) =>
+    setF((o) => {
+      const has = o.pains.some((p) => p.area === area);
+      return { ...o, pains: has ? o.pains.filter((p) => p.area !== area) : [...o.pains, { area, level: 4 }] };
+    });
+  return (
+    <Sheet
+      title="Wellness-Abfrage"
+      footer={
+        <div class="row">
+          {step > 0 && (
+            <button class="btn" onClick={() => setStep(step - 1)}>
+              Zurück
+            </button>
+          )}
+          <button class="btn btn--primary btn--grow btn--lg" onClick={() => (step < STEPS - 1 ? setStep(step + 1) : finish(false))}>
+            {step < STEPS - 1 ? 'Weiter' : sessionId ? 'Training starten' : 'Speichern'}
+          </button>
+        </div>
+      }
+    >
+      <div class="wellness__top">
+        <div class="wellness__dots">
+          {Array.from({ length: STEPS }, (_, i) => (
+            <span class={'wellness__dot' + (i <= step ? ' wellness__dot--on' : '')} />
+          ))}
+        </div>
+        <button class="btn--link small wellness__skip" onClick={() => finish(true)}>
+          Überspringen
+        </button>
+      </div>
+      {step === 0 && (
+        <div class="wellness">
+          <p class="muted">Damit dein Training heute genau passt, kurz ein paar Fragen.</p>
+          <h2 class="wellness__big">
+            {ENERGY[f.energy - 1].e} {FIT[f.energy - 1]}
+          </h2>
+          <input class="wellness__range" type="range" min="1" max="5" step="1" value={f.energy} onInput={(e) => setF({ ...f, energy: Number(e.currentTarget.value) })} aria-label="Wie fit fühlst du dich?" />
+          <div class="row row--between small muted">
+            <span>Total K.O.</span>
+            <span>Sehr fit</span>
+          </div>
+        </div>
+      )}
+      {step === 1 && (
+        <div class="wellness">
+          <h2>Wie lange hast du geschlafen?</h2>
+          <div class="chips chips--wrap">
+            {SLEEP.map((x) => (
+              <Chip active={f.sleep === x} onClick={() => setF({ ...f, sleep: x })}>
+                {x}
+              </Chip>
+            ))}
+          </div>
+        </div>
+      )}
+      {step === 2 && (
+        <div class="wellness">
+          <h2>Muskelkater?</h2>
+          <div class="chips chips--wrap">
+            {SORE.map((x) => (
+              <Chip active={f.soreness === x} onClick={() => setF({ ...f, soreness: x })}>
+                {x}
+              </Chip>
+            ))}
+          </div>
+          {f.soreness === 'stark' && <p class="small muted">Beine stark betroffen? Dann schlägt die App eher Oberkörper vor.</p>}
+        </div>
+      )}
+      {step === 3 && (
+        <div class="wellness">
+          <h2>Schmerzen oder Zwicken?</h2>
+          <p class="small muted">Nichts auswählen, wenn alles gut ist.</p>
+          <div class="chips chips--wrap">
+            {AREAS.map((a) => (
+              <Chip small active={f.pains.some((p) => p.area === a)} onClick={() => togglePain(a)}>
+                {a}
+              </Chip>
+            ))}
+          </div>
+          {f.pains.map((p) => (
+            <div class="pain" key={p.area}>
+              <div class="pain__top">
+                <span>{p.area}</span>
+                <b class="tnum">{p.level} / 10</b>
+              </div>
+              <input type="range" min="1" max="10" value={p.level} onInput={(e) => setF((o) => ({ ...o, pains: o.pains.map((x) => (x.area === p.area ? { ...x, level: Number(e.currentTarget.value) } : x)) }))} aria-label={`Stärke ${p.area}`} />
+              <span class="small muted">{p.level >= 7 ? 'Stark – betroffene Übungen fallen heute weg.' : p.level >= 4 ? 'Übungen, die hier belasten, werden getauscht.' : 'Leicht – nur zur Info.'}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Sheet>
   );
 }

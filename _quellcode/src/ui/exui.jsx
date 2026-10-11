@@ -9,7 +9,13 @@ import { Sheet, Chip } from './common.jsx';
 import { Repeat, ChevronLeft, Play, CalendarDays, Clock, MapPin, TriangleAlert, ExternalLink, Lightbulb, Check, Gauge, Search, Plus, X, ArrowUp, ArrowDown } from 'lucide-preact';
 import { nav } from './router.js';
 
-export function startWorkout(sessionId, items) {
+export function startWorkout(sessionId, items, opts = {}) {
+  const f = getDay(todayKey()).form;
+  // Vor dem Training: kurze Tagesform-Abfrage (einmal pro Tag)
+  if (!opts.skipCheck && !(f && f.at)) {
+    openSheet('wellness', { sessionId });
+    return;
+  }
   const s = buildSession(sessionId);
   // Nach längerer Pause: Zyklus beginnt wieder bei Woche 1
   if (s.comeback && s.comeback.restartCycle && s.comeback.step === 0) saveTraining({ setup: { ...setupOf(), cycleStart: todayKey() } });

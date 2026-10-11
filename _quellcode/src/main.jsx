@@ -16,12 +16,13 @@ import { SuggestSheet } from './ui/suggest.jsx';
 import { ExerciseSheet, SessionPage, ExercisePicker } from './ui/exui.jsx';
 import { AlgoSheet } from './ui/algo.jsx';
 import { ImportSheet } from './ui/importsheet.jsx';
+import { WellnessSheet } from './ui/form.jsx';
 import { House, ChartColumn, Dumbbell, Settings as SettingsIcon } from 'lucide-preact';
 
 applyTheme(lsGet('tf.theme', 'system'));
 setS({ day: todayKey() });
 
-const SHEETS = { add: AddSheet, amount: AmountSheet, entry: EntrySheet, custom: CustomSheet, photo: PhotoSheet, label: LabelSheet, barcode: BarcodeSheet, suggest: SuggestSheet, exercise: ExerciseSheet, algo: AlgoSheet, pick: ExercisePicker, import: ImportSheet };
+const SHEETS = { add: AddSheet, amount: AmountSheet, entry: EntrySheet, custom: CustomSheet, photo: PhotoSheet, label: LabelSheet, barcode: BarcodeSheet, suggest: SuggestSheet, exercise: ExerciseSheet, algo: AlgoSheet, pick: ExercisePicker, import: ImportSheet, wellness: WellnessSheet };
 
 function SheetHost() {
   const s = useS();

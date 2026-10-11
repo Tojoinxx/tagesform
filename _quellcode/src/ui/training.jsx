@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'preact/hooks';
-import { useS, S, saveTraining, saveActive, toast, patchDay, openSheet } from '../lib/store.js';
+import { useS, S, saveTraining, saveActive, toast, patchDay, openSheet, getDay } from '../lib/store.js';
 import { EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName, SPORTS, sportOf, cycleWeek, weekSetup, gameDayForWeek, sessionOf, rotationOf } from '../lib/training.js';
 import { weekStart, addDays, isoWeek } from '../lib/util.js';
 import { SESSIONS, ROTATIONS, EXERCISES } from '../lib/exercises.js';
 import { todayKey, uid, n1 } from '../lib/util.js';
 import { Chip, Seg, Field } from './common.jsx';
-import { FormCard, OtherTrainingCard, Last7Card } from './form.jsx';
+import { OtherTrainingCard, Last7Card, ENERGY } from './form.jsx';
 import { Dumbbell, Play, Check, Settings2, ChevronRight, Sparkles, TriangleAlert, Info, Download } from 'lucide-preact';
 import { nav } from './router.js';
 
@@ -305,6 +305,21 @@ function TodayCard({ setup }) {
 
       {showPlan && (
         <>
+          {(() => {
+            const f = getDay(todayKey()).form;
+            if (!f || !f.at || f.skipped) return null;
+            const e = ENERGY[(f.energy || 3) - 1];
+            return (
+              <button class="formline" onClick={() => openSheet('wellness', {})}>
+                <span>{e.e}</span>
+                <span class="small">
+                  Tagesform: <b>{e.l}</b>
+                  {(f.pains || []).length ? ' · ' + f.pains.map((p) => `${p.area} ${p.level}/10`).join(', ') : ''}
+                </span>
+                <span class="small muted">ändern</span>
+              </button>
+            );
+          })()}
           <button class={'cyclechip' + (sess.cycle && sess.cycle.deload ? ' cyclechip--deload' : '')} onClick={() => openSheet('algo')}>
             Woche {sess.cycle.n}/5 · {sess.cycle.label} · RIR {sess.cycle.rir} <Info size={14} />
           </button>
@@ -428,7 +443,6 @@ export function Training() {
 
       {hasSetup && !editing && (
         <>
-          <FormCard />
           {!s.active && <TodayCard setup={setup} />}
           <h4 class="sect sect--page">Dein Wochenrhythmus</h4>
           <section class="card">

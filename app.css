@@ -2751,3 +2751,55 @@ a.btn {
   font-size: 13px;
   resize: vertical;
 }
+.wellness__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.wellness__dots {
+  display: flex;
+  gap: 6px;
+}
+.wellness__dot {
+  width: 28px;
+  height: 5px;
+  border-radius: 9px;
+  background: var(--track);
+}
+.wellness__dot--on {
+  background: var(--accent);
+}
+.wellness__skip {
+  color: var(--kcal);
+}
+.wellness {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 8px 0 12px;
+}
+.wellness h2 {
+  font-size: 22px;
+  font-weight: 800;
+}
+.wellness__big {
+  font-size: 30px !important;
+  margin-top: 6px;
+}
+.wellness__range {
+  width: 100%;
+  accent-color: var(--accent);
+  height: 34px;
+}
+.formline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card2);
+  border-radius: 12px;
+  padding: 8px 12px;
+  text-align: left;
+}
+.formline span:nth-child(2) {
+  flex: 1;
+}
