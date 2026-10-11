@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { useS, S, saveActive, clearActive, patchDay, toast, getDay } from '../lib/store.js';
+import { useS, S, saveActive, clearActive, patchDay, toast, getDay, openSheet } from '../lib/store.js';
+import { ExAnim } from './exui.jsx';
+import { guideOf } from '../lib/exguide.js';
 import { swapOptions, itemFor } from '../lib/training.js';
 import { uid, n1, num, vibrate, fmtShortDate } from '../lib/util.js';
 import { Check, Plus, Info, Repeat, X, Timer, Flag, Trash2, ExternalLink } from 'lucide-preact';
@@ -149,31 +151,27 @@ export function Workout() {
         return (
           <section class={'card wex' + (allDone ? ' wex--done' : '')} key={it.exId + i}>
             <div class="wex__head">
+              <button class="wex__thumb" onClick={() => openSheet('exercise', { exId: it.exId, item: it })} aria-label={`${it.name} – Ausführung ansehen`}>
+                <ExAnim id={it.exId} size="sm" play={!allDone} />
+              </button>
               <div class="wex__title">
+                <span class="excard__group">{guideOf(it.exId).group}</span>
                 <h3>{it.name}</h3>
                 <span class="small muted">
                   {it.equip} · Ziel {it.repRange[0]}–{it.repRange[1]} {it.unit}
                 </span>
               </div>
-              <button class="iconbtn" onClick={() => setCueFor(cueFor === i ? null : i)} aria-label="Technik-Tipp">
-                <Info size={18} />
-              </button>
-              <button class="iconbtn" onClick={() => setSwapFor(swapFor === i ? null : i)} aria-label="Übung tauschen">
-                <Repeat size={18} />
-              </button>
+              <div class="wex__btns">
+                <button class="iconbtn" onClick={() => openSheet('exercise', { exId: it.exId, item: it })} aria-label="Technik-Tipp">
+                  <Info size={18} />
+                </button>
+                <button class="iconbtn" onClick={() => setSwapFor(swapFor === i ? null : i)} aria-label="Übung tauschen">
+                  <Repeat size={18} />
+                </button>
+              </div>
             </div>
             {it.adaptedFrom && <div class="badge badge--info">Getauscht statt {it.adaptedFrom.name} – wegen {it.adaptedFrom.why}</div>}
             {it.swappedFrom && <div class="badge badge--info">Statt {it.swappedFrom}</div>}
-            {cueFor === i && (
-              <div class="notice small">
-                <span>
-                  {it.cue}{' '}
-                  <a class="btn--link" href={`https://www.youtube.com/results?search_query=${encodeURIComponent(it.name + ' richtige Ausführung')}`} target="_blank" rel="noopener">
-                    Video <ExternalLink size={12} />
-                  </a>
-                </span>
-              </div>
-            )}
             {swapFor === i && (
               <div class="swaplist">
                 <span class="small muted">Gerät besetzt oder unangenehm? Tauschen gegen:</span>

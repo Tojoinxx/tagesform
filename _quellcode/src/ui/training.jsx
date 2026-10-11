@@ -5,7 +5,7 @@ import { SESSIONS, ROTATIONS, EXERCISES } from '../lib/exercises.js';
 import { todayKey, uid, n1 } from '../lib/util.js';
 import { Chip, Seg, Field } from './common.jsx';
 import { FormCard, OtherTrainingCard, Last7Card } from './form.jsx';
-import { Dumbbell, Play, Check, Settings2, ChevronDown, Sparkles, RefreshCw, TriangleAlert, Trophy } from 'lucide-preact';
+import { Dumbbell, Play, Check, Settings2, ChevronRight, Sparkles, TriangleAlert } from 'lucide-preact';
 import { nav } from './router.js';
 
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
@@ -17,11 +17,8 @@ export const fmtTarget = (it) => {
   return `${sets} × ${r} ${it.unit === 'Sek.' ? 'Sek.' : ''}${w ? ` · ${n1(w)} kg` : ''}`.replace('  ', ' ');
 };
 
-export function startWorkout(sessionId) {
-  const s = buildSession(sessionId);
-  saveActive({ id: uid(), sessionId, name: s.name, focus: s.focus, startedAt: Date.now(), dayKey: todayKey(), items: s.items, mode: s.mode, modeLabel: s.modeLabel, notes: s.notes });
-  nav('/workout');
-}
+import { ExCard, ExAnim, startWorkout } from './exui.jsx';
+export { startWorkout };
 
 function SetupCard({ onDone, initial }) {
   const [st, setSt] = useState(initial || defaultSetup());
@@ -203,10 +200,19 @@ function TodayCard({ setup }) {
               <span>{n}</span>
             </div>
           ))}
-          <ExercisePreview items={sess.items} />
-          <button class="btn btn--primary btn--block btn--lg" onClick={() => startWorkout(sessionId)}>
-            <Play size={18} /> {sess.name} starten
-          </button>
+          <div class="exlist exlist--c">
+            {sess.items.map((it) => (
+              <ExCard it={it} compact />
+            ))}
+          </div>
+          <div class="row">
+            <button class="btn btn--grow" onClick={() => nav('/einheit?s=' + sessionId)}>
+              Ansehen & anpassen
+            </button>
+            <button class="btn btn--primary btn--grow" onClick={() => startWorkout(sessionId)}>
+              <Play size={18} fill="currentColor" /> Starten
+            </button>
+          </div>
         </>
       )}
       {!showPlan && rec.status === 'goal' && (
@@ -238,28 +244,27 @@ function TodayCard({ setup }) {
 function PlanOverview({ setup }) {
   const rot = ROTATIONS[setup.perWeek] || ROTATIONS[3];
   return (
-    <>
+    <div class="sesslist">
       {rot.map((id) => {
         const sess = buildSession(id, setup);
         return (
-          <details class="card plan">
-            <summary>
-              <div>
-                <b>{sess.name}</b>
-                <span class="small muted">
-                  {sess.focus} · {sess.items.length} Übungen
-                </span>
-              </div>
-              <ChevronDown size={18} class="muted" />
-            </summary>
-            <ExercisePreview items={sess.items} />
-            <button class="btn btn--sm" onClick={() => startWorkout(id)}>
-              <Play size={16} /> Starten
-            </button>
-          </details>
+          <button class="card sesscard" onClick={() => nav('/einheit?s=' + id)}>
+            <div class="sesscard__thumbs">
+              {sess.items.slice(0, 3).map((it) => (
+                <ExAnim id={it.exId} size="xs" play={false} />
+              ))}
+            </div>
+            <div class="sesscard__txt">
+              <b>{sess.name}</b>
+              <span class="small muted">
+                {sess.focus} · {sess.items.length} Übungen
+              </span>
+            </div>
+            <ChevronRight size={20} class="muted" />
+          </button>
         );
       })}
-    </>
+    </div>
   );
 }
 

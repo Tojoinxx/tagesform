@@ -1,8 +1,11 @@
 import { useS, getDay, patchDay, openSheet, setS } from '../lib/store.js';
 import { daySums, mealSums, MEALS, targetsOf } from '../lib/nutrition.js';
-import { addDays, fmtDayTitle, fmtShortDate, liters, n0, todayKey, parseKey, n1 } from '../lib/util.js';
+import { addDays, fmtDayTitle, fmtShortDate, liters, n0, todayKey, parseKey, n1, isoWeek, weekStart, WD_SHORT } from '../lib/util.js';
+import { weekPlan, setupOf } from '../lib/training.js';
+import { SESSIONS } from '../lib/exercises.js';
+import { S } from '../lib/store.js';
 import { Ring, Bar } from './common.jsx';
-import { ChevronLeft, ChevronRight, Plus, Minus, GlassWater, Apple, Sparkles, Sunrise, Sun, Moon, Cookie, ChartColumn, HeartPulse } from 'lucide-preact';
+import { ChevronLeft, ChevronRight, Plus, Minus, GlassWater, Apple, Sparkles, Sunrise, Sun, Moon, Cookie, ChartColumn, HeartPulse, Dumbbell } from 'lucide-preact';
 import { nav } from './router.js';
 
 const MEAL_ICON = { fruehstueck: Sunrise, mittag: Sun, abend: Moon, snacks: Cookie };
@@ -22,17 +25,20 @@ export function Today() {
   return (
     <div class="page">
       <header class="dayhead">
-        <button class="iconbtn" onClick={() => setS({ day: addDays(k, -1) })} aria-label="Vorheriger Tag">
+        <button class="iconbtn" onClick={() => setS({ day: addDays(k, -7) })} aria-label="Vorherige Woche">
           <ChevronLeft size={22} />
         </button>
         <button class="dayhead__title" onClick={() => setS({ day: todayKey() })}>
           <h1>{fmtDayTitle(k)}</h1>
-          {fmtDayTitle(k) !== fmtShortDate(k) && <span>{fmtShortDate(k)}</span>}
+          <span>
+            {fmtDayTitle(k) !== fmtShortDate(k) ? fmtShortDate(k) + ' · ' : ''}KW {isoWeek(k)}
+          </span>
         </button>
-        <button class="iconbtn" onClick={() => setS({ day: addDays(k, 1) })} aria-label="Nächster Tag">
+        <button class="iconbtn" onClick={() => setS({ day: addDays(k, 7) })} aria-label="Nächste Woche">
           <ChevronRight size={22} />
         </button>
       </header>
+      <WeekStrip k={k} target={t.kcal} />
 
       <section class="card summary">
         <div class="summary__top">
@@ -176,6 +182,71 @@ export function Today() {
         );
       })}
       <p class="foot-note muted">Ernährung muss nicht perfekt sein – es zählt der Wochenschnitt.</p>
+    </div>
+  );
+}
+
+function MiniRing({ pct, over, size = 36 }) {
+  const r = (size - 5) / 2;
+  const c = 2 * Math.PI * r;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} class="wk__svg">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--track)" stroke-width="3.5" />
+      {pct > 0 && (
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={over ? 'var(--kcal)' : 'var(--accent)'} stroke-width="3.5" stroke-linecap="round" stroke-dasharray={`${c * Math.min(1, pct)} ${c}`} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+      )}
+    </svg>
+  );
+}
+
+/** Wochenkalender: Kalorien-Ring, Training & Handball pro Tag */
+function WeekStrip({ k, target }) {
+  const ws = weekStart(k);
+  const today = todayKey();
+  const hasPlan = !!(S.training && S.training.setup);
+  const setup = setupOf();
+  const plan = hasPlan ? weekPlan(setup) : [];
+  return (
+    <div class="wk" role="tablist" aria-label="Woche">
+      {Array.from({ length: 7 }, (_, i) => {
+        const key = addDays(ws, i);
+        const d = parseKey(key);
+        const wd = d.getDay();
+        const day = getDay(key);
+        const sum = daySums(day);
+        const workouts = day.workouts || [];
+        const hbDone = (day.training || []).some((t) => /Handball/.test(t.type));
+        const hbPlanned = hasPlan && ((setup.handballDays || []).includes(wd) || setup.gameDay === wd);
+        const gym = plan.find((p) => p.d === wd);
+        return (
+          <button
+            role="tab"
+            aria-selected={key === k}
+            class={'wk__d' + (key === k ? ' wk__d--sel' : '') + (key === today ? ' wk__d--today' : '') + (key > today ? ' wk__d--future' : '')}
+            onClick={() => setS({ day: key })}
+            aria-label={`${fmtDayTitle(key)}: ${n0(sum.kcal)} kcal`}
+          >
+            <span class="wk__wd">{WD_SHORT[wd]}</span>
+            <span class="wk__ringwrap">
+              <MiniRing pct={sum.kcal / target} over={sum.kcal > target * 1.1} />
+              <span class="wk__num tnum">{d.getDate()}</span>
+            </span>
+            <span class="wk__ic">
+              {workouts.length > 0 ? (
+                <span class="wk__tag wk__tag--done">
+                  <Dumbbell size={11} /> ✓
+                </span>
+              ) : hbDone || hbPlanned ? (
+                <span class={'wk__tag' + (hbDone ? ' wk__tag--done' : '')}>{setup.gameDay === wd ? 'Spiel' : '🤾'}</span>
+              ) : gym && key >= today ? (
+                <span class="wk__tag wk__tag--plan">{SESSIONS[gym.sessionId].short}</span>
+              ) : (
+                <span class="wk__tag wk__tag--empty">·</span>
+              )}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
