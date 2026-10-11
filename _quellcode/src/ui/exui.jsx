@@ -142,7 +142,7 @@ const CATS = [
   ['arme', 'Arme'],
   ['beine', 'Beine'],
   ['po', 'Po'],
-  ['rumpf', 'Rumpf'],
+  ['rumpf', 'Bauch'],
 ];
 const catOf = (id) => {
   const pri = mgOf(id).split('|')[0].split(',')[0];

@@ -72,6 +72,9 @@ Object.assign(SESSIONS, {
   PUSH: { id: 'PUSH', name: 'Push', short: 'Push', focus: 'Brust, Schulter, Trizeps', legs: false, ex: ['bankdruecken', 'schraeg-kh', 'schulterdruecken', 'seitheben', 'brustpresse', 'trizeps-kabel', 'trizeps-ueberkopf'] },
   PULL: { id: 'PULL', name: 'Pull', short: 'Pull', focus: 'Rücken, hintere Schulter, Bizeps', legs: false, ex: ['latzug', 'rudern-kabel', 'rudern-kh', 'facepull', 'bizeps-kh', 'hammercurls', 'aussenrotation'] },
   BEINE: { id: 'BEINE', name: 'Beine', short: 'Beine', focus: 'Beine & Rumpf', legs: true, ex: ['kniebeuge', 'rdl', 'beinpresse', 'beinbeuger', 'wadenheben', 'pallof', 'kabelcrunch'] },
+  BBPA: { id: 'BBPA', name: 'Po & Beine A', short: 'Po A', focus: 'Po-Fokus mit Kraft', legs: true, ex: ['hip-thrust', 'plie-squat', 'rdl', 'reverse-lunge', 'abduktoren', 'kabel-kickback', 'reverse-crunch'] },
+  BBPB: { id: 'BBPB', name: 'Po & Beine B', short: 'Po B', focus: 'Po seitlich, Beine & Bauch', legs: true, ex: ['beinpresse', 'pull-through', 'curtsy-lunge', 'beinbeuger', 'glute-bridge-einbeinig', 'seitstuetz', 'fahrrad-crunch'] },
+  OKBAUCH: { id: 'OKBAUCH', name: 'Oberkörper & Bauch', short: 'OK+Bauch', focus: 'Rücken, Schultern, Arme & Bauch', legs: false, ex: ['latzug', 'brustpresse', 'rudern-kabel', 'schulterpresse', 'seitheben', 'trizeps-kabel', 'holzhacker'] },
   ARME: { id: 'ARME', name: 'Schultern & Arme', short: 'Arme', focus: 'Schultern, Bizeps, Trizeps', legs: false, ex: ['schulterpresse', 'seitheben-kabel', 'reverse-fly', 'sz-curl', 'french-press', 'hammercurls', 'trizeps-kabel'] },
 });
 
@@ -89,10 +92,12 @@ export const SPLITS = {
   1: [{ id: 'gk1', name: 'Ganzkörper', hint: 'Ein kompletter Durchgang pro Woche', rot: ['GK1'] }],
   2: [
     { id: 'gk2', name: 'Ganzkörper A / B', hint: 'Jeder Muskel 2× pro Woche – ideal bei wenig Zeit', rot: ['GK1', 'GK2'], sport: true },
+    { id: 'bbp2', name: 'Bauch-Beine-Po + Oberkörper', hint: 'Po & Beine 1×, Oberkörper & Bauch 1×', rot: ['BBPA', 'OKBAUCH'] },
     { id: 'okuk2', name: 'Oberkörper / Unterkörper', hint: 'Je 1× pro Woche, dafür mehr Übungen pro Bereich', rot: ['OKA', 'UKA'] },
   ],
   3: [
     { id: 'okuk3', name: 'Oberkörper / Unterkörper / Oberkörper', hint: 'Nur 1 Beintag – passt gut neben Vereinssport', rot: ['OKA', 'UKA', 'OKB'], sport: true },
+    { id: 'bbp3', name: 'Bauch-Beine-Po-Fokus', hint: 'Po & Beine 2×, Oberkörper & Bauch 1×', rot: ['BBPA', 'OKBAUCH', 'BBPB'] },
     { id: 'gk3', name: 'Ganzkörper A / B / C', hint: 'Alle Muskeln jedes Mal – gut für Einsteiger', rot: ['GK1', 'GK2', 'GK3'] },
     { id: 'ppl', name: 'Push / Pull / Beine', hint: 'Klassischer Split, jeder Bereich 1× pro Woche', rot: ['PUSH', 'PULL', 'BEINE'] },
     { id: 'ukokuk', name: 'Unterkörper / Oberkörper / Unterkörper', hint: 'Beine-Schwerpunkt – 2 Beintage, 1 Oberkörper', rot: ['UKA', 'OKA', 'UKB'] },
@@ -100,6 +105,7 @@ export const SPLITS = {
   ],
   4: [
     { id: 'okuk4', name: 'Oberkörper / Unterkörper ×2', hint: 'Jeder Muskel 2× pro Woche – der Klassiker', rot: ['OKA', 'UKA', 'OKB', 'UKB'], sport: true },
+    { id: 'bbp4', name: 'Bauch-Beine-Po ×2 + Oberkörper ×2', hint: 'Po & Beine 2×, Oberkörper & Bauch 2×', rot: ['BBPA', 'OKBAUCH', 'BBPB', 'OKBAUCH'] },
     { id: 'ppl4', name: 'Push / Pull / Beine + Oberkörper', hint: 'PPL mit Extra-Oberkörper', rot: ['PUSH', 'PULL', 'BEINE', 'OKA'] },
     { id: 'ukok4', name: 'Unterkörper ×2 / Oberkörper ×2 (Beine zuerst)', hint: 'Wie OK/UK, Woche startet mit Beinen', rot: ['UKA', 'OKA', 'UKB', 'OKB'] },
     { id: 'gk4', name: 'Ganzkörper A / B / C / A', hint: 'Viel Frequenz, kürzere Belastung pro Muskel', rot: ['GK1', 'GK2', 'GK3', 'GK1'] },
@@ -107,6 +113,7 @@ export const SPLITS = {
   ],
   5: [
     { id: 'okuk5', name: 'OK / UK ×2 + Ganzkörper', hint: 'Ausgewogen mit Bonus-Einheit', rot: ['OKA', 'UKA', 'OKB', 'UKB', 'GK1'], sport: true },
+    { id: 'bbp5', name: 'Bauch-Beine-Po-Fokus ×5', hint: 'Po & Beine 3×, Oberkörper & Bauch 2×', rot: ['BBPA', 'OKBAUCH', 'BBPB', 'OKBAUCH', 'BBPA'] },
     { id: 'ppl-okuk', name: 'Push / Pull / Beine + OK / UK', hint: 'Beliebter 5er-Split', rot: ['PUSH', 'PULL', 'BEINE', 'OKA', 'UKA'] },
     { id: 'okuk-arme5', name: 'OK / UK ×2 + Arme', hint: 'Mit Schulter-&-Arm-Tag', rot: ['OKA', 'UKA', 'OKB', 'UKB', 'ARME'] },
   ],
