@@ -12,7 +12,7 @@ export function ImportSheet() {
   const [text, setText] = useState('');
   const [d, setD] = useState(null);
   const [err, setErr] = useState(null);
-  const [withDone, setWithDone] = useState(true);
+  const [withDone, setWithDone] = useState(false);
 
   const check = () => {
     try {
@@ -118,7 +118,7 @@ export function ImportSheet() {
           {d.done && (
             <label class="check">
               <input type="checkbox" checked={withDone} onChange={(e) => setWithDone(e.currentTarget.checked)} />
-              {d.sessions[d.done.session].name} vom {fmtShortDate(d.done.date)} als erledigt eintragen
+              {d.sessions[d.done.session].name} am {fmtShortDate(d.done.date)} wirklich trainiert? Dann als erledigt eintragen
             </label>
           )}
           <p class="small muted">Wiederholungen wurden nicht mit übernommen – die App startet beim unteren Ende des Bereichs und steigert von dort. Dein Tagesform-Plan bleibt erhalten, du kannst unter „Plan anpassen“ jederzeit wechseln.</p>
