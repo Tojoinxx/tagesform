@@ -1,6 +1,7 @@
 import { render } from 'preact';
-import { useS, boot, setS, S } from './lib/store.js';
-import { todayKey, lsGet } from './lib/util.js';
+import { useEffect } from 'preact/hooks';
+import { useS, boot, setS, S, patchDay, openSheet, toast } from './lib/store.js';
+import { todayKey, lsGet, timeOfDayMeal } from './lib/util.js';
 import { useRoute, nav } from './ui/router.js';
 import { Today } from './ui/today.jsx';
 import { Week } from './ui/week.jsx';
@@ -38,8 +39,47 @@ const TABS = [
   { path: '/einstellungen', label: 'Einstellungen', Icon: SettingsIcon },
 ];
 
+/** Direkt-Links für iPhone-Kurzbefehle, z. B. #/?do=wasser&ml=250 */
+function runAction(q) {
+  const k = todayKey();
+  const meal = q.mahlzeit || timeOfDayMeal();
+  setS({ day: k });
+  switch (q.do) {
+    case 'wasser': {
+      const ml = Math.max(50, Math.min(2000, Number(q.ml) || 250));
+      patchDay(k, (d) => ({ waterMl: (d.waterMl || 0) + ml }));
+      toast(`+${ml} ml Wasser 💧`);
+      break;
+    }
+    case 'obst':
+      patchDay(k, (d) => ({ fvExtra: (d.fvExtra || 0) + 1 }));
+      toast('+1 Portion Obst/Gemüse 🍎');
+      break;
+    case 'essen':
+    case 'foto':
+      openSheet('add', { dayKey: k, meal });
+      break;
+    case 'scan':
+      openSheet('barcode', { dayKey: k, meal });
+      break;
+    case 'vorschlag':
+      openSheet('suggest', { dayKey: k });
+      break;
+    case 'training':
+      return nav('/training');
+    case 'woche':
+      return nav('/woche');
+    default:
+      return;
+  }
+  history.replaceState(null, '', location.pathname + location.search + '#/');
+}
+
 function Shell() {
   const r = useRoute();
+  useEffect(() => {
+    if (r.query.do) runAction(r.query);
+  }, [r.query.do, r.query.ml, r.query.mahlzeit]);
   const page =
     r.path === '/woche' ? <Week query={r.query} key={r.query.last || 'w'} /> : r.path === '/training' || r.path === '/tagesform' ? <Training /> : r.path === '/workout' ? <Workout /> : r.path === '/einheit' ? <SessionPage query={r.query} key={r.query.s} /> : r.path === '/einstellungen' ? <Settings query={r.query} /> : <Today />;
   return (
