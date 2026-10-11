@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { useS, S, openSheet, closeSheet, saveActive, saveTraining, toast } from '../lib/store.js';
 import { guideOf, imgOf } from '../lib/exguide.js';
 import { EXERCISES, SESSIONS } from '../lib/exercises.js';
-import { buildSession, swapOptions, itemFor, setupOf, planIds, isCustom, mgOf } from '../lib/training.js';
+import { buildSession, swapOptions, itemFor, setupOf, planIds, isCustom, mgOf, sessionOf } from '../lib/training.js';
 import { getDay } from '../lib/store.js';
 import { todayKey, n1, uid, norm } from '../lib/util.js';
 import { Sheet, Chip } from './common.jsx';
@@ -220,7 +220,7 @@ export function SessionPage({ query }) {
   const setup = setupOf();
   const base = buildSession(sessionId, setup, getDay(todayKey()).form);
   const items = base.items;
-  const tpl = SESSIONS[sessionId];
+  const tpl = sessionOf(sessionId);
   const ids = planIds(sessionId, setup);
   const custom = isCustom(sessionId);
 

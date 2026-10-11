@@ -72,6 +72,20 @@ function templateIds(tpl, setup) {
 
 const exCount = (minutes) => (minutes <= 45 ? 5 : minutes >= 75 ? 7 : 6);
 
+// ---------- Eigene Pläne (z. B. aus MCI übernommen) ----------
+const LEG_MG = ['quad', 'beinbeuger', 'po'];
+export function sessionOf(id) {
+  const my = S.training && S.training.mySessions && S.training.mySessions[id];
+  if (my) {
+    const exIds = (S.training.custom && S.training.custom[id]) || my.ex.map((e) => e.id);
+    const legs = exIds.some((x) => LEG_MG.includes(mgOf(x).split('|')[0].split(',')[0]));
+    return { id, name: my.name, short: my.short || my.name, focus: my.focus || `${exIds.length} Übungen`, legs, ex: exIds, sets: Object.fromEntries(my.ex.map((e) => [e.id, e.sets])), my: true };
+  }
+  return SESSIONS[id] || SESSIONS.OKA;
+}
+export const usesMyPlan = (setup = setupOf()) => setup.planType === 'eigen' && !!(S.training && S.training.myRotation && S.training.myRotation.length);
+export const rotationOf = (setup = setupOf()) => (usesMyPlan(setup) ? S.training.myRotation : ROTATIONS[setup.perWeek] || ROTATIONS[3]);
+
 // ---------- Verlauf ----------
 /** Alle abgeschlossenen Gym-Einheiten, neueste zuerst */
 export function workoutLog() {
@@ -95,9 +109,14 @@ export function lastFor(exId, before = null) {
       fallback = fallback || { date: w.date, sets };
       continue;
     }
-    return { date: w.date, sets };
+    return { date: w.date, sets, imported: w.imported ? w.source || 'Import' : null };
   }
-  return fallback;
+  if (fallback) return fallback;
+  // übernommene Startwerte (z. B. aus MCI)
+  const b = S.training && S.training.baseline && S.training.baseline[exId];
+  const ex = EXERCISES[exId];
+  if (b && b.w != null && ex) return { date: b.date || null, imported: b.src || 'Import', sets: Array.from({ length: b.sets || 3 }, () => ({ w: b.w, r: b.r || ex.reps[0], done: true })) };
+  return null;
 }
 
 const roundTo = (v, step) => (step > 0 ? Math.round(v / step) * step : v);
@@ -171,16 +190,16 @@ export const comebackText = (cb) =>
 
 /** Einheit für heute zusammenbauen */
 export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKey()).form) {
-  const tpl = SESSIONS[sessionId];
+  const tpl = sessionOf(sessionId);
   const fm = formMode(form);
   const painAreas = fm.pains.map((p) => p.area);
   const strongPain = fm.pains.filter((p) => p.level >= 7).map((p) => p.area);
   const custom = S.training && S.training.custom && S.training.custom[sessionId];
-  let ids = custom ? custom.filter((id) => EXERCISES[id]) : templateIds(tpl, setup);
+  let ids = custom ? custom.filter((id) => EXERCISES[id]) : tpl.my ? tpl.ex.slice() : templateIds(tpl, setup);
   const cb = comebackState();
   const cw = cb && cb.restartCycle && cb.step === 0 ? { ...CYCLE[0], index: 0, n: 1 } : cycleWeek();
   const gameWeek = weekSetup(setup).gameDay != null && tpl.legs;
-  if (setup.experience === 'anfaenger' && !custom) ids = ids.map((id) => (id === 'kniebeuge' ? 'goblet' : id === 'rdl' ? 'hip-thrust' : id === 'klimmzug-assist' ? 'latzug' : id));
+  if (setup.experience === 'anfaenger' && !custom && !tpl.my) ids = ids.map((id) => (id === 'kniebeuge' ? 'goblet' : id === 'rdl' ? 'hip-thrust' : id === 'klimmzug-assist' ? 'latzug' : id));
   const used = new Set();
   const items = [];
   const notes = [];
@@ -204,15 +223,15 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
     used.add(ex.id);
     items.push({ ex, adaptedFrom });
   }
-  const count = custom ? 99 : exCount(setup.minutes);
+  const count = custom || tpl.my ? 99 : exCount(setup.minutes);
   const chosen = items.slice(0, count);
   const out = chosen.map(({ ex, adaptedFrom }) => {
     const last = lastFor(ex.id);
     const pr = progression(ex, last);
-    let sets = ex.main ? (setup.experience === 'erfahren' ? 4 : 3) : setup.experience === 'anfaenger' ? 2 : 3;
+    let sets = (tpl.sets && tpl.sets[ex.id]) || (ex.main ? (setup.experience === 'erfahren' ? 4 : 3) : setup.experience === 'anfaenger' ? 2 : 3);
     let w = pr.w;
     let reps = pr.reps;
-    let note = pr.note;
+    let note = last && last.imported && !pr.up ? `Startwert aus ${last.imported}: ${String(pr.w).replace('.', ',')} kg – versuch ${reps} saubere Wdh.` : pr.note;
     let rir = ex.main ? cw.rir : Math.max(0, cw.rir - 1);
     if (cw.extra && ex.main && setup.experience !== 'anfaenger') sets = Math.min(5, sets + cw.extra);
     // Spielwoche (Saison): Beinvolumen etwas runter, Intensität bleibt – Kraft wird so gut erhalten
@@ -311,7 +330,7 @@ export const weekSetup = (setup, k = todayKey()) => ({ ...setup, gameDay: sportO
 /** Empfohlene Gym-Tage: bewertet alle Kombinationen und nimmt die beste
  *  (keine Beine vor Handball/Spiel, max. 2 Gym-Tage unter der Woche, Wochenende nutzen, Pausen dazwischen) */
 export function weekPlan(setup = weekSetup(setupOf())) {
-  const rot = ROTATIONS[setup.perWeek] || ROTATIONS[3];
+  const rot = rotationOf(setup);
   const order = [1, 2, 3, 4, 5, 6, 0];
   const free = order.filter((d) => !isHB(setup, d) && !isGame(setup, (d + 1) % 7) && (!setup.gymDays || !setup.gymDays.length || setup.gymDays.includes(d)));
   const n = Math.min(rot.length, free.length);
@@ -333,7 +352,7 @@ export function weekPlan(setup = weekSetup(setupOf())) {
   };
   perm(rot.slice(0, n), []);
   if (!n) return Object.assign([], { dropped: rot.slice() });
-  const legs = (sid) => SESSIONS[sid].legs;
+  const legs = (sid) => sessionOf(sid).legs;
   let best = null;
   for (const days of combos) {
     for (const ses of perms) {
@@ -387,7 +406,7 @@ export function recommend(setup0 = setupOf(), k = todayKey()) {
   const tomorrowSetup = weekSetup(setup0, addDays(k, 1));
   const tomorrowGame = tomorrowSetup.gameDay === (d + 1) % 7;
   const yesterdayGame = weekSetup(setup0, addDays(k, -1)).gameDay === (d + 6) % 7;
-  const rot = ROTATIONS[setup.perWeek] || ROTATIONS[3];
+  const rot = rotationOf(setup);
   const ws = weekStart(k);
   const log = workoutLog();
   const doneThisWeek = log.filter((w) => w.date >= ws && w.date <= addDays(ws, 6));
@@ -409,11 +428,11 @@ export function recommend(setup0 = setupOf(), k = todayKey()) {
   const planOrder = plan.map((p) => p.sessionId);
   left.sort((a, b) => planOrder.indexOf(a) - planOrder.indexOf(b));
   let sessionId;
-  if (planned && left.includes(planned.sessionId) && !(SESSIONS[planned.sessionId].legs && legsBlocked)) sessionId = planned.sessionId;
-  else sessionId = left.find((s) => !(SESSIONS[s].legs && legsBlocked));
+  if (planned && left.includes(planned.sessionId) && !(sessionOf(planned.sessionId).legs && legsBlocked)) sessionId = planned.sessionId;
+  else sessionId = left.find((s) => !(sessionOf(s).legs && legsBlocked));
   if (!sessionId && left.length) {
-    sessionId = rot.find((s) => !SESSIONS[s].legs) || left[0];
-    reasons.push(tomorrowHB ? `Offen wäre noch ${SESSIONS[left[0]].name} – aber morgen ${tomorrowGame ? 'Spiel' : sportOf(setup).name}. Heute lieber Oberkörper, Beine an einem anderen Tag.` : yesterdayGame ? 'Gestern Spiel – Beine bekommen heute Regeneration.' : 'Beine sind heute angeschlagen – Oberkörper geht vor.');
+    sessionId = rot.find((s) => !sessionOf(s).legs) || left[0];
+    reasons.push(tomorrowHB ? `Offen wäre noch ${sessionOf(left[0]).name} – aber morgen ${tomorrowGame ? 'Spiel' : sportOf(setup).name}. Heute lieber Oberkörper, Beine an einem anderen Tag.` : yesterdayGame ? 'Gestern Spiel – Beine bekommen heute Regeneration.' : 'Beine sind heute angeschlagen – Oberkörper geht vor.');
   } else if (planned && sessionId !== planned.sessionId && left.includes(planned.sessionId)) {
     reasons.push(tomorrowHB ? `Morgen ${tomorrowGame ? 'Spiel' : sportOf(setup).name} – Beine lieber an einem anderen Tag.` : yesterdayGame ? 'Gestern Spiel – Beine bekommen heute Regeneration.' : 'Beine sind heute angeschlagen – Oberkörper geht vor.');
   } else if (!planned && sessionId && left.length) {
@@ -422,7 +441,7 @@ export function recommend(setup0 = setupOf(), k = todayKey()) {
   if (!sessionId) {
     const lastSession = log.find((w) => rot.includes(w.sessionId));
     sessionId = rot[lastSession ? (rot.indexOf(lastSession.sessionId) + 1) % rot.length : 0];
-    if (SESSIONS[sessionId].legs && legsBlocked) sessionId = rot.find((s) => !SESSIONS[s].legs) || sessionId;
+    if (sessionOf(sessionId).legs && legsBlocked) sessionId = rot.find((s) => !sessionOf(s).legs) || sessionId;
   }
   let status = 'train';
   if (doneToday.length) status = 'done';
@@ -473,8 +492,29 @@ export const isSportEntry = (t, setup = setupOf()) => {
 export function planIds(sessionId, setup = setupOf()) {
   const custom = S.training && S.training.custom && S.training.custom[sessionId];
   if (custom) return custom.filter((id) => EXERCISES[id]);
-  let ids = templateIds(SESSIONS[sessionId], setup);
+  const tpl = sessionOf(sessionId);
+  if (tpl.my) return tpl.ex.slice();
+  let ids = templateIds(tpl, setup);
   if (setup.experience === 'anfaenger') ids = ids.map((id) => (id === 'kniebeuge' ? 'goblet' : id === 'rdl' ? 'hip-thrust' : id === 'klimmzug-assist' ? 'latzug' : id));
   return ids.slice(0, exCount(setup.minutes));
 }
 export const isCustom = (sessionId) => !!(S.training && S.training.custom && S.training.custom[sessionId]);
+
+// ---------- Import (Plan + Gewichte als Code) ----------
+export function parseImport(text) {
+  let t = String(text || '').trim();
+  if (!t) throw new Error('Kein Code eingefügt.');
+  if (!t.startsWith('{')) {
+    try {
+      t = decodeURIComponent(escape(atob(t.replace(/\s+/g, ''))));
+    } catch (e) {
+      throw new Error('Der Code ist unvollständig. Bitte komplett kopieren.');
+    }
+  }
+  const d = JSON.parse(t);
+  if (!d || d.v !== 1) throw new Error('Unbekanntes Code-Format.');
+  const unknown = [];
+  Object.values(d.sessions || {}).forEach((ss) => ss.ex.forEach(([id]) => !EXERCISES[id] && unknown.push(id)));
+  if (unknown.length) throw new Error('Unbekannte Übungen: ' + unknown.join(', ') + ' – App bitte erst aktualisieren.');
+  return d;
+}

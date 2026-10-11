@@ -1,7 +1,7 @@
 import { useS, getDay, patchDay, openSheet, setS } from '../lib/store.js';
 import { daySums, mealSums, MEALS, targetsOf } from '../lib/nutrition.js';
 import { addDays, fmtDayTitle, fmtShortDate, liters, n0, todayKey, parseKey, n1, isoWeek, weekStart, WD_SHORT } from '../lib/util.js';
-import { weekPlan, setupOf, sportOf, isSportEntry, weekSetup } from '../lib/training.js';
+import { weekPlan, setupOf, sportOf, isSportEntry, weekSetup, sessionOf } from '../lib/training.js';
 import { SESSIONS } from '../lib/exercises.js';
 import { S } from '../lib/store.js';
 import { Ring, Bar } from './common.jsx';
@@ -239,7 +239,7 @@ function WeekStrip({ k, target }) {
               ) : hbDone || hbPlanned ? (
                 <span class={'wk__tag' + (hbDone ? ' wk__tag--done' : '')}>{setup.gameDay === wd ? 'Spiel' : sportOf(setup).emoji || '🏅'}</span>
               ) : gym && key >= today ? (
-                <span class="wk__tag wk__tag--plan">{SESSIONS[gym.sessionId].short}</span>
+                <span class="wk__tag wk__tag--plan">{sessionOf(gym.sessionId).short}</span>
               ) : (
                 <span class="wk__tag wk__tag--empty">·</span>
               )}

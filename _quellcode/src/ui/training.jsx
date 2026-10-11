@@ -1,12 +1,12 @@
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { useS, S, saveTraining, saveActive, toast, patchDay, openSheet } from '../lib/store.js';
-import { EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName, SPORTS, sportOf, cycleWeek, weekSetup, gameDayForWeek } from '../lib/training.js';
+import { EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName, SPORTS, sportOf, cycleWeek, weekSetup, gameDayForWeek, sessionOf, rotationOf } from '../lib/training.js';
 import { weekStart, addDays, isoWeek } from '../lib/util.js';
 import { SESSIONS, ROTATIONS, EXERCISES } from '../lib/exercises.js';
 import { todayKey, uid, n1 } from '../lib/util.js';
 import { Chip, Seg, Field } from './common.jsx';
 import { FormCard, OtherTrainingCard, Last7Card } from './form.jsx';
-import { Dumbbell, Play, Check, Settings2, ChevronRight, Sparkles, TriangleAlert, Info } from 'lucide-preact';
+import { Dumbbell, Play, Check, Settings2, ChevronRight, Sparkles, TriangleAlert, Info, Download } from 'lucide-preact';
 import { nav } from './router.js';
 
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
@@ -26,6 +26,8 @@ function SetupCard({ onDone, initial }) {
   const set = (p) => setSt((o) => ({ ...o, ...p }));
   const toggleDay = (d) => set({ handballDays: st.handballDays.includes(d) ? st.handballDays.filter((x) => x !== d) : [...st.handballDays, d] });
   const gymDays = st.gymDays || [];
+  const myRot = (S.training && S.training.myRotation) || [];
+  const hasMy = myRot.length > 0;
   const toggleGym = (d) => set({ gymDays: gymDays.includes(d) ? gymDays.filter((x) => x !== d) : [...gymDays, d] });
   const sp = st.sport === 'andere' ? { ...SPORTS.find((x) => x.id === 'andere'), name: (st.sportName || '').trim() || 'Sport' } : SPORTS.find((x) => x.id === st.sport) || SPORTS[0];
   return (
@@ -44,6 +46,19 @@ function SetupCard({ onDone, initial }) {
           ))}
         </div>
       </Field>
+      {hasMy && (
+        <Field group label="Welcher Plan?">
+          <Seg
+            value={st.planType === 'eigen' ? 'eigen' : 'auto'}
+            onChange={(v) => set({ planType: v })}
+            options={[
+              { id: 'eigen', label: `Mein Plan (${myRot.map((x) => sessionOf(x).short).join(' / ')})` },
+              { id: 'auto', label: 'Tagesform-Plan' },
+            ]}
+          />
+        </Field>
+      )}
+      {!(hasMy && st.planType === 'eigen') && (
       <Field group label="Gym-Einheiten pro Woche" hint="2 = Ganzkörper, 3 = Oberkörper/Unterkörper/Oberkörper, 4 = je 2× Ober- und Unterkörper">
         <Seg
           value={String(st.perWeek)}
@@ -55,6 +70,7 @@ function SetupCard({ onDone, initial }) {
           ]}
         />
       </Field>
+      )}
       <Field group label="Zeit pro Einheit">
         <Seg
           value={String(st.minutes)}
@@ -140,6 +156,9 @@ function SetupCard({ onDone, initial }) {
       >
         <Check size={18} /> {initial ? 'Plan aktualisieren' : 'Plan erstellen'}
       </button>
+      <button type="button" class="btn--link small center" onClick={() => openSheet('import')}>
+        <Download size={14} /> Plan & Gewichte aus einer anderen App übernehmen (Code)
+      </button>
     </section>
   );
 }
@@ -153,7 +172,7 @@ function WeekRhythm({ setup: base }) {
     {plan.dropped && plan.dropped.length > 0 && (
       <div class="notice notice--warn small" style={{ marginBottom: '10px' }}>
         <span>
-          Mit diesen Tagen passt {plan.dropped.map((x) => SESSIONS[x].name).join(', ')} nirgends hin, ohne dass Beine direkt vor Training oder Spiel liegen – also {plan.length}× Gym diese Woche.
+          Mit diesen Tagen passt {plan.dropped.map((x) => sessionOf(x).name).join(', ')} nirgends hin, ohne dass Beine direkt vor Training oder Spiel liegen – also {plan.length}× Gym diese Woche.
         </span>
       </div>
     )}
@@ -165,7 +184,7 @@ function WeekRhythm({ setup: base }) {
         return (
           <div class={'rhythm__d' + (d === today ? ' rhythm__d--today' : '') + (p ? ' rhythm__d--gym' : hb || game ? ' rhythm__d--hb' : '')}>
             <span class="rhythm__wd">{dayShort(d)}</span>
-            <span class="rhythm__what">{p ? SESSIONS[p.sessionId].short : game ? 'Spiel' : hb ? sportOf(setup).emoji || '🏅' : '–'}</span>
+            <span class="rhythm__what">{p ? sessionOf(p.sessionId).short : game ? 'Spiel' : hb ? sportOf(setup).emoji || '🏅' : '–'}</span>
           </div>
         );
       })}
@@ -318,12 +337,12 @@ function TodayCard({ setup }) {
       )}
       {!showPlan && rec.status === 'goal' && (
         <button class="btn btn--block" onClick={() => setPick(rec.sessionId)}>
-          {SESSIONS[rec.sessionId].name} trotzdem machen
+          {sessionOf(rec.sessionId).name} trotzdem machen
         </button>
       )}
       {!showPlan && (rec.status === 'handball' || rec.status === 'pregame') && (
         <button class="btn--link small" onClick={() => setPick(rec.sessionId)}>
-          Trotzdem ins Gym ({SESSIONS[rec.sessionId].name})
+          Trotzdem ins Gym ({sessionOf(rec.sessionId).name})
         </button>
       )}
       {showPlan && (
@@ -333,7 +352,7 @@ function TodayCard({ setup }) {
             .filter((x) => x !== sessionId)
             .map((x) => (
               <Chip small onClick={() => setPick(x)}>
-                {SESSIONS[x].name}
+                {sessionOf(x).name}
               </Chip>
             ))}
         </div>
@@ -343,7 +362,7 @@ function TodayCard({ setup }) {
 }
 
 function PlanOverview({ setup }) {
-  const rot = ROTATIONS[setup.perWeek] || ROTATIONS[3];
+  const rot = rotationOf(setup);
   return (
     <div class="sesslist">
       {rot.map((id) => {
@@ -372,6 +391,8 @@ function PlanOverview({ setup }) {
 export function Training() {
   const s = useS();
   const [editing, setEditing] = useState(false);
+  const myKey = (s.training && s.training.myRotation && s.training.myRotation.join(',')) || '';
+  useEffect(() => setEditing(false), [myKey]);
   const hasSetup = !!(s.training && s.training.setup);
   const setup = setupOf();
 
