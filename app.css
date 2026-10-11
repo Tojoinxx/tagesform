@@ -1802,3 +1802,345 @@ a.btn {
 .onb__body {
   padding-bottom: 8px;
 }
+
+/* ---------- Training ---------- */
+.notice--info {
+  background: color-mix(in srgb, var(--p) 12%, var(--card));
+  border-color: transparent;
+}
+.badge--info {
+  display: inline-block;
+  background: color-mix(in srgb, var(--p) 13%, transparent);
+  color: var(--p);
+  font-weight: 650;
+  align-self: flex-start;
+}
+.opts--row {
+  grid-template-columns: repeat(3, 1fr);
+}
+.opts--row .opt {
+  padding: 10px;
+}
+.opts--row .opt b {
+  font-size: 14px;
+}
+.opts--row .opt span {
+  font-size: 12px;
+}
+.daypick,
+.rhythm {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+.daypick__d {
+  min-height: 42px;
+  border-radius: 12px;
+  border: 1.5px solid var(--line);
+  background: var(--card);
+  font-weight: 650;
+  font-size: 14px;
+}
+.daypick__d--on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.rhythm__d {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 0;
+  border-radius: 12px;
+  background: var(--card2);
+  min-width: 0;
+}
+.rhythm__d--gym {
+  background: var(--accent-soft);
+}
+.rhythm__d--gym .rhythm__what {
+  color: var(--accent);
+  font-weight: 750;
+}
+.rhythm__d--hb {
+  background: color-mix(in srgb, var(--kcal) 12%, var(--card));
+}
+.rhythm__d--today {
+  outline: 2px solid var(--text);
+  outline-offset: -2px;
+}
+.rhythm__wd {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 650;
+}
+.rhythm__what {
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.today-tr {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.today-tr__head {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.today-tr__head h2 {
+  font-size: 22px;
+}
+.today-tr__badge {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #1fd185, #0b9b63);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+}
+.today-tr__badge small {
+  font-size: 9px;
+  font-weight: 650;
+  margin-top: 3px;
+  opacity: 0.9;
+  line-height: 1.1;
+  padding: 0 4px;
+}
+.expv {
+  display: flex;
+  flex-direction: column;
+}
+.expv li {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14.5px;
+}
+.expv li:last-child {
+  border-bottom: 0;
+}
+.expv__name {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.expv__t {
+  color: var(--muted);
+  font-size: 13.5px;
+  white-space: nowrap;
+  flex: none;
+}
+.plan summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  list-style: none;
+  cursor: pointer;
+}
+.plan summary::-webkit-details-marker {
+  display: none;
+}
+.plan summary div {
+  display: flex;
+  flex-direction: column;
+}
+.plan[open] summary {
+  margin-bottom: 8px;
+}
+.plan[open] .btn {
+  margin-top: 10px;
+}
+.cta--live .cta__icon {
+  background: linear-gradient(135deg, #fb923c, #ea580c);
+}
+.formsumcard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.formsumcard__e {
+  font-size: 30px;
+}
+.formsumcard__txt {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+/* Workout */
+.wohead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 2px 0;
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  background: var(--bg);
+  padding-top: calc(env(safe-area-inset-top) + 8px);
+  margin-top: calc(-1 * env(safe-area-inset-top) - 8px);
+  padding-bottom: 8px;
+}
+.wohead h1 {
+  font-size: 22px;
+}
+.wohead span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.woprogress {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--track);
+  overflow: hidden;
+  margin-top: -6px;
+}
+.woprogress div {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+.wex {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.wex--done {
+  opacity: 0.72;
+}
+.wex__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+}
+.wex__title {
+  flex: 1;
+  min-width: 0;
+}
+.wex__title h3 {
+  font-size: 17px;
+}
+.wex__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wex__note {
+  color: var(--accent);
+  font-weight: 600;
+}
+.sets {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sets__h,
+.sets__row {
+  display: grid;
+  grid-template-columns: 34px 1fr 1fr 48px;
+  gap: 8px;
+  align-items: center;
+}
+.sets__h span {
+  text-align: center;
+}
+.sets__n {
+  text-align: center;
+  font-weight: 700;
+  color: var(--muted);
+}
+.sets__in {
+  text-align: center;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  padding: 0 6px;
+}
+.sets__row--done .sets__in {
+  background: var(--ok-bg);
+  border-color: transparent;
+}
+.setcheck {
+  width: 48px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--card2);
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.setcheck--on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.swaplist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  background: var(--card2);
+  border-radius: 12px;
+  padding: 10px;
+}
+.swaplist > span {
+  width: 100%;
+}
+.restbar-timer {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--tabh) + env(safe-area-inset-bottom) + 10px);
+  max-width: 536px;
+  margin: 0 auto;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 16px;
+  border-radius: 16px;
+  background: #111418;
+  color: #fff;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+.restbar-timer .iconbtn {
+  color: #fff;
+}
+.restbar-timer .btn--ghost {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.restbar-timer__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(15, 179, 109, 0.45);
+  transition: width 1s linear;
+  z-index: -1;
+}
+.restbar-timer__t {
+  flex: 1;
+  font-weight: 750;
+  font-size: 17px;
+}
+.workout {
+  padding-bottom: 70px;
+}

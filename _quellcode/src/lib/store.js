@@ -110,7 +110,7 @@ function stopWatching() {
 function startWatching() {
   stopWatching();
   const b = backend;
-  setS({ profile: null, profileLoaded: false, ai: null, days: {}, foods: {}, weeks: {} });
+  setS({ profile: null, profileLoaded: false, ai: null, training: null, active: null, days: {}, foods: {}, weeks: {} });
   const fallback = setTimeout(() => !S.profileLoaded && setS({ profileLoaded: true }), 7000);
   unsubs.push(() => clearTimeout(fallback));
   unsubs.push(
@@ -120,6 +120,8 @@ function startWatching() {
     }),
   );
   unsubs.push(b.watchDoc('tf_meta/ai', (data) => setS({ ai: data })));
+  unsubs.push(b.watchDoc('tf_meta/training', (data) => setS({ training: data })));
+  unsubs.push(b.watchDoc('tf_meta/active', (data) => setS({ active: data && data.sessionId ? data : null })));
   unsubs.push(
     b.watchCol('tf_foods', (list) => {
       const foods = {};
@@ -192,6 +194,15 @@ export async function logout() {
 // ---------- Schreiben ----------
 export const saveProfile = (data) => backend.set('tf_meta/profile', { ...data, updatedAt: Date.now() });
 export const saveAi = (data) => backend.set('tf_meta/ai', { ...data, updatedAt: Date.now() });
+export const saveTraining = (data) => backend.set('tf_meta/training', { ...data, updatedAt: Date.now() });
+export function saveActive(data) {
+  setS({ active: data });
+  backend.set('tf_meta/active', { ...data, updatedAt: Date.now() }, false);
+}
+export function clearActive() {
+  setS({ active: null });
+  backend.del('tf_meta/active');
+}
 export const saveWeek = (id, data) => backend.set('tf_weeks/' + id, { ...data, updatedAt: Date.now() });
 
 export const getDay = (k) => S.days[k] || { entries: [] };

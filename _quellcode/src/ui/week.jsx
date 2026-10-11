@@ -214,8 +214,8 @@ export function Week({ query }) {
             <b>{st.pains.length ? st.pains.map((p) => `${p.area} ${p.days}×`).join(', ') : 'keine'}</b>
           </div>
         </div>
-        <button class="btn--link small" onClick={() => nav('/tagesform')}>
-          Tagesform eintragen →
+        <button class="btn--link small" onClick={() => nav('/training')}>
+          Zum Training →
         </button>
       </section>
     </div>

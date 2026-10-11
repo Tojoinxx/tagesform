@@ -4,7 +4,8 @@ import { todayKey, lsGet } from './lib/util.js';
 import { useRoute, nav } from './ui/router.js';
 import { Today } from './ui/today.jsx';
 import { Week } from './ui/week.jsx';
-import { TagesForm } from './ui/form.jsx';
+import { Training } from './ui/training.jsx';
+import { Workout } from './ui/workout.jsx';
 import { Settings, applyTheme } from './ui/settings.jsx';
 import { Onboarding } from './ui/onboarding.jsx';
 import { Login } from './ui/login.jsx';
@@ -12,7 +13,7 @@ import { Toast } from './ui/common.jsx';
 import { Logo } from './ui/logo.jsx';
 import { AddSheet, AmountSheet, EntrySheet, CustomSheet, PhotoSheet, LabelSheet, BarcodeSheet } from './ui/addfood.jsx';
 import { SuggestSheet } from './ui/suggest.jsx';
-import { House, ChartColumn, HeartPulse, Settings as SettingsIcon } from 'lucide-preact';
+import { House, ChartColumn, Dumbbell, Settings as SettingsIcon } from 'lucide-preact';
 
 applyTheme(lsGet('tf.theme', 'system'));
 setS({ day: todayKey() });
@@ -29,21 +30,21 @@ function SheetHost() {
 const TABS = [
   { path: '/', label: 'Heute', Icon: House },
   { path: '/woche', label: 'Woche', Icon: ChartColumn },
-  { path: '/tagesform', label: 'Tagesform', Icon: HeartPulse },
+  { path: '/training', label: 'Training', Icon: Dumbbell },
   { path: '/einstellungen', label: 'Einstellungen', Icon: SettingsIcon },
 ];
 
 function Shell() {
   const r = useRoute();
   const page =
-    r.path === '/woche' ? <Week query={r.query} key={r.query.last || 'w'} /> : r.path === '/tagesform' ? <TagesForm /> : r.path === '/einstellungen' ? <Settings query={r.query} /> : <Today />;
+    r.path === '/woche' ? <Week query={r.query} key={r.query.last || 'w'} /> : r.path === '/training' || r.path === '/tagesform' ? <Training /> : r.path === '/workout' ? <Workout /> : r.path === '/einstellungen' ? <Settings query={r.query} /> : <Today />;
   return (
     <>
       <main class="main">{page}</main>
       <nav class="tabbar" aria-label="Navigation">
         {TABS.map(({ path, label, Icon }) => (
           <button
-            class={'tab' + (r.path === path ? ' tab--on' : '')}
+            class={'tab' + (r.path === path || (path === '/training' && r.path === '/workout') ? ' tab--on' : '')}
             onClick={() => {
               if (path === '/' && r.path === '/') setS({ day: todayKey() });
               nav(path);

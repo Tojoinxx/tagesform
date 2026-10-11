@@ -126,13 +126,13 @@ export function Today() {
       )}
 
       {formMissing && (
-        <button class="card cta cta--form" onClick={() => nav('/tagesform')}>
+        <button class="card cta cta--form" onClick={() => nav('/training')}>
           <span class="cta__icon">
             <HeartPulse size={22} />
           </span>
           <span class="cta__text">
             <b>Wie fühlst du dich heute?</b>
-            <span>Kurzer Tagesform-Check: Energie, Schlaf, Schmerzen</span>
+            <span>Kurzer Check – dein Training passt sich daran an</span>
           </span>
           <ChevronRight size={20} class="muted" />
         </button>
