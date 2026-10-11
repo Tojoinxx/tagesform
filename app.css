@@ -2708,3 +2708,39 @@ a.btn {
   -webkit-hyphens: auto;
   overflow-wrap: anywhere;
 }
+.gamerow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.excard-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.excard-tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  padding: 0 8px;
+}
+.excard-tools .btn--link {
+  padding: 2px 0;
+}
+.excard-tools .btn--link:disabled {
+  opacity: 0.25;
+}
+.pickrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.chip--search {
+  border-style: dashed;
+  color: var(--accent);
+}
+.btn--link.danger {
+  color: var(--danger);
+}

@@ -4,7 +4,7 @@ import { ExAnim } from './exui.jsx';
 import { guideOf } from '../lib/exguide.js';
 import { swapOptions, itemFor } from '../lib/training.js';
 import { uid, n1, num, vibrate, fmtShortDate } from '../lib/util.js';
-import { Check, Plus, Info, Repeat, X, Timer, Flag, Trash2, ExternalLink } from 'lucide-preact';
+import { Check, Plus, Info, Repeat, X, Timer, Flag, Trash2, ExternalLink, Search } from 'lucide-preact';
 import { nav } from './router.js';
 
 const mmss = (sec) => {
@@ -115,6 +115,7 @@ export function Workout() {
       minutes,
       mode: w.mode || 'normal',
       deload: !!w.deload,
+      comeback: w.comeback || null,
       cycle: w.cycle || null,
       items: w.items
         .map((it) => ({ exId: it.exId, name: it.name, unit: it.unit, sets: it.sets.filter((x) => x.done).map((x) => ({ w: num(x.w), r: num(x.r), done: true })) }))
@@ -146,7 +147,7 @@ export function Workout() {
       <div class="woprogress">
         <div style={{ width: (doneSets / Math.max(1, totalSets)) * 100 + '%' }} />
       </div>
-      {w.modeLabel && <div class={'notice small ' + (w.mode === 'light' ? 'notice--info' : 'notice--ok')}>{w.modeLabel}</div>}
+      {w.modeLabel && <div class={'notice small ' + (w.mode === 'light' || w.mode === 'comeback' ? 'notice--info' : 'notice--ok')}>{w.modeLabel}</div>}
 
       {w.items.map((it, i) => {
         const allDone = it.sets.every((x) => x.done);
@@ -241,6 +242,18 @@ export function Workout() {
         );
       })}
 
+      <button
+        class="btn btn--block"
+        onClick={() =>
+          openSheet('pick', {
+            title: 'Übung hinzufügen (nur heute)',
+            exclude: w.items.map((x) => x.exId),
+            onPick: (id) => persist({ ...w, items: [...w.items, itemFor(id)] }, true),
+          })
+        }
+      >
+        <Plus size={18} /> Übung hinzufügen
+      </button>
       <button class="btn btn--primary btn--block btn--lg" onClick={finish}>
         <Flag size={18} /> Training beenden & speichern
       </button>

@@ -1,7 +1,7 @@
 import { useS, getDay, patchDay, openSheet, setS } from '../lib/store.js';
 import { daySums, mealSums, MEALS, targetsOf } from '../lib/nutrition.js';
 import { addDays, fmtDayTitle, fmtShortDate, liters, n0, todayKey, parseKey, n1, isoWeek, weekStart, WD_SHORT } from '../lib/util.js';
-import { weekPlan, setupOf, sportOf, isSportEntry } from '../lib/training.js';
+import { weekPlan, setupOf, sportOf, isSportEntry, weekSetup } from '../lib/training.js';
 import { SESSIONS } from '../lib/exercises.js';
 import { S } from '../lib/store.js';
 import { Ring, Bar } from './common.jsx';
@@ -204,7 +204,7 @@ function WeekStrip({ k, target }) {
   const ws = weekStart(k);
   const today = todayKey();
   const hasPlan = !!(S.training && S.training.setup);
-  const setup = setupOf();
+  const setup = weekSetup(setupOf(), ws);
   const plan = hasPlan ? weekPlan(setup) : [];
   return (
     <div class="wk" role="tablist" aria-label="Woche">

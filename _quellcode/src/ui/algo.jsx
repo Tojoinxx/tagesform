@@ -167,6 +167,32 @@ export function AlgoSheet() {
             <b>Schmerzen ab 4/10:</b> belastende Übungen werden gegen schonende getauscht, ab 7/10 fallen sie weg.
           </li>
           <li>
+            <b>Längere Pause (Urlaub, Krankheit, Prüfungen):</b> Die App erkennt die Pause automatisch:
+            <table class="algo__table" style={{ marginTop: '6px' }}>
+              <thead>
+                <tr>
+                  <th>Pause</th>
+                  <th>Wiedereinstieg</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>10–20 Tage</td>
+                  <td>1 Einheit mit −10 %, 1 Satz weniger</td>
+                </tr>
+                <tr>
+                  <td>3–6 Wochen</td>
+                  <td>2 Einheiten: −20 %, dann −10 %; Zyklus startet bei Woche 1</td>
+                </tr>
+                <tr>
+                  <td>über 6 Wochen</td>
+                  <td>3 Einheiten: −30 %, −20 %, −10 %, max. 2 Sätze; Zyklus bei Woche 1</td>
+                </tr>
+              </tbody>
+            </table>
+            Danach geht es direkt mit deinen alten Gewichten weiter. Kraft hält sich etwa 2–3 Wochen gut und kommt nach Pausen schnell zurück – der vorsichtige Start schützt vor starkem Muskelkater und überlasteten Sehnen. Einzelne Übungen, die du über 4 Wochen nicht gemacht hast, starten ~10 % leichter.
+          </li>
+          <li>
             <b>Deload (Woche 5):</b> halbe Sätze, leichter. Die Studienlage dazu ist noch dünn – kurze Entlastung kostet aber keine Muskeln und hilft Gelenken und Kopf, gerade neben Vereinssport.
           </li>
         </ul>
@@ -175,7 +201,12 @@ export function AlgoSheet() {
       {hasSport(setup) && (
         <Sec icon={<Shield size={18} />} title={`7. Abgestimmt auf ${sp.name}`}>
           <ul class="algo__list">
-            <li>Keine schweren Bein-Einheiten am Tag vor {sp.name} oder Spiel.</li>
+            <li>Keine schweren Bein-Einheiten am Tag vor dem {sp.name}-Training.</li>
+            {sp.games && (
+              <li>
+                <b>Spielwochen (Saison):</b> Am Tag vor dem Spiel kein Gym, Beine mit mindestens 48 h Abstand zum Spiel, am Tag danach keine Beine (Regeneration). Beine bekommen in Spielwochen 1 Satz weniger pro Übung, die Gewichte bleiben – Studien zeigen, dass schon etwa ein Drittel des Volumens reicht, um Kraft zu halten, solange die Intensität hoch bleibt. Passt eine Einheit nicht sinnvoll in die Woche, fällt sie weg.
+              </li>
+            )}
             {sp.overhead && (
               <li>
                 <b>Schulter-Vorbeugung:</b> Außenrotation & Face Pulls – in Studien mit Handballern senkte so ein Programm Schulterprobleme deutlich.
@@ -199,6 +230,10 @@ export function AlgoSheet() {
           <li>Refalo et al. (2023): Nähe zum Muskelversagen und Hypertrophie. Sports Med.</li>
           <li>Plotkin et al. (2022): Progression über Wiederholungen vs. Gewicht. PeerJ.</li>
           <li>Coleman et al. (2024): Effekte einer Deload-Woche. PeerJ.</li>
+          <li>Bosquet et al. (2013): Trainingspause und Muskelleistung – Meta-Analyse. Scand J Med Sci Sports.</li>
+          <li>Ogasawara et al. (2013): Durchgehendes vs. periodisches Krafttraining mit Pausen. Eur J Appl Physiol.</li>
+          <li>Bickel, Cross & Bamman (2011): Mindestdosis zum Erhalt von Kraft und Muskelmasse. Med Sci Sports Exerc.</li>
+          <li>Spiering et al. (2021): Minimale Trainingsdosis zum Erhalt der Leistungsfähigkeit. J Strength Cond Res.</li>
           <li>Andersson et al. (2017): Schulter-Präventionsprogramm im Handball. Br J Sports Med.</li>
           <li>van Dyk et al. (2019): Nordic Hamstring halbiert Oberschenkelzerrungen. Br J Sports Med.</li>
           <li>Harøy et al. (2019): Copenhagen-Adduktorenprogramm gegen Leistenprobleme. Br J Sports Med.</li>

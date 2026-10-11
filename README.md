@@ -6,7 +6,7 @@ Eigene Fitness- und Ernährungs-App (PWA) – kostenlos, läuft auf iPhone und P
 - „Was soll ich jetzt essen?“ – Vorschläge passend zu den offenen Kalorien/Eiweiß
 - Wochen-Check mit Tipps für die nächste Woche
 - Trainingsplan fürs Studio rund um deinen Vereinssport (frei wählbar): 5-Wochen-Zyklus, doppelte Progression, passt sich an Tagesform und Schmerzen an
-- Übungen mit Bildern, Bewegungsanimation und Schritt-für-Schritt-Anleitung (Bilder: free-exercise-db, Public Domain)
+- 83 Übungen mit Bildern, Bewegungsanimation und Schritt-für-Schritt-Anleitung, Plan frei anpassbar (Bilder: free-exercise-db, Public Domain)
 - Wochenkalender auf der Startseite
 
 Sync über dasselbe Firebase-Projekt wie Kartenschatz (eigener Bereich `users/{uid}/tf_*`).

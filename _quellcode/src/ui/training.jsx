@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { useS, S, saveTraining, saveActive, toast, patchDay, openSheet } from '../lib/store.js';
-import { EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName, SPORTS, sportOf, cycleWeek } from '../lib/training.js';
+import { EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName, SPORTS, sportOf, cycleWeek, weekSetup, gameDayForWeek } from '../lib/training.js';
+import { weekStart, addDays, isoWeek } from '../lib/util.js';
 import { SESSIONS, ROTATIONS, EXERCISES } from '../lib/exercises.js';
 import { todayKey, uid, n1 } from '../lib/util.js';
 import { Chip, Seg, Field } from './common.jsx';
@@ -92,14 +93,27 @@ function SetupCard({ onDone, initial }) {
         </Field>
       )}
       {st.sport !== 'keiner' && sp.games && (
-        <Field group label="Spiel- / Wettkampftag (falls Saison)">
+        <Field group label="Saison" hint="In der Saison plant die App um deine Spiele herum (Tag davor frei, Beine mit Abstand, etwas weniger Beinvolumen).">
+          <Seg
+            value={st.season === 'off' ? 'off' : 'on'}
+            onChange={(v) => set({ season: v })}
+            options={[
+              { id: 'on', label: 'Saison läuft' },
+              { id: 'off', label: 'Vorbereitung / Pause' },
+            ]}
+          />
+        </Field>
+      )}
+      {st.sport !== 'keiner' && sp.games && st.season !== 'off' && (
+        <Field group label="Spiele meistens am" hint="Einzelne Wochen (Auswärtsspiel, spielfrei) stellst du im Training-Tab um.">
           <Seg
             value={String(st.gameDay ?? 'x')}
             onChange={(v) => set({ gameDay: v === 'x' ? null : Number(v) })}
             options={[
-              { id: 'x', label: 'Keiner / wechselnd' },
-              { id: '6', label: 'Samstag' },
-              { id: '0', label: 'Sonntag' },
+              { id: 'x', label: 'Wechselnd' },
+              { id: '5', label: 'Fr' },
+              { id: '6', label: 'Sa' },
+              { id: '0', label: 'So' },
             ]}
           />
         </Field>
@@ -130,7 +144,8 @@ function SetupCard({ onDone, initial }) {
   );
 }
 
-function WeekRhythm({ setup }) {
+function WeekRhythm({ setup: base }) {
+  const setup = weekSetup(base);
   const plan = weekPlan(setup);
   const today = new Date().getDay();
   return (
@@ -156,6 +171,43 @@ function WeekRhythm({ setup }) {
       })}
     </div>
     </>
+  );
+}
+
+function GamesCard({ setup }) {
+  useS();
+  const sp = sportOf(setup);
+  const ws = weekStart(todayKey());
+  const weeks = [ws, addDays(ws, 7)];
+  const set = (w, v) => saveTraining({ games: { ...((S.training && S.training.games) || {}), [w]: v } });
+  return (
+    <section class="card form">
+      <h3>{sp.emoji} Spiele</h3>
+      {weeks.map((w, i) => {
+        const cur = gameDayForWeek(setup, w);
+        return (
+          <div class="gamerow">
+            <span class="small">
+              <b>{i === 0 ? 'Diese Woche' : 'Nächste Woche'}</b>
+              <span class="muted"> · KW {isoWeek(w)}</span>
+            </span>
+            <div class="chips">
+              {[
+                ['none', 'Keins'],
+                [5, 'Fr'],
+                [6, 'Sa'],
+                [0, 'So'],
+              ].map(([v, l]) => (
+                <Chip small active={v === 'none' ? cur == null : cur === v} onClick={() => set(w, v)}>
+                  {l}
+                </Chip>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+      <p class="small muted">Tag vor dem Spiel bleibt frei, Beine mit mindestens 48 h Abstand, Tag danach Regeneration.</p>
+    </section>
   );
 }
 
@@ -195,7 +247,17 @@ function TodayCard({ setup }) {
           <small>Gym diese Woche</small>
         </span>
         <div>
-          {rec.status === 'handball' && !pick ? (
+          {rec.status === 'game' && !pick ? (
+            <>
+              <h2>Spieltag {sportOf(setup).emoji}</h2>
+              <p class="muted small">Viel Erfolg! Kein Gym heute. Danach: Eiweiß, Kohlenhydrate, Schlaf.</p>
+            </>
+          ) : rec.status === 'pregame' && !pick ? (
+            <>
+              <h2>Morgen Spiel – heute frei</h2>
+              <p class="muted small">Frische Beine sind wichtiger. Höchstens 10–15 Min. lockere Mobility.</p>
+            </>
+          ) : rec.status === 'handball' && !pick ? (
             <>
               <h2>
                 Heute {sportOf(setup).name} {sportOf(setup).emoji}
@@ -229,7 +291,7 @@ function TodayCard({ setup }) {
           </button>
           {!pick && rec.reasons.filter((r) => rec.status !== 'free' || !r.startsWith('Kein fester')).map((r) => <div class="notice small"><span>{r}</span></div>)}
           {sess.modeLabel && (
-            <div class={'notice small ' + (sess.mode === 'light' ? 'notice--info' : 'notice--ok')}>
+            <div class={'notice small ' + (sess.mode === 'light' || sess.mode === 'comeback' ? 'notice--info' : 'notice--ok')}>
               <span>{sess.modeLabel}</span>
             </div>
           )}
@@ -259,7 +321,7 @@ function TodayCard({ setup }) {
           {SESSIONS[rec.sessionId].name} trotzdem machen
         </button>
       )}
-      {!showPlan && rec.status === 'handball' && (
+      {!showPlan && (rec.status === 'handball' || rec.status === 'pregame') && (
         <button class="btn--link small" onClick={() => setPick(rec.sessionId)}>
           Trotzdem ins Gym ({SESSIONS[rec.sessionId].name})
         </button>
@@ -354,6 +416,7 @@ export function Training() {
               {sportOf(setup).id !== 'keiner' ? `Schwere Beine nie am Tag vor ${sportOf(setup).name} oder Spiel. ` : ''}Hast du an einem Tag keine Zeit, nimmst du einfach die nächste Einheit – die App merkt sich, wo du stehst.
             </p>
           </section>
+          {sportOf(setup).games && setup.season !== 'off' && <GamesCard setup={setup} />}
           <OtherTrainingCard />
           <h4 class="sect sect--page">Alle Einheiten</h4>
           <PlanOverview setup={setup} />

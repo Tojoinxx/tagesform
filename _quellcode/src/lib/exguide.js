@@ -1,3 +1,4 @@
+import { EXERCISES } from './exercises.js';
 // Ausführungs-Anleitungen (deutsch). Bilder: free-exercise-db (Public Domain), Start- und Endposition.
 // group = Muskelgruppe (Kartenüberschrift), muscles = beteiligte Muskeln, steps = So geht's, mistakes = Achte darauf
 
@@ -436,5 +437,5 @@ export const GUIDE = {
   },
 };
 
-export const guideOf = (id) => GUIDE[id] || { group: '', muscles: [], steps: [], mistakes: [] };
+export const guideOf = (id) => GUIDE[id] || (EXERCISES[id] && EXERCISES[id].guide) || { group: '', muscles: [], steps: [], mistakes: [] };
 export const imgOf = (id, frame = 0) => `./ex/${id}-${frame}.jpg`;

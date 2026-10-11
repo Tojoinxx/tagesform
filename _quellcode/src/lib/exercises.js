@@ -1,3 +1,4 @@
+import { MORE } from './exercises2.js';
 // Übungsbibliothek fürs Fitnessstudio (Technogym-Geräte, Kurz-/Langhantel, Kabel)
 // stress = Körperstellen, die die Übung belastet (gleiche Namen wie im Tagesform-Check)
 // alt = Ausweichübungen in sinnvoller Reihenfolge
@@ -52,6 +53,9 @@ export const EXERCISES = Object.fromEntries(
     E('kabelcrunch', 'Kabel-Crunch', { equip: 'Kabel', reps: [12, 15], stress: ['Rücken unten', 'Nacken'], alt: ['deadbug'], cue: 'Kniend, Bauch einrollen – nicht mit den Armen ziehen.' }),
   ].map((e) => [e.id, e]),
 );
+
+// Erweiterte Bibliothek zum Suchen & Anpassen
+for (const e of MORE) EXERCISES[e.id] = e;
 
 /** Einheiten-Vorlagen. Reihenfolge = Priorität (kürzere Einheit schneidet hinten ab) */
 export const SESSIONS = {
