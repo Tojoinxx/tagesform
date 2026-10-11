@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'preact/hooks';
 import { useS, S, saveTraining, saveActive, toast, patchDay, openSheet, getDay } from '../lib/store.js';
-import { EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName, SPORTS, sportOf, cycleWeek, weekSetup, gameDayForWeek, sessionOf, rotationOf } from '../lib/training.js';
+import { EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName, SPORTS, sportOf, cycleWeek, weekSetup, gameDayForWeek, sessionOf, rotationOf, usesMyPlan } from '../lib/training.js';
+import { TrainingOptionsCard } from './planeditor.jsx';
 import { weekStart, addDays, isoWeek } from '../lib/util.js';
-import { SESSIONS, ROTATIONS, EXERCISES } from '../lib/exercises.js';
+import { SESSIONS, ROTATIONS, EXERCISES, SPLITS } from '../lib/exercises.js';
 import { todayKey, uid, n1 } from '../lib/util.js';
 import { Chip, Seg, Field } from './common.jsx';
 import { OtherTrainingCard, Last7Card, ENERGY } from './form.jsx';
-import { Dumbbell, Play, Check, Settings2, ChevronRight, Sparkles, TriangleAlert, Info, Download } from 'lucide-preact';
+import { Dumbbell, Play, Check, Settings2, ChevronRight, Pencil, Sparkles, TriangleAlert, Info, Download } from 'lucide-preact';
 import { nav } from './router.js';
 
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
@@ -50,31 +51,32 @@ export function SetupCard({ onDone, initial, embedded }) {
           ))}
         </div>
       </Field>
-      {hasMy && (
-        <Field group label="Welcher Plan?">
-          <Seg
-            value={st.planType === 'eigen' ? 'eigen' : 'auto'}
-            onChange={(v) => set({ planType: v })}
-            options={[
-              { id: 'eigen', label: `Mein Plan (${myRot.map((x) => sessionOf(x).short).join(' / ')})` },
-              { id: 'auto', label: 'Tagesform-Plan' },
-            ]}
-          />
-        </Field>
-      )}
-      {!(hasMy && st.planType === 'eigen') && (
-      <Field group label="Gym-Einheiten pro Woche" hint="2 = Ganzkörper, 3 = Oberkörper/Unterkörper/Oberkörper, 4 = je 2× Ober- und Unterkörper">
-        <Seg
-          value={String(st.perWeek)}
-          onChange={(v) => set({ perWeek: Number(v) })}
-          options={[
-            { id: '2', label: '2×' },
-            { id: '3', label: '3×' },
-            { id: '4', label: '4×' },
-          ]}
-        />
+      <Field group label="Wie oft willst du pro Woche ins Gym?">
+        <Seg value={String(st.perWeek)} onChange={(v) => set({ perWeek: Number(v), split: null })} options={[1, 2, 3, 4, 5, 6].map((n) => ({ id: String(n), label: n + '×' }))} />
       </Field>
-      )}
+      <Field group label="Plan-Vorschläge" hint="Übungen, Sätze und Reihenfolge kannst du danach jederzeit anpassen.">
+        <div class="opts">
+          {(SPLITS[st.perWeek] || SPLITS[3]).map((x, i) => {
+            const on = st.planType !== 'eigen' && (st.split ? st.split === x.id : i === 0);
+            return (
+              <button type="button" class={'opt' + (on ? ' opt--on' : '')} onClick={() => set({ split: x.id, planType: 'auto' })} aria-pressed={on}>
+                <b>
+                  {x.name}
+                  {x.sport && st.sport !== 'keiner' && <span class="tag">passt zu {sp.name}</span>}
+                </b>
+                <span>{x.hint}</span>
+                <span class="opt__sess">{x.rot.map((id) => SESSIONS[id].short).join(' · ')}</span>
+              </button>
+            );
+          })}
+          {!embedded && (
+            <button type="button" class={'opt' + (st.planType === 'eigen' ? ' opt--on' : '')} onClick={() => set({ planType: 'eigen' })} aria-pressed={st.planType === 'eigen'}>
+              <b>Eigener Plan</b>
+              <span>{hasMy ? myRot.map((x) => sessionOf(x).name).join(' · ') : 'Einheiten und Übungen selbst zusammenstellen'}</span>
+            </button>
+          )}
+        </div>
+      </Field>
       <Field group label="Zeit pro Einheit">
         <Seg
           value={String(st.minutes)}
@@ -153,9 +155,10 @@ export function SetupCard({ onDone, initial, embedded }) {
       <button
         class="btn btn--primary btn--block btn--lg"
         onClick={() => {
-          saveTraining({ setup: { ...st, cycleStart: st.cycleStart || todayKey() }, createdAt: (S.training && S.training.createdAt) || Date.now() });
-          toast('Plan erstellt 💪');
+          saveTraining({ setup: { ...st, freqMy: true, cycleStart: st.cycleStart || todayKey() }, createdAt: (S.training && S.training.createdAt) || Date.now() });
+          toast(initial ? 'Plan aktualisiert' : 'Plan erstellt 💪');
           onDone && onDone();
+          if (st.planType === 'eigen' && !hasMy) nav('/plan');
         }}
       >
         <Check size={18} /> {initial ? 'Plan aktualisieren' : embedded ? 'Plan erstellen & weiter' : 'Plan erstellen'}
@@ -325,7 +328,7 @@ function TodayCard({ setup }) {
             );
           })()}
           <button class={'cyclechip' + (sess.cycle && sess.cycle.deload ? ' cyclechip--deload' : '')} onClick={() => openSheet('algo')}>
-            Woche {sess.cycle.n}/5 · {sess.cycle.label} · RIR {sess.cycle.rir} <Info size={14} />
+            {sess.cycle.off ? 'Gleichbleibend' : `Woche ${sess.cycle.n}/5 · ${sess.cycle.label}`} · RIR {sess.cycle.rir} <Info size={14} />
           </button>
           {!pick && rec.reasons.filter((r) => rec.status !== 'free' || !r.startsWith('Kein fester')).map((r) => <div class="notice small"><span>{r}</span></div>)}
           {sess.modeLabel && (
@@ -381,7 +384,8 @@ function TodayCard({ setup }) {
 }
 
 function PlanOverview({ setup }) {
-  const rot = rotationOf(setup);
+  const rot = [...new Set(rotationOf(setup))];
+  const mine = usesMyPlan(setup);
   return (
     <div class="sesslist">
       {rot.map((id) => {
@@ -403,6 +407,9 @@ function PlanOverview({ setup }) {
           </button>
         );
       })}
+      <button class="btn btn--block" onClick={() => nav('/plan')}>
+        <Pencil size={16} /> {mine ? 'Meinen Plan bearbeiten' : 'Eigenen Plan zusammenstellen'}
+      </button>
     </div>
   );
 }
@@ -444,6 +451,7 @@ export function Training() {
       )}
 
       {(!hasSetup || editing) && <SetupCard initial={hasSetup ? setup : null} onDone={() => setEditing(false)} />}
+      {hasSetup && editing && <TrainingOptionsCard />}
 
       {hasSetup && !editing && (
         <>

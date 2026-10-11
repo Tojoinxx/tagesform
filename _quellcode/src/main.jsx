@@ -18,12 +18,13 @@ import { ExerciseSheet, SessionPage, ExercisePicker } from './ui/exui.jsx';
 import { AlgoSheet, RirSheet } from './ui/algo.jsx';
 import { ImportSheet } from './ui/importsheet.jsx';
 import { WellnessSheet } from './ui/form.jsx';
+import { PlanEditor, ExOptsSheet } from './ui/planeditor.jsx';
 import { House, ChartColumn, Dumbbell, Settings as SettingsIcon } from 'lucide-preact';
 
 applyTheme(lsGet('tf.theme', 'system'));
 setS({ day: todayKey() });
 
-const SHEETS = { add: AddSheet, amount: AmountSheet, entry: EntrySheet, custom: CustomSheet, photo: PhotoSheet, label: LabelSheet, barcode: BarcodeSheet, suggest: SuggestSheet, exercise: ExerciseSheet, algo: AlgoSheet, pick: ExercisePicker, import: ImportSheet, wellness: WellnessSheet, rir: RirSheet };
+const SHEETS = { add: AddSheet, amount: AmountSheet, entry: EntrySheet, custom: CustomSheet, photo: PhotoSheet, label: LabelSheet, barcode: BarcodeSheet, suggest: SuggestSheet, exercise: ExerciseSheet, algo: AlgoSheet, pick: ExercisePicker, import: ImportSheet, wellness: WellnessSheet, rir: RirSheet, exopts: ExOptsSheet };
 
 function SheetHost() {
   const s = useS();
@@ -81,14 +82,14 @@ function Shell() {
     if (r.query.do) runAction(r.query);
   }, [r.query.do, r.query.ml, r.query.mahlzeit]);
   const page =
-    r.path === '/woche' ? <Week query={r.query} key={r.query.last || 'w'} /> : r.path === '/training' || r.path === '/tagesform' ? <Training /> : r.path === '/workout' ? <Workout /> : r.path === '/einheit' ? <SessionPage query={r.query} key={r.query.s} /> : r.path === '/einstellungen' ? <Settings query={r.query} /> : <Today />;
+    r.path === '/woche' ? <Week query={r.query} key={r.query.last || 'w'} /> : r.path === '/training' || r.path === '/tagesform' ? <Training /> : r.path === '/workout' ? <Workout /> : r.path === '/einheit' ? <SessionPage query={r.query} key={r.query.s} /> : r.path === '/plan' ? <PlanEditor /> : r.path === '/einstellungen' ? <Settings query={r.query} /> : <Today />;
   return (
     <>
       <main class="main">{page}</main>
       <nav class="tabbar" aria-label="Navigation">
         {TABS.map(({ path, label, Icon }) => (
           <button
-            class={'tab' + (r.path === path || (path === '/training' && (r.path === '/workout' || r.path === '/einheit')) ? ' tab--on' : '')}
+            class={'tab' + (r.path === path || (path === '/training' && (r.path === '/workout' || r.path === '/einheit' || r.path === '/plan')) ? ' tab--on' : '')}
             onClick={() => {
               if (path === '/' && r.path === '/') setS({ day: todayKey() });
               nav(path);

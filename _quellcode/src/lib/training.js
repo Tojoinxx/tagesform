@@ -1,6 +1,6 @@
 // Trainingsplan-Logik: Wochenrhythmus um den Vereinssport, 5-Wochen-Zyklus, Anpassung an Tagesform & Schmerzen, Progression
 import { S, getDay } from './store.js';
-import { EXERCISES, SESSIONS, ROTATIONS } from './exercises.js';
+import { EXERCISES, SESSIONS, ROTATIONS, SPLITS } from './exercises.js';
 import { addDays, parseKey, todayKey, weekStart, WD_SHORT, WD_LONG, dateKey } from './util.js';
 
 export const EXPERIENCE = [
@@ -43,6 +43,18 @@ export const sportOf = (setup = setupOf()) => {
 };
 export const hasSport = (setup = setupOf()) => setup.sport !== 'keiner' && (setup.handballDays || []).length > 0;
 
+// ---------- Persönliche Trainings-Optionen ----------
+export const DEFAULT_PREFS = { restMain: 120, restOther: 75, cycle: true, wellness: true, rirPrompt: true, comeback: true };
+export const prefsOf = () => ({ ...DEFAULT_PREFS, ...((S.training && S.training.prefs) || {}) });
+
+/** Übung mit persönlichen Einstellungen (Wdh.-Bereich, Steigerung, Sätze) */
+export function exOf(id) {
+  const ex = EXERCISES[id];
+  const o = S.training && S.training.exOpts && S.training.exOpts[id];
+  if (!ex || !o) return ex;
+  return { ...ex, reps: o.reps || ex.reps, inc: o.inc != null ? o.inc : ex.inc, sets: o.sets || ex.sets };
+}
+
 // ---------- 5-Wochen-Zyklus ----------
 export const CYCLE = [
   { label: 'Einstieg', rir: 3, extra: 0, text: 'Technik sauber, 3 Wdh. Reserve' },
@@ -52,6 +64,7 @@ export const CYCLE = [
   { label: 'Deload', rir: 4, extra: 0, deload: true, text: 'halbe Sätze, ~10 % leichter – Erholung' },
 ];
 export function cycleWeek(k = todayKey()) {
+  if (!prefsOf().cycle) return { label: 'Gleichbleibend', rir: 2, extra: 0, text: 'ohne Zyklus', index: -1, n: 0, off: true };
   const tr = S.training || {};
   const start = (tr.setup && tr.setup.cycleStart) || (tr.createdAt ? dateKey(new Date(tr.createdAt)) : k);
   const weeks = Math.round((parseKey(weekStart(k)) - parseKey(weekStart(start))) / (7 * 864e5));
@@ -84,7 +97,18 @@ export function sessionOf(id) {
   return SESSIONS[id] || SESSIONS.OKA;
 }
 export const usesMyPlan = (setup = setupOf()) => setup.planType === 'eigen' && !!(S.training && S.training.myRotation && S.training.myRotation.length);
-export const rotationOf = (setup = setupOf()) => (usesMyPlan(setup) ? S.training.myRotation : ROTATIONS[setup.perWeek] || ROTATIONS[3]);
+export const splitOf = (setup = setupOf()) => {
+  const list = SPLITS[setup.perWeek] || SPLITS[3];
+  return list.find((x) => x.id === setup.split) || list[0];
+};
+export const rotationOf = (setup = setupOf()) => {
+  if (!usesMyPlan(setup)) return splitOf(setup).rot;
+  const r = S.training.myRotation;
+  // Häufigkeit gilt auch für eigene Pläne: Einheiten wiederholen sich im Wechsel
+  if (!setup.freqMy || !setup.perWeek) return r;
+  return Array.from({ length: setup.perWeek }, (_, i) => r[i % r.length]);
+};
+export const myRotationRaw = () => (S.training && S.training.myRotation) || [];
 
 // ---------- Verlauf ----------
 /** Alle abgeschlossenen Gym-Einheiten, neueste zuerst */
@@ -98,6 +122,16 @@ export function workoutLog() {
 }
 
 export function lastFor(exId, before = null) {
+  const r = lastForRaw(exId, before);
+  // manuell festgelegtes Gewicht hat Vorrang vor älteren Einträgen
+  const b = S.training && S.training.baseline && S.training.baseline[exId];
+  const ex = exOf(exId);
+  if (b && b.force && b.w != null && ex && (!r || !r.date || !b.date || b.date > r.date || (b.date === r.date && (b.at || 0) > (r.at || 0))))
+    return { date: b.date, forced: true, imported: 'deiner Einstellung', sets: Array.from({ length: 3 }, () => ({ w: b.w, r: b.r || ex.reps[0], done: true })) };
+  return r;
+}
+
+function lastForRaw(exId, before = null) {
   let fallback = null;
   for (const w of workoutLog()) {
     if (before && w.date >= before) continue;
@@ -109,7 +143,7 @@ export function lastFor(exId, before = null) {
       fallback = fallback || { date: w.date, sets };
       continue;
     }
-    return { date: w.date, sets, imported: w.imported ? w.source || 'Import' : null, targetRir: it.targetRir ?? null };
+    return { date: w.date, at: w.finishedAt || 0, sets, imported: w.imported ? w.source || 'Import' : null, targetRir: it.targetRir ?? null };
   }
   if (fallback) return fallback;
   // übernommene Startwerte (z. B. aus MCI)
@@ -125,6 +159,7 @@ const roundTo = (v, step) => (step > 0 ? Math.round(v / step) * step : v);
 export function progression(ex, last) {
   const [lo, hi] = ex.reps;
   if (!last) return { w: null, reps: lo, note: 'Erstes Mal: Gewicht wählen, bei dem noch 2 Wdh. im Tank wären.' };
+  if (last.forced) return { w: last.sets[0].w, reps: lo, note: `Dein festgelegtes Gewicht – starte mit ${lo} ${ex.unit}, die App steigert ab hier.` };
   const ws = last.sets.map((s) => s.w || 0);
   const w = Math.max(...ws);
   const top = last.sets.filter((s) => (s.w || 0) === w);
@@ -179,6 +214,7 @@ const daysBetween = (a, b) => Math.round((parseKey(b) - parseKey(a)) / 864e5);
 
 /** Wie lange war die Pause, und in welcher Stufe des Wiedereinstiegs bist du? */
 export function comebackState(k = todayKey()) {
+  if (!prefsOf().comeback) return null;
   const log = workoutLog().filter((w) => w.date <= k);
   if (!log.length) return null;
   const gapNow = daysBetween(log[0].date, k);
@@ -240,10 +276,11 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
   }
   const count = custom || tpl.my ? 99 : exCount(setup.minutes);
   const chosen = items.slice(0, count);
-  const out = chosen.map(({ ex, adaptedFrom }) => {
+  const out = chosen.map(({ ex: ex0, adaptedFrom }) => {
+    const ex = exOf(ex0.id);
     const last = lastFor(ex.id);
     const pr = progression(ex, last);
-    let sets = (tpl.sets && tpl.sets[ex.id]) || (ex.main ? (setup.experience === 'erfahren' ? 4 : 3) : setup.experience === 'anfaenger' ? 2 : 3);
+    let sets = ex.sets || (tpl.sets && tpl.sets[ex.id]) || (ex.main ? (setup.experience === 'erfahren' ? 4 : 3) : setup.experience === 'anfaenger' ? 2 : 3);
     let w = pr.w;
     let reps = pr.reps;
     let note = last && last.imported && !pr.up ? `Startwert aus ${last.imported}: ${String(pr.w).replace('.', ',')} kg – versuch ${reps} saubere Wdh.` : pr.note;
@@ -320,10 +357,10 @@ export function swapOptions(exId, exclude = []) {
 }
 
 export function itemFor(exId, setup = setupOf()) {
-  const ex = EXERCISES[exId];
+  const ex = exOf(exId);
   const last = lastFor(ex.id);
   const pr = progression(ex, last);
-  const sets = ex.main ? 3 : setup.experience === 'anfaenger' ? 2 : 3;
+  const sets = ex.sets || (ex.main ? 3 : setup.experience === 'anfaenger' ? 2 : 3);
   const cw = cycleWeek();
   return { exId: ex.id, name: ex.name, equip: ex.equip, unit: ex.unit, cue: ex.cue, main: !!ex.main, repRange: ex.reps, inc: ex.inc, target: { w: pr.w, reps: pr.reps, rir: ex.main ? cw.rir : Math.max(0, cw.rir - 1) }, sets: Array.from({ length: sets }, () => ({ w: pr.w ?? '', r: '', done: false })), last, note: pr.note, adaptedFrom: null };
 }

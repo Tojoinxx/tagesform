@@ -67,10 +67,51 @@ export const SESSIONS = {
   GK2: { id: 'GK2', name: 'Ganzkörper 2', short: 'GK 2', focus: 'Ganzkörper', legs: true, ex: ['beinpresse', 'schulterdruecken', 'rudern-brust', 'hip-thrust', 'kh-bank', 'nordic', 'plank'] },
 };
 
+Object.assign(SESSIONS, {
+  GK3: { id: 'GK3', name: 'Ganzkörper 3', short: 'GK 3', focus: 'Ganzkörper', legs: true, ex: ['split-squat', 'schraeg-kh', 'klimmzug-assist', 'beinbeuger', 'seitheben', 'rudern-kh', 'kabelcrunch'] },
+  PUSH: { id: 'PUSH', name: 'Push', short: 'Push', focus: 'Brust, Schulter, Trizeps', legs: false, ex: ['bankdruecken', 'schraeg-kh', 'schulterdruecken', 'seitheben', 'brustpresse', 'trizeps-kabel', 'trizeps-ueberkopf'] },
+  PULL: { id: 'PULL', name: 'Pull', short: 'Pull', focus: 'Rücken, hintere Schulter, Bizeps', legs: false, ex: ['latzug', 'rudern-kabel', 'rudern-kh', 'facepull', 'bizeps-kh', 'hammercurls', 'aussenrotation'] },
+  BEINE: { id: 'BEINE', name: 'Beine', short: 'Beine', focus: 'Beine & Rumpf', legs: true, ex: ['kniebeuge', 'rdl', 'beinpresse', 'beinbeuger', 'wadenheben', 'pallof', 'kabelcrunch'] },
+  ARME: { id: 'ARME', name: 'Schultern & Arme', short: 'Arme', focus: 'Schultern, Bizeps, Trizeps', legs: false, ex: ['schulterpresse', 'seitheben-kabel', 'reverse-fly', 'sz-curl', 'french-press', 'hammercurls', 'trizeps-kabel'] },
+});
+
 export const ROTATIONS = {
+  1: ['GK1'],
   2: ['GK1', 'GK2'],
   3: ['OKA', 'UKA', 'OKB'],
   4: ['OKA', 'UKA', 'OKB', 'UKB'],
+  5: ['OKA', 'UKA', 'OKB', 'UKB', 'GK1'],
+  6: ['PUSH', 'PULL', 'BEINE', 'PUSH', 'PULL', 'BEINE'],
+};
+
+/** Plan-Vorschläge je Trainingshäufigkeit (wie in Studio-Apps üblich). Erster = Standard. */
+export const SPLITS = {
+  1: [{ id: 'gk1', name: 'Ganzkörper', hint: 'Ein kompletter Durchgang pro Woche', rot: ['GK1'] }],
+  2: [
+    { id: 'gk2', name: 'Ganzkörper A / B', hint: 'Jeder Muskel 2× pro Woche – ideal bei wenig Zeit', rot: ['GK1', 'GK2'], sport: true },
+    { id: 'okuk2', name: 'Oberkörper / Unterkörper', hint: 'Je 1× pro Woche, dafür mehr Übungen pro Bereich', rot: ['OKA', 'UKA'] },
+  ],
+  3: [
+    { id: 'okuk3', name: 'Oberkörper / Unterkörper / Oberkörper', hint: 'Nur 1 Beintag – passt gut neben Vereinssport', rot: ['OKA', 'UKA', 'OKB'], sport: true },
+    { id: 'gk3', name: 'Ganzkörper A / B / C', hint: 'Alle Muskeln jedes Mal – gut für Einsteiger', rot: ['GK1', 'GK2', 'GK3'] },
+    { id: 'ppl', name: 'Push / Pull / Beine', hint: 'Klassischer Split, jeder Bereich 1× pro Woche', rot: ['PUSH', 'PULL', 'BEINE'] },
+    { id: 'okukgk', name: 'Oberkörper / Unterkörper / Ganzkörper', hint: 'Mischung – Beine 2×, Oberkörper 2×', rot: ['OKA', 'UKA', 'GK1'] },
+  ],
+  4: [
+    { id: 'okuk4', name: 'Oberkörper / Unterkörper ×2', hint: 'Jeder Muskel 2× pro Woche – der Klassiker', rot: ['OKA', 'UKA', 'OKB', 'UKB'], sport: true },
+    { id: 'ppl4', name: 'Push / Pull / Beine + Oberkörper', hint: 'PPL mit Extra-Oberkörper', rot: ['PUSH', 'PULL', 'BEINE', 'OKA'] },
+    { id: 'gk4', name: 'Ganzkörper A / B / C / A', hint: 'Viel Frequenz, kürzere Belastung pro Muskel', rot: ['GK1', 'GK2', 'GK3', 'GK1'] },
+    { id: 'okuk-arme', name: 'Oberkörper / Unterkörper / Ganzkörper / Arme', hint: 'Mit eigenem Schulter-&-Arm-Tag', rot: ['OKA', 'UKA', 'GK1', 'ARME'] },
+  ],
+  5: [
+    { id: 'okuk5', name: 'OK / UK ×2 + Ganzkörper', hint: 'Ausgewogen mit Bonus-Einheit', rot: ['OKA', 'UKA', 'OKB', 'UKB', 'GK1'], sport: true },
+    { id: 'ppl-okuk', name: 'Push / Pull / Beine + OK / UK', hint: 'Beliebter 5er-Split', rot: ['PUSH', 'PULL', 'BEINE', 'OKA', 'UKA'] },
+    { id: 'okuk-arme5', name: 'OK / UK ×2 + Arme', hint: 'Mit Schulter-&-Arm-Tag', rot: ['OKA', 'UKA', 'OKB', 'UKB', 'ARME'] },
+  ],
+  6: [
+    { id: 'ppl2', name: 'Push / Pull / Beine ×2', hint: 'Jeder Bereich 2× – für Erfahrene', rot: ['PUSH', 'PULL', 'BEINE', 'PUSH', 'PULL', 'BEINE'] },
+    { id: 'okuk6', name: 'Oberkörper / Unterkörper ×3', hint: 'Hohe Frequenz, gut steuerbar', rot: ['OKA', 'UKA', 'OKB', 'UKB', 'OKA', 'UKA'] },
+  ],
 };
 
 export const exName = (id) => (EXERCISES[id] ? EXERCISES[id].name : id);

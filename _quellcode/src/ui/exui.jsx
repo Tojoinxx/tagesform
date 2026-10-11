@@ -2,17 +2,17 @@ import { useState } from 'preact/hooks';
 import { useS, S, openSheet, closeSheet, saveActive, saveTraining, toast } from '../lib/store.js';
 import { guideOf, imgOf } from '../lib/exguide.js';
 import { EXERCISES, SESSIONS } from '../lib/exercises.js';
-import { buildSession, swapOptions, itemFor, setupOf, planIds, isCustom, mgOf, sessionOf } from '../lib/training.js';
+import { buildSession, swapOptions, itemFor, setupOf, planIds, isCustom, mgOf, sessionOf, prefsOf, exOf } from '../lib/training.js';
 import { getDay } from '../lib/store.js';
 import { todayKey, n1, uid, norm } from '../lib/util.js';
 import { Sheet, Chip } from './common.jsx';
-import { Repeat, ChevronLeft, Play, CalendarDays, Clock, MapPin, TriangleAlert, ExternalLink, Lightbulb, Check, Gauge, Search, Plus, X, ArrowUp, ArrowDown } from 'lucide-preact';
+import { Repeat, ChevronLeft, Play, CalendarDays, Clock, MapPin, TriangleAlert, ExternalLink, Lightbulb, Check, Gauge, Search, Plus, X, ArrowUp, ArrowDown, SlidersHorizontal } from 'lucide-preact';
 import { nav } from './router.js';
 
 export function startWorkout(sessionId, items, opts = {}) {
   const f = getDay(todayKey()).form;
   // Vor dem Training: kurze Tagesform-Abfrage (einmal pro Tag)
-  if (!opts.skipCheck && !(f && f.at)) {
+  if (!opts.skipCheck && prefsOf().wellness && !(f && f.at)) {
     openSheet('wellness', { sessionId });
     return;
   }
@@ -80,9 +80,12 @@ export function ExerciseSheet({ exId, item }) {
           ))}
           <span class="tag tag--muted">{ex.equip}</span>
           <span class="tag tag--muted">
-            {ex.reps[0]}–{ex.reps[1]} {ex.unit}
+            {exOf(exId).reps[0]}–{exOf(exId).reps[1]} {ex.unit}
           </span>
         </div>
+        <button class="btn btn--sm" onClick={() => openSheet('exopts', { exId })}>
+          <SlidersHorizontal size={15} /> Sätze, Wdh. &amp; Gewicht einstellen
+        </button>
         {item && item.last && (
           <p class="small muted">
             Letztes Mal: {item.last.sets.map((s) => s.r).join(' / ')} {ex.unit}
@@ -280,7 +283,7 @@ export function SessionPage({ query }) {
       </header>
       <div class="pills">
         <button class="pill" onClick={() => openSheet('algo')}>
-          <CalendarDays size={16} /> Woche {base.cycle.n}/5 · {base.cycle.label}
+          <CalendarDays size={16} /> {base.cycle.off ? 'Ohne Zyklus' : `Woche ${base.cycle.n}/5 · ${base.cycle.label}`}
         </button>
         <span class="pill">
           <Gauge size={16} /> RIR {base.cycle.rir} · {MODE_LABEL[base.mode] || 'Normal'}
@@ -309,6 +312,9 @@ export function SessionPage({ query }) {
               </button>
               <button class="btn--link small" onClick={() => move(it, 1)} disabled={idxOf(it) < 0 || idxOf(it) >= ids.length - 1} aria-label="Nach unten">
                 <ArrowDown size={14} />
+              </button>
+              <button class="btn--link small" onClick={() => openSheet('exopts', { exId: it.exId })}>
+                <SlidersHorizontal size={14} /> Einstellen
               </button>
               <button class="btn--link small danger" onClick={() => remove(it)}>
                 <X size={14} /> Entfernen

@@ -2863,3 +2863,22 @@ a.btn {
   align-items: center;
   gap: 6px;
 }
+
+/* ---- Plan-Vorschläge, eigener Plan, Optionen ---- */
+.opt b .tag { margin-left: 6px; font-size: 11px; vertical-align: middle; }
+.opt .opt__sess { font-size: 12px; color: var(--accent, #2f7d5b); font-weight: 600; margin-top: 2px; }
+.myses { display: flex; flex-direction: column; gap: 10px; }
+.myses__head { display: flex; align-items: center; gap: 2px; }
+.myses__title { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.myses__title b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.myses .sesscard__thumbs { display: flex; gap: 6px; flex-wrap: wrap; }
+.iconbtn.danger { color: var(--danger, #c0392b); }
+.iconbtn:disabled { opacity: .3; }
+.toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line, rgba(0,0,0,.08)); cursor: pointer; }
+.toggle > span { display: flex; flex-direction: column; gap: 2px; }
+.toggle small { font-size: 12px; line-height: 1.35; }
+.toggle input { appearance: none; -webkit-appearance: none; flex-shrink: 0; width: 46px; height: 28px; border-radius: 14px; background: #c5c9d0; position: relative; transition: background .2s; cursor: pointer; margin: 0; }
+.toggle input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
+.toggle input:checked { background: var(--accent, #2f7d5b); }
+.toggle input:checked::after { transform: translateX(18px); }
+.excard-tools { flex-wrap: wrap; }
