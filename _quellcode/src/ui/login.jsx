@@ -40,7 +40,7 @@ export function Login() {
       </div>
       <form class="card form" onSubmit={submit}>
         <h2>{mode === 'register' ? 'Konto erstellen' : mode === 'reset' ? 'Passwort vergessen' : 'Anmelden'}</h2>
-        {mode === 'login' && <p class="small muted">Gleiches Konto wie bei Kartenschatz – deine Daten synchronisieren dann zwischen iPhone und PC.</p>}
+        {mode === 'login' && <p class="small muted">Noch kein Konto? Tippe auf „Neues Konto“ – kostenlos. Deine Daten synchronisieren dann zwischen Handy und PC.</p>}
         <Field label="E-Mail">
           <input class="input" type="email" autoComplete="username" value={email} onInput={(e) => setEmail(e.currentTarget.value)} required />
         </Field>

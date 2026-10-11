@@ -149,7 +149,7 @@ export function Settings({ query }) {
       <section class="card form">
         {s.mode === 'local' ? (
           <p class="small">
-            Testmodus: Daten liegen nur auf diesem Gerät. <b>Für Sync zwischen iPhone und PC melde dich mit deinem Kartenschatz-Konto an.</b>
+            Testmodus: Daten liegen nur auf diesem Gerät. <b>Für Sync zwischen Handy und PC melde dich an oder erstelle ein Konto.</b>
           </p>
         ) : (
           <p class="small">
