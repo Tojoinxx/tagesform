@@ -95,11 +95,13 @@ export const SPLITS = {
     { id: 'okuk3', name: 'Oberkörper / Unterkörper / Oberkörper', hint: 'Nur 1 Beintag – passt gut neben Vereinssport', rot: ['OKA', 'UKA', 'OKB'], sport: true },
     { id: 'gk3', name: 'Ganzkörper A / B / C', hint: 'Alle Muskeln jedes Mal – gut für Einsteiger', rot: ['GK1', 'GK2', 'GK3'] },
     { id: 'ppl', name: 'Push / Pull / Beine', hint: 'Klassischer Split, jeder Bereich 1× pro Woche', rot: ['PUSH', 'PULL', 'BEINE'] },
+    { id: 'ukokuk', name: 'Unterkörper / Oberkörper / Unterkörper', hint: 'Beine-Schwerpunkt – 2 Beintage, 1 Oberkörper', rot: ['UKA', 'OKA', 'UKB'] },
     { id: 'okukgk', name: 'Oberkörper / Unterkörper / Ganzkörper', hint: 'Mischung – Beine 2×, Oberkörper 2×', rot: ['OKA', 'UKA', 'GK1'] },
   ],
   4: [
     { id: 'okuk4', name: 'Oberkörper / Unterkörper ×2', hint: 'Jeder Muskel 2× pro Woche – der Klassiker', rot: ['OKA', 'UKA', 'OKB', 'UKB'], sport: true },
     { id: 'ppl4', name: 'Push / Pull / Beine + Oberkörper', hint: 'PPL mit Extra-Oberkörper', rot: ['PUSH', 'PULL', 'BEINE', 'OKA'] },
+    { id: 'ukok4', name: 'Unterkörper ×2 / Oberkörper ×2 (Beine zuerst)', hint: 'Wie OK/UK, Woche startet mit Beinen', rot: ['UKA', 'OKA', 'UKB', 'OKB'] },
     { id: 'gk4', name: 'Ganzkörper A / B / C / A', hint: 'Viel Frequenz, kürzere Belastung pro Muskel', rot: ['GK1', 'GK2', 'GK3', 'GK1'] },
     { id: 'okuk-arme', name: 'Oberkörper / Unterkörper / Ganzkörper / Arme', hint: 'Mit eigenem Schulter-&-Arm-Tag', rot: ['OKA', 'UKA', 'GK1', 'ARME'] },
   ],

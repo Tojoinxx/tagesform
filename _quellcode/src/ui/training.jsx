@@ -69,6 +69,7 @@ export function SetupCard({ onDone, initial, embedded }) {
               </button>
             );
           })}
+          {embedded && <p class="small muted">Nichts Passendes dabei? Nach der Einführung kannst du unter Training → „Eigenen Plan zusammenstellen“ alles selbst festlegen.</p>}
           {!embedded && (
             <button type="button" class={'opt' + (st.planType === 'eigen' ? ' opt--on' : '')} onClick={() => set({ planType: 'eigen' })} aria-pressed={st.planType === 'eigen'}>
               <b>Eigener Plan</b>

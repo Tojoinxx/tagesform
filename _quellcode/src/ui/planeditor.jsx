@@ -5,7 +5,7 @@ import { EXERCISES, SESSIONS, SPLITS } from '../lib/exercises.js';
 import { uid, todayKey, num, n1 } from '../lib/util.js';
 import { Sheet, Chip, Seg, Field, NumInput } from './common.jsx';
 import { ExAnim } from './exui.jsx';
-import { ChevronLeft, ArrowUp, ArrowDown, Trash2, Plus, Pencil, ChevronRight, Check, RotateCcw } from 'lucide-preact';
+import { ChevronLeft, ArrowUp, ArrowDown, Trash2, Plus, Pencil, ChevronRight, Check, RotateCcw, Copy } from 'lucide-preact';
 import { nav } from './router.js';
 
 const templates = () => {
@@ -63,6 +63,17 @@ export function PlanEditor() {
     const r = rot.filter((x) => x !== id);
     save({ mySessions: { ...tr.mySessions, [id]: null }, myRotation: r, ...(r.length ? {} : { setup: { ...setupOf(), planType: 'auto' } }) });
   };
+  const duplicate = (id, i) => {
+    const my = tr.mySessions[id];
+    const ids = planIds(id);
+    const sets = Object.fromEntries((my.ex || []).map((e) => [e.id, e.sets]));
+    const n = my.name.replace(/\s*\(\d+\)$/, '') + ' (2)';
+    const nid = 'my-' + uid().slice(0, 8);
+    const r = rot.slice();
+    r.splice(i + 1, 0, nid);
+    save({ mySessions: { ...tr.mySessions, [nid]: { name: n, short: n.length > 8 ? n.slice(0, 7) + '.' : n, ex: ids.map((x) => ({ id: x, ...(sets[x] ? { sets: sets[x] } : {}) })) } }, myRotation: r });
+    toast(`„${my.name}“ kopiert – umbenennen und Übungen anpassen`);
+  };
   const add = () => {
     const n = newName.trim() || `Einheit ${rot.length + 1}`;
     const id = 'my-' + uid().slice(0, 8);
@@ -94,7 +105,7 @@ export function PlanEditor() {
         </>
       ) : (
         <>
-          <p class="small muted">Die Einheiten laufen in dieser Reihenfolge im Wechsel. Die App verteilt sie um deinen Sport auf deine Gym-Tage.</p>
+          <p class="small muted">Die Einheiten laufen in dieser Reihenfolge im Wechsel. Die App verteilt sie um deinen Sport auf deine Gym-Tage. Mit dem Kopieren-Symbol machst du z. B. aus einem Unterkörper-Tag zwei.</p>
           {rot.map((id, i) => {
             const ss = sessionOf(id);
             return (
@@ -129,6 +140,9 @@ export function PlanEditor() {
                         aria-label="Umbenennen"
                       >
                         <Pencil size={17} />
+                      </button>
+                      <button class="iconbtn" onClick={() => duplicate(id, i)} aria-label="Kopieren">
+                        <Copy size={17} />
                       </button>
                       <button class="iconbtn" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Nach oben">
                         <ArrowUp size={17} />
