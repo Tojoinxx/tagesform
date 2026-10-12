@@ -15,13 +15,39 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icon-192.png">
-<link rel="stylesheet" href="app.css?v=1.0.0-202610111943">
+<link rel="stylesheet" href="app.css?v=1.0.0-202610121047">
 <script>try{var t=localStorage.getItem('tf.theme');if(t&&t!=='system')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
-<script src="config.js?v=1.0.0-202610111943"></script>
+<script src="config.js?v=1.0.0-202610121047"></script>
+<script>
+// Notfall-Anzeige: Wenn die App nicht startet, statt schwarzem Bild Fehler + Reparatur-Knopf zeigen
+(function(){
+  var errs=[];window.__tfErrs=errs;
+  addEventListener('error',function(e){errs.push((e.message||'Fehler')+(e.filename?' ('+e.filename.split('/').pop()+')':''))},true);
+  addEventListener('unhandledrejection',function(e){errs.push(String(e.reason&&e.reason.message||e.reason))});
+  window.__tfRepair=function(){
+    var jobs=[];
+    try{if(navigator.serviceWorker)jobs.push(navigator.serviceWorker.getRegistrations().then(function(r){return Promise.all(r.map(function(x){return x.unregister()}))}))}catch(e){}
+    try{if(window.caches)jobs.push(caches.keys().then(function(k){return Promise.all(k.map(function(x){return caches.delete(x)}))}))}catch(e){}
+    try{if(indexedDB.databases)jobs.push(indexedDB.databases().then(function(d){d.forEach(function(x){if(/firestore|firebase/i.test(x.name))indexedDB.deleteDatabase(x.name)})}))}catch(e){}
+    Promise.all(jobs).catch(function(){}).then(function(){setTimeout(function(){location.replace(location.pathname+'?r='+Date.now())},300)});
+  };
+  window.__tfRescue=function(msg){
+    if(document.getElementById('tf-rescue'))return;
+    var d=document.createElement('div');d.id='tf-rescue';
+    d.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;justify-content:center;gap:12px;padding:28px;background:#0b0d10;color:#eef0f3;font:16px/1.45 -apple-system,system-ui,sans-serif';
+    var e=(msg||errs.slice(-3).join(' · ')||'Keine Fehlermeldung – vermutlich hängt die Verbindung oder der Zwischenspeicher.');
+    d.innerHTML='<b style="font-size:21px">Tagesform startet gerade nicht</b><span style="opacity:.8">Deine Daten sind sicher in deinem Konto gespeichert.</span><code style="font-size:12px;opacity:.7;background:#1a1d22;padding:10px;border-radius:10px;white-space:pre-wrap;word-break:break-word"></code><button style="padding:14px;border-radius:12px;border:0;background:#0fb36d;color:#fff;font-size:17px;font-weight:600" onclick="location.reload()">Neu laden</button><button style="padding:14px;border-radius:12px;border:1px solid #333;background:transparent;color:#eef0f3;font-size:16px" onclick="this.textContent=\'Wird repariert …\';__tfRepair()">Zwischenspeicher leeren &amp; neu laden</button>';
+    d.querySelector('code').textContent=e;
+    document.body.appendChild(d);
+  };
+  setTimeout(function(){if(!window.__tfOk)__tfRescue()},15000);
+})();
+</script>
+
 </head>
 <body>
 <div id="app"></div>
 <noscript>Tagesform braucht JavaScript.</noscript>
-<script type="module" src="js/main.js?v=1.0.0-202610111943"></script>
+<script type="module" src="js/main.js?v=1.0.0-202610121047"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 import { render } from 'preact';
-import { useEffect } from 'preact/hooks';
+import { useEffect, useErrorBoundary } from 'preact/hooks';
 import { useS, boot, setS, S, patchDay, openSheet, toast } from './lib/store.js';
 import { todayKey, lsGet, timeOfDayMeal } from './lib/util.js';
 import { useRoute, nav } from './ui/router.js';
@@ -116,12 +116,19 @@ function Splash() {
 
 function App() {
   const s = useS();
+  const [crash] = useErrorBoundary((e) => console.error(e));
+  if (crash) {
+    window.__tfOk = true;
+    setTimeout(() => window.__tfRescue && window.__tfRescue(String((crash && crash.message) || crash)), 0);
+    return null;
+  }
   let body;
   if (s.auth.status === 'loading') body = <Splash />;
   else if (s.auth.status === 'out') body = <Login />;
   else if (!s.profileLoaded) body = <Splash />;
   else if (!s.profile || !s.profile.onboarded) body = <Onboarding />;
   else body = <Shell />;
+  if (s.auth.status !== 'loading' && (s.auth.status === 'out' || s.profileLoaded)) window.__tfOk = true;
   return (
     <>
       {body}
