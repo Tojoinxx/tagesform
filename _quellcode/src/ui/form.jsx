@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'preact/hooks';
-import { useS, getDay, patchDay, toast, closeSheet } from '../lib/store.js';
+import { useS, getDay, patchDay, toast, closeSheet, S } from '../lib/store.js';
 import { Sheet } from './common.jsx';
 import { startWorkout } from './exui.jsx';
 import { todayKey, addDays, WD_SHORT, parseKey, uid } from '../lib/util.js';
 import { Chip, Field } from './common.jsx';
-import { sportOf, isSportEntry } from '../lib/training.js';
+import { sportOf, isSportEntry, soreOf, buildSession, mgOf, MUSCLE_LABEL } from '../lib/training.js';
+import { BodyMap, musclesOf } from './bodymap.jsx';
 import { Dumbbell, HeartPulse, Check, Trash2, Pencil } from 'lucide-preact';
 
 export const ENERGY = [
@@ -243,6 +244,23 @@ export function WellnessSheet({ sessionId }) {
       const has = o.pains.some((p) => p.area === area);
       return { ...o, pains: has ? o.pains.filter((p) => p.area !== area) : [...o.pains, { area, level: 4 }] };
     });
+  // Muskelkater pro Muskel: antippen = leicht → stark → weg; Gesamtwert wird abgeleitet
+  const sore = soreOf(f);
+  const tapSore = (m) =>
+    setF((o) => {
+      const cur = { ...soreOf(o) };
+      cur[m] = !cur[m] ? 'leicht' : cur[m] === 'leicht' ? 'stark' : undefined;
+      if (!cur[m]) delete cur[m];
+      const lv = Object.values(cur);
+      return { ...o, sore: cur, soreness: lv.includes('stark') ? 'stark' : lv.length ? 'leicht' : 'keiner' };
+    });
+  const target = (() => {
+    try {
+      return sessionId ? musclesOf(buildSession(sessionId, undefined, null).items.map((it) => it.exId), mgOf) : { primary: [], secondary: [] };
+    } catch (e) {
+      return { primary: [], secondary: [] };
+    }
+  })();
   return (
     <Sheet
       title="Wellness-Abfrage"
@@ -297,14 +315,36 @@ export function WellnessSheet({ sessionId }) {
       {step === 2 && (
         <div class="wellness">
           <h2>Muskelkater?</h2>
-          <div class="chips chips--wrap">
-            {SORE.map((x) => (
-              <Chip active={f.soreness === x} onClick={() => setF({ ...f, soreness: x })}>
-                {x}
-              </Chip>
-            ))}
+          <p class="small muted">Tippe auf die Muskeln: 1× = leicht, 2× = stark, 3× = weg.{target.primary.length ? ' Blinkend = heute dran.' : ''}</p>
+          <BodyMap sex={S.profile && S.profile.sex === 'w' ? 'w' : 'm'} sore={sore} pulse={target.primary} onTap={tapSore} size="md" />
+          <div class="bmlegend">
+            {target.primary.length > 0 && (
+              <span>
+                <i style={{ background: 'var(--accent)' }} />
+                heute dran
+              </span>
+            )}
+            <span>
+              <i style={{ background: 'var(--c)' }} />
+              leicht
+            </span>
+            <span>
+              <i style={{ background: 'var(--danger)' }} />
+              stark
+            </span>
           </div>
-          {f.soreness === 'stark' && <p class="small muted">Beine stark betroffen? Dann schlägt die App eher Oberkörper vor.</p>}
+          {Object.keys(sore).length > 0 ? (
+            <div class="sorelist">
+              {Object.entries(sore).map(([m, lv]) => (
+                <Chip small active onClick={() => tapSore(m)}>
+                  {MUSCLE_LABEL[m]}: {lv}
+                </Chip>
+              ))}
+            </div>
+          ) : (
+            <p class="small muted center">Kein Muskelkater? Einfach weiter.</p>
+          )}
+          {Object.entries(sore).some(([m, lv]) => lv === 'stark' && target.primary.includes(m)) && <p class="small muted center">Muskeln mit starkem Muskelkater bekommen heute 1 Satz weniger – oder die App schlägt eine andere Einheit vor.</p>}
         </div>
       )}
       {step === 3 && (

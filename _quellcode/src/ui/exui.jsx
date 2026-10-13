@@ -2,8 +2,9 @@ import { useState } from 'preact/hooks';
 import { useS, S, openSheet, closeSheet, saveActive, saveTraining, toast } from '../lib/store.js';
 import { guideOf, imgOf } from '../lib/exguide.js';
 import { EXERCISES, SESSIONS } from '../lib/exercises.js';
-import { buildSession, swapOptions, itemFor, setupOf, planIds, isCustom, mgOf, sessionOf, prefsOf, exOf, sportExtras, sportOf, isAvailable, isExcluded, excludedMap, equipList, equipLabel, defaultReps } from '../lib/training.js';
+import { buildSession, swapOptions, itemFor, setupOf, planIds, isCustom, mgOf, sessionOf, prefsOf, exOf, sportExtras, sportOf, isAvailable, isExcluded, excludedMap, equipList, equipLabel, defaultReps, MUSCLE_LABEL, soreOf } from '../lib/training.js';
 import { ExHistory } from './progress.jsx';
+import { BodyMap, musclesOf } from './bodymap.jsx';
 import { getDay } from '../lib/store.js';
 import { todayKey, n1, uid, norm } from '../lib/util.js';
 import { Sheet, Chip } from './common.jsx';
@@ -118,6 +119,28 @@ export function ExerciseSheet({ exId, item }) {
         </div>
         {!isAvailable(exId) && <p class="small muted">Hinweis: Passt nicht zu deiner Ausstattung ({equipLabel()}).</p>}
       </div>
+      {(() => {
+        const mm = musclesOf([exId], mgOf);
+        if (!mm.primary.length) return null;
+        return (
+          <section class="card bmcard">
+            <h3 class="h3row">Trainierte Muskeln</h3>
+            <BodyMap sex={S.profile && S.profile.sex === 'w' ? 'w' : 'm'} primary={mm.primary} secondary={mm.secondary} pulse={mm.primary} size="sm" />
+            <div class="bmlegend">
+              <span>
+                <i style={{ background: 'var(--accent)' }} />
+                Hauptmuskel: {mm.primary.map((m) => MUSCLE_LABEL[m]).join(', ')}
+              </span>
+              {mm.secondary.length > 0 && (
+                <span>
+                  <i style={{ background: 'color-mix(in srgb, var(--accent) 38%, var(--line))' }} />
+                  hilft mit: {mm.secondary.map((m) => MUSCLE_LABEL[m]).join(', ')}
+                </span>
+              )}
+            </div>
+          </section>
+        );
+      })()}
       <ExHistory exId={exId} />
       <section class="card exsteps">
         <h3>So geht’s</h3>
@@ -346,6 +369,24 @@ export function SessionPage({ query }) {
         </span>
       </div>
       {base.modeLabel && <div class={'notice small ' + (base.mode === 'light' || base.mode === 'comeback' ? 'notice--info' : 'notice--ok')}>{base.modeLabel}</div>}
+      {items.length > 0 &&
+        (() => {
+          const mm = musclesOf(
+            items.map((it) => it.exId),
+            mgOf,
+          );
+          return (
+            <section class="card bmcard">
+              <BodyMap sex={S.profile && S.profile.sex === 'w' ? 'w' : 'm'} primary={mm.primary} secondary={mm.secondary} sore={soreOf(getDay(todayKey()).form)} size="sm" />
+              <div class="bmlegend">
+                <span>
+                  <i style={{ background: 'var(--accent)' }} />
+                  trainiert: {mm.primary.map((m) => MUSCLE_LABEL[m]).join(', ')}
+                </span>
+              </div>
+            </section>
+          );
+        })()}
       {base.notes.map((n) => (
         <div class="notice notice--warn small">
           <TriangleAlert size={15} />

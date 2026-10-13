@@ -505,10 +505,14 @@ export function progression(ex, last) {
 }
 
 // ---------- Tagesform ----------
+/** Muskelkater pro Muskelgruppe (neu) – ältere Einträge haben nur „keiner/leicht/stark“ insgesamt */
+export const soreOf = (form) => (form && form.sore && typeof form.sore === 'object' ? form.sore : {});
 export function formMode(form) {
   if (!form || !form.energy) return { mode: 'normal', label: null, pains: [] };
   const pains = (form.pains || []).filter((p) => p.level >= 4);
-  if (form.energy <= 2 || form.sleep === '< 6 h' || form.soreness === 'stark')
+  // Mit Angabe pro Muskel wird gezielt angepasst – dann macht starker Muskelkater nicht die ganze Einheit leicht
+  const globalSore = form.soreness === 'stark' && !Object.keys(soreOf(form)).length;
+  if (form.energy <= 2 || form.sleep === '< 6 h' || globalSore)
     return { mode: 'light', label: 'Leichte Version: 1 Satz weniger, ca. 10 % weniger Gewicht', pains };
   if (form.energy >= 5) return { mode: 'push', label: 'Top-Form: Versuch heute bei den Hauptübungen eine Wdh. mehr', pains };
   return { mode: 'normal', label: null, pains };
@@ -707,8 +711,15 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
     } else if (fm.mode === 'push' && ex.main && !pr.up) {
       reps = Math.min(ex.reps[1], reps + 1);
     }
+    // Starker Muskelkater im Zielmuskel: 1 Satz weniger, ~5 % leichter – Training hilft der Erholung, Vollgas nicht
+    const soreLv = soreOf(form)[priMg(ex.id)];
+    if (soreLv === 'stark' && !cb && !cw.deload && !tpl.away) {
+      sets = Math.max(2, sets - 1);
+      if (w && ex.inc) w = roundTo(w * 0.95, ex.inc || 0.5);
+      note = `Starker Muskelkater (${MUSCLE_LABEL[priMg(ex.id)]}): heute 1 Satz weniger und etwas leichter.`;
+    }
     // Stagnation: 4 Einheiten ohne Fortschritt → Reset (−10 %) und neu hocharbeiten
-    if (!cb && !cw.deload && fm.mode !== 'light' && !tpl.away && !ex.plyo && !pr.up && !(last && last.forced)) {
+    if (!cb && !cw.deload && fm.mode !== 'light' && !tpl.away && !ex.plyo && !pr.up && !(last && last.forced) && soreLv !== 'stark') {
       const st = stallInfo(ex.id);
       if (st && ex.inc > 0 && st.topW > 0) {
         w = roundTo(st.topW * 0.9, ex.inc || 0.5);
@@ -719,6 +730,7 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
         note = 'Seit 4 Einheiten kein Fortschritt – mach die Übung schwerer (langsamer, größere Bewegung, Zusatzgewicht) oder tausch sie gegen eine Variante.';
       }
     }
+    if (soreLv === 'stark' && reset) reset = false;
     if (tpl.away && /^URL[AB]$/.test(tpl.id)) {
       w = null;
       reps = ex.reps[1];
@@ -954,7 +966,10 @@ export function recommend(setup0 = setupOf(), k = todayKey()) {
   });
   const form = getDay(k).form;
   const tomorrowHB = isHB(tomorrowSetup, (d + 1) % 7);
-  const legsSore = form && form.soreness === 'stark';
+  const soreMap = soreOf(form);
+  const legsSore = form && (Object.keys(soreMap).length ? ['quad', 'beinbeuger', 'po'].some((m) => soreMap[m] === 'stark') : form.soreness === 'stark');
+  // Oberkörper stark verkatert → wenn möglich lieber eine andere Einheit
+  const soreHits = (sid) => sessionOf(sid).ex.filter((x) => EXERCISES[x] && soreMap[priMg(x)] === 'stark').length;
   const legPain = form && (form.pains || []).some((p) => ['Knie', 'Oberschenkel', 'Wade', 'Sprunggelenk', 'Hüfte'].includes(p.area) && p.level >= 5);
   const legsBlocked = tomorrowHB || yesterdayGame || legsSore || legPain;
   const reasons = [];
@@ -965,6 +980,13 @@ export function recommend(setup0 = setupOf(), k = todayKey()) {
   let sessionId;
   if (planned && left.includes(planned.sessionId) && !(sessionOf(planned.sessionId).legs && legsBlocked)) sessionId = planned.sessionId;
   else sessionId = left.find((s) => !(sessionOf(s).legs && legsBlocked));
+  if (sessionId && soreHits(sessionId) >= 2) {
+    const alt = left.find((x) => x !== sessionId && !(sessionOf(x).legs && legsBlocked) && soreHits(x) < soreHits(sessionId));
+    if (alt) {
+      reasons.push(`Starker Muskelkater in Muskeln von ${sessionOf(sessionId).name} – heute lieber ${sessionOf(alt).name}.`);
+      sessionId = alt;
+    }
+  }
   if (!sessionId && left.length) {
     sessionId = rot.find((s) => !sessionOf(s).legs) || left[0];
     reasons.push(tomorrowHB ? `Offen wäre noch ${sessionOf(left[0]).name} – aber morgen ${tomorrowGame ? 'Spiel' : sportOf(setup).name}. Heute lieber Oberkörper, Beine an einem anderen Tag.` : yesterdayGame ? 'Gestern Spiel – Beine bekommen heute Regeneration.' : 'Beine sind heute angeschlagen – Oberkörper geht vor.');

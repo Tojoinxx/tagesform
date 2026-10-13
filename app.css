@@ -2976,3 +2976,33 @@ a.btn {
 .opts--grid2 .opt span { font-size: 12.5px; }
 .algo__table tr.algo__now td { background: var(--accent-soft); }
 .sum__stats small { font-size: 11px; color: var(--muted); opacity: .85; }
+
+/* ---- Körpermodell ---- */
+.bm { --bm-body: #e2e5e9; --bm-muscle: #c9ced5; --bm-line: rgba(16, 24, 40, 0.10); --bm-hair: #9aa1aa; display: flex; gap: 10px; justify-content: center; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme='light']) .bm { --bm-body: #262c34; --bm-muscle: #3a424c; --bm-line: rgba(255, 255, 255, 0.06); --bm-hair: #565f6a; } }
+:root[data-theme='dark'] .bm { --bm-body: #262c34; --bm-muscle: #3a424c; --bm-line: rgba(255, 255, 255, 0.06); --bm-hair: #565f6a; }
+.bm__fig { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; max-width: 160px; }
+.bm--sm .bm__fig { max-width: 104px; }
+.bm--lg .bm__fig { max-width: 180px; }
+.bm__svg { width: 100%; height: auto; display: block; overflow: visible; }
+.bm__fig figcaption { font-size: 11.5px; color: var(--muted); }
+.bm__body { fill: var(--bm-body); }
+.bm__hair { fill: var(--bm-hair); }
+.bm__m { fill: var(--bm-muscle); stroke: var(--bm-line); stroke-width: 0.8; transition: fill 0.2s; }
+.bm__m--sec { fill: color-mix(in srgb, var(--accent) 38%, var(--bm-muscle)); }
+.bm__m--pri { fill: var(--accent); }
+.bm__m--sore1 { fill: var(--c); }
+.bm__m--sore2 { fill: var(--danger); }
+.bm__m--pulse:not(.bm__m--sore1):not(.bm__m--sore2):not(.bm__m--pri) { fill: var(--accent); }
+.bm__m--pulse { animation: bmpulse 1.3s ease-in-out infinite; }
+@keyframes bmpulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .bm__m--pulse { animation: none; } }
+.bm__m--tap { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.bm__m--tap:active { opacity: 0.7; }
+.bmlegend { display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: center; font-size: 12px; color: var(--muted); }
+.bmlegend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+
+.bmcard { display: flex; flex-direction: column; gap: 8px; }
+.bmcard .h3row { margin-bottom: 0; }
+.wellness .bm { margin: 4px 0; }
+.sorelist { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
