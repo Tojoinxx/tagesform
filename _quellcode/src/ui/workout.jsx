@@ -87,7 +87,7 @@ export function Workout() {
     persist(next, true);
     vibrate(25);
     const pf = prefsOf();
-    if (it.unit !== 'Sek.' && pf.rirPrompt) setRirOpen({ i, j });
+    if (it.unit !== 'Sek.' && !it.plyo && pf.rirPrompt) setRirOpen({ i, j });
     const secs = it.main ? pf.restMain : pf.restOther;
     const allDone = next.items[i].sets.every((x) => x.done);
     if (!(allDone && i === w.items.length - 1)) setRest({ until: Date.now() + secs * 1000, total: secs });

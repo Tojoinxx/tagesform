@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { useS, S, openSheet, closeSheet, saveActive, saveTraining, toast } from '../lib/store.js';
 import { guideOf, imgOf } from '../lib/exguide.js';
 import { EXERCISES, SESSIONS } from '../lib/exercises.js';
-import { buildSession, swapOptions, itemFor, setupOf, planIds, isCustom, mgOf, sessionOf, prefsOf, exOf } from '../lib/training.js';
+import { buildSession, swapOptions, itemFor, setupOf, planIds, isCustom, mgOf, sessionOf, prefsOf, exOf, sportExtras, sportOf } from '../lib/training.js';
 import { getDay } from '../lib/store.js';
 import { todayKey, n1, uid, norm } from '../lib/util.js';
 import { Sheet, Chip } from './common.jsx';
@@ -255,10 +255,12 @@ export function SessionPage({ query }) {
     saveIds(ids.filter((_, j) => j !== i));
     toast(`${it.name} entfernt`);
   };
+  const extras = sportExtras(setup).filter((x) => !ids.includes(x));
   const add = () =>
     openSheet('pick', {
       title: 'Übung hinzufügen',
       exclude: ids,
+      suggest: extras,
       onPick: (id) => {
         saveIds([...ids, id]);
         toast('Hinzugefügt');
@@ -326,6 +328,18 @@ export function SessionPage({ query }) {
       <button class="btn btn--block" onClick={add}>
         <Plus size={18} /> Übung hinzufügen
       </button>
+      {(tpl.my || custom) && !tpl.away && extras.length > 0 && (
+        <div class="sportsugg">
+          <span class="small muted">Passend zu {sportOf(setup).name} {sportOf(setup).emoji}:</span>
+          <div class="chips chips--wrap">
+            {extras.slice(0, 6).map((x) => (
+              <Chip small onClick={() => (saveIds([...ids, x]), toast(`${EXERCISES[x].name} hinzugefügt`))}>
+                + {EXERCISES[x].name}
+              </Chip>
+            ))}
+          </div>
+        </div>
+      )}
       <p class="small muted center">
         Änderungen werden dauerhaft in deinem Plan gespeichert.{' '}
         {custom && (

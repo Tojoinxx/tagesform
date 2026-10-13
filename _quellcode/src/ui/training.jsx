@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'preact/hooks';
 import { useS, S, saveTraining, saveActive, toast, patchDay, openSheet, getDay } from '../lib/store.js';
-import { EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName, SPORTS, sportOf, cycleWeek, weekSetup, gameDayForWeek, sessionOf, rotationOf, usesMyPlan } from '../lib/training.js';
+import { EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName, SPORTS, sportOf, cycleWeek, weekSetup, gameDayForWeek, sessionOf, rotationOf, usesMyPlan, SPORT_PROFILE } from '../lib/training.js';
 import { TrainingOptionsCard } from './planeditor.jsx';
+import { BreakCard, SickPanel, CardioPanel, endBreak, breakEmoji } from './breaks.jsx';
 import { weekStart, addDays, isoWeek } from '../lib/util.js';
 import { SESSIONS, ROTATIONS, EXERCISES, SPLITS } from '../lib/exercises.js';
-import { todayKey, uid, n1 } from '../lib/util.js';
+import { todayKey, uid, n1, fmtShortDate } from '../lib/util.js';
 import { Chip, Seg, Field } from './common.jsx';
 import { OtherTrainingCard, Last7Card, ENERGY } from './form.jsx';
 import { Dumbbell, Play, Check, Settings2, ChevronRight, Pencil, Sparkles, TriangleAlert, Info, Download } from 'lucide-preact';
@@ -104,6 +105,15 @@ export function SetupCard({ onDone, initial, embedded }) {
           <input class="input" value={st.sportName || ''} placeholder="z. B. Badminton, Klettern" onInput={(e) => set({ sportName: e.currentTarget.value })} />
         </Field>
       )}
+      {st.sport !== 'keiner' && SPORT_PROFILE[st.sport] && (
+        <label class="toggle">
+          <span>
+            <b>Plan auf {sp.name} zuschneiden</b>
+            <small class="muted">Baut passende Übungen ein: {SPORT_PROFILE[st.sport].focus}.</small>
+          </span>
+          <input type="checkbox" checked={st.sportFocus !== false} onChange={(e) => set({ sportFocus: e.currentTarget.checked })} />
+        </label>
+      )}
       {st.sport !== 'keiner' && (
         <Field group label={`${sp.name}-Training an`}>
           <div class="daypick">
@@ -177,7 +187,7 @@ function WeekRhythm({ setup: base }) {
   const today = new Date().getDay();
   return (
     <>
-    {plan.dropped && plan.dropped.length > 0 && (
+    {plan.dropped && plan.dropped.length > 0 && !(setup.blocked || []).length && (
       <div class="notice notice--warn small" style={{ marginBottom: '10px' }}>
         <span>
           Mit diesen Tagen passt {plan.dropped.map((x) => sessionOf(x).name).join(', ')} nirgends hin, ohne dass Beine direkt vor Training oder Spiel liegen – also {plan.length}× Gym diese Woche.
@@ -192,7 +202,7 @@ function WeekRhythm({ setup: base }) {
         return (
           <div class={'rhythm__d' + (d === today ? ' rhythm__d--today' : '') + (p ? ' rhythm__d--gym' : hb || game ? ' rhythm__d--hb' : '')}>
             <span class="rhythm__wd">{dayShort(d)}</span>
-            <span class="rhythm__what">{p ? sessionOf(p.sessionId).short : game ? 'Spiel' : hb ? sportOf(setup).emoji || '🏅' : '–'}</span>
+            <span class="rhythm__what">{setup.breakDays && setup.breakDays[d] ? breakEmoji(setup.breakDays[d]) : p ? sessionOf(p.sessionId).short : game ? 'Spiel' : hb ? sportOf(setup).emoji || '🏅' : '–'}</span>
           </div>
         );
       })}
@@ -262,16 +272,39 @@ function TodayCard({ setup }) {
   const s = useS();
   const rec = recommend(setup);
   const [pick, setPick] = useState(null);
+  if (rec.status === 'sick')
+    return (
+      <section class="card today-tr">
+        <SickPanel rec={rec} />
+      </section>
+    );
+  if (rec.status === 'urlaub-frei')
+    return (
+      <section class="card today-tr">
+        <div class="today-tr__head">
+          <span class="today-tr__badge">🏖️</span>
+          <div>
+            <h2>Schönen Urlaub!</h2>
+            <p class="muted small">Kein Training geplant{rec.brk.to ? ` bis ${fmtShortDate(rec.brk.to)}` : ''} – genieß die Erholung. Danach startest du automatisch sanft wieder ein.</p>
+          </div>
+        </div>
+        <button class="btn--link small" onClick={() => endBreak(rec.brk)}>
+          Urlaub vorzeitig beenden
+        </button>
+      </section>
+    );
+  const away = !!rec.brk;
   const sessionId = pick || rec.sessionId;
+  const tpl = sessionOf(sessionId);
   const sess = buildSession(sessionId, setup);
-  const showPlan = rec.status === 'train' || rec.status === 'free' || pick;
+  const showPlan = rec.status === 'train' || rec.status === 'free' || rec.status === 'urlaub' || pick;
 
   return (
-    <section class="card today-tr">
+    <section class={'card today-tr' + (away ? ' today-tr--away' : '')}>
       <div class="today-tr__head">
         <span class="today-tr__badge tnum">
           {rec.doneThisWeek}/{rec.perWeek}
-          <small>Gym diese Woche</small>
+          <small>{away ? 'Urlaub diese Woche' : 'Gym diese Woche'}</small>
         </span>
         <div>
           {rec.status === 'game' && !pick ? (
@@ -296,6 +329,11 @@ function TodayCard({ setup }) {
               <h2>Heute erledigt ✓</h2>
               <p class="muted small">{rec.doneToday.name} – stark! Jetzt Eiweiß und Schlaf.</p>
             </>
+          ) : rec.status === 'urlaub-ziel' && !pick ? (
+            <>
+              <h2>Urlaubsziel erreicht 🏖️</h2>
+              <p class="muted small">Damit bleiben deine Muskeln erhalten. Genieß den Rest der Woche – oder:</p>
+            </>
           ) : rec.status === 'goal' && !pick ? (
             <>
               <h2>Wochenziel erreicht</h2>
@@ -303,7 +341,7 @@ function TodayCard({ setup }) {
             </>
           ) : (
             <>
-              <span class="small muted">{pick ? 'Gewählt' : rec.status === 'free' ? 'Kein fester Gym-Tag – wenn du Zeit hast' : 'Heute dran'}</span>
+              <span class="small muted">{pick ? 'Gewählt' : away ? '🏖️ Urlaubs-Training – wann es passt' : rec.status === 'free' ? 'Kein fester Gym-Tag – wenn du Zeit hast' : 'Heute dran'}</span>
               <h2>{sess.name}</h2>
               <p class="muted small">{sess.focus}</p>
             </>
@@ -328,9 +366,10 @@ function TodayCard({ setup }) {
               </button>
             );
           })()}
-          <button class={'cyclechip' + (sess.cycle && sess.cycle.deload ? ' cyclechip--deload' : '')} onClick={() => openSheet('algo')}>
+          {!tpl.away && <button class={'cyclechip' + (sess.cycle && sess.cycle.deload ? ' cyclechip--deload' : '')} onClick={() => openSheet('algo')}>
             {sess.cycle.off ? 'Gleichbleibend' : `Woche ${sess.cycle.n}/5 · ${sess.cycle.label}`} · RIR {sess.cycle.rir} <Info size={14} />
-          </button>
+          </button>}
+          {tpl.away && !tpl.cardio && <div class="notice notice--ok small"><span>Erhaltungs-Training: Weniger Volumen reicht, solange die Sätze fordernd sind – so verlierst du im Urlaub weder Kraft noch Muskeln.</span></div>}
           {!pick && rec.reasons.filter((r) => rec.status !== 'free' || !r.startsWith('Kein fester')).map((r) => <div class="notice small"><span>{r}</span></div>)}
           {sess.modeLabel && (
             <div class={'notice small ' + (sess.mode === 'light' || sess.mode === 'comeback' ? 'notice--info' : 'notice--ok')}>
@@ -343,6 +382,7 @@ function TodayCard({ setup }) {
               <span>{n}</span>
             </div>
           ))}
+          {tpl.cardio ? <CardioPanel sessionId={sessionId} key={sessionId} /> : <>
           <div class="exlist exlist--c">
             {sess.items.map((it) => (
               <ExCard it={it} compact />
@@ -356,7 +396,13 @@ function TodayCard({ setup }) {
               <Play size={18} fill="currentColor" /> Starten
             </button>
           </div>
+          </>}
         </>
+      )}
+      {!showPlan && rec.status === 'urlaub-ziel' && (
+        <button class="btn btn--block" onClick={() => setPick(rec.sessionId)}>
+          {sessionOf(rec.sessionId).name} trotzdem machen
+        </button>
       )}
       {!showPlan && rec.status === 'goal' && (
         <button class="btn btn--block" onClick={() => setPick(rec.sessionId)}>
@@ -371,7 +417,7 @@ function TodayCard({ setup }) {
       {showPlan && (
         <div class="chips chips--wrap">
           <span class="small muted">Lieber was anderes:</span>
-          {rec.rot
+          {[...new Set(rec.rot)]
             .filter((x) => x !== sessionId)
             .map((x) => (
               <Chip small onClick={() => setPick(x)}>
@@ -379,6 +425,11 @@ function TodayCard({ setup }) {
               </Chip>
             ))}
         </div>
+      )}
+      {away && (
+        <button class="btn--link small" onClick={() => confirm('Urlaub beenden und zum normalen Plan zurück?') && endBreak(rec.brk)}>
+          Urlaub beenden
+        </button>
       )}
     </section>
   );
@@ -457,6 +508,7 @@ export function Training() {
       {hasSetup && !editing && (
         <>
           {!s.active && <TodayCard setup={setup} />}
+          <BreakCard />
           <h4 class="sect sect--page">Dein Wochenrhythmus</h4>
           <section class="card">
             <WeekRhythm setup={setup} />

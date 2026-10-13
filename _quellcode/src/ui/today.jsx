@@ -1,7 +1,7 @@
 import { useS, getDay, patchDay, openSheet, setS } from '../lib/store.js';
 import { daySums, mealSums, MEALS, targetsOf } from '../lib/nutrition.js';
 import { addDays, fmtDayTitle, fmtShortDate, liters, n0, todayKey, parseKey, n1, isoWeek, weekStart, WD_SHORT } from '../lib/util.js';
-import { weekPlan, setupOf, sportOf, isSportEntry, weekSetup, sessionOf } from '../lib/training.js';
+import { weekPlan, setupOf, sportOf, isSportEntry, weekSetup, sessionOf, breakOn } from '../lib/training.js';
 import { SESSIONS } from '../lib/exercises.js';
 import { S } from '../lib/store.js';
 import { Ring, Bar } from './common.jsx';
@@ -207,6 +207,7 @@ function WeekStrip({ k, target }) {
         const hbDone = (day.training || []).some((t) => isSportEntry(t, setup));
         const hbPlanned = hasPlan && ((setup.handballDays || []).includes(wd) || setup.gameDay === wd);
         const gym = plan.find((p) => p.d === wd);
+        const brk = hasPlan ? breakOn(key) : null;
         return (
           <button
             role="tab"
@@ -221,7 +222,9 @@ function WeekStrip({ k, target }) {
               <span class="wk__num tnum">{d.getDate()}</span>
             </span>
             <span class="wk__ic">
-              {workouts.length > 0 ? (
+              {brk && !workouts.length ? (
+                <span class="wk__tag">{brk.type === 'krank' ? '🤒' : '🏖️'}</span>
+              ) : workouts.length > 0 ? (
                 <span class="wk__tag wk__tag--done">
                   <Dumbbell size={11} /> ✓
                 </span>

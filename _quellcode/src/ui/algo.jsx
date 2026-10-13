@@ -1,5 +1,5 @@
 import { useS, saveTraining, S, toast } from '../lib/store.js';
-import { CYCLE, cycleWeek, weeklyVolume, MUSCLE_LABEL, setupOf, sportOf, hasSport } from '../lib/training.js';
+import { CYCLE, cycleWeek, weeklyVolume, MUSCLE_LABEL, setupOf, sportOf, hasSport, SPORT_PROFILE } from '../lib/training.js';
 import { todayKey, n1 } from '../lib/util.js';
 import { Sheet } from './common.jsx';
 import { Battery } from './workout.jsx';
@@ -194,6 +194,12 @@ export function AlgoSheet() {
             Danach geht es direkt mit deinen alten Gewichten weiter. Kraft hält sich etwa 2–3 Wochen gut und kommt nach Pausen schnell zurück – der vorsichtige Start schützt vor starkem Muskelkater und überlasteten Sehnen. Einzelne Übungen, die du über 4 Wochen nicht gemacht hast, starten ~10 % leichter.
           </li>
           <li>
+            <b>Krank:</b> Mit „Krank melden“ pausiert der Plan. Faustregel („Neck Check“): Beschwerden nur oberhalb des Halses ohne Fieber → lockere Bewegung ok; Fieber, Husten, Gliederschmerzen → kein Sport. Danach startest du leichter: ab 3 Tagen krank 1 Einheit −10 %, mit Fieber oder ab 7 Tagen 2 Einheiten (−20 %, −10 %, weniger Sätze). Sprünge kommen erst danach wieder dazu.
+          </li>
+          <li>
+            <b>Urlaub:</b> Ohne Gym gibt es einen Erhaltungsplan (Körpergewicht oder Kurzhanteln, plus Laufen nach Wunsch). Studien zeigen: Schon etwa ⅓ des normalen Volumens und 1–2 Einheiten pro Woche erhalten Kraft und Muskeln, wenn die Sätze fordernd sind. Wer im Urlaub so weitertrainiert, braucht danach nur einen kurzen Wiedereinstieg.
+          </li>
+          <li>
             <b>Deload (Woche 5):</b> halbe Sätze, leichter. Die Studienlage dazu ist noch dünn – kurze Entlastung kostet aber keine Muskeln und hilft Gelenken und Kopf, gerade neben Vereinssport.
           </li>
         </ul>
@@ -202,6 +208,12 @@ export function AlgoSheet() {
       {hasSport(setup) && (
         <Sec icon={<Shield size={18} />} title={`7. Abgestimmt auf ${sp.name}`}>
           <ul class="algo__list">
+            {SPORT_PROFILE[sp.id] && setup.sportFocus !== false && (
+              <li>
+                <b>Schwerpunkt für {sp.name}:</b> {SPORT_PROFILE[sp.id].focus}. Passende Übungen werden in deine Einheiten eingebaut
+                {SPORT_PROFILE[sp.id].athletic.length ? ' – Sprünge bzw. Würfe am Anfang der Bein-Tage, solange du frisch bist (wenige, explosive Wiederholungen, volle Pause)' : ''}. Abschaltbar unter „Plan anpassen“.
+              </li>
+            )}
             <li>Keine schweren Bein-Einheiten am Tag vor dem {sp.name}-Training.</li>
             {sp.games && (
               <li>
@@ -238,6 +250,10 @@ export function AlgoSheet() {
           <li>Andersson et al. (2017): Schulter-Präventionsprogramm im Handball. Br J Sports Med.</li>
           <li>van Dyk et al. (2019): Nordic Hamstring halbiert Oberschenkelzerrungen. Br J Sports Med.</li>
           <li>Harøy et al. (2019): Copenhagen-Adduktorenprogramm gegen Leistenprobleme. Br J Sports Med.</li>
+          <li>Markovic (2007): Plyometrisches Training verbessert die Sprunghöhe – Meta-Analyse. Br J Sports Med.</li>
+          <li>Hewett et al. (1999): Sprung- und Landetraining senkt Knieverletzungen bei Sportlerinnen. Am J Sports Med.</li>
+          <li>Hupperets, Verhagen & van Mechelen (2009): Balancetraining gegen erneutes Umknicken. BMJ.</li>
+          <li>Eichner (1993): Infekt und Sport – der „Neck Check“. Phys Sportsmed.</li>
         </ul>
         <p class="small muted">Hinweis: Das ist eine allgemeine Trainingslogik, keine medizinische Beratung. Bei anhaltenden Schmerzen lieber ärztlich oder physiotherapeutisch abklären lassen.</p>
       </Sec>

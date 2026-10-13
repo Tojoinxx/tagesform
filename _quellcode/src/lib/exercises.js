@@ -75,6 +75,15 @@ Object.assign(SESSIONS, {
   BBPA: { id: 'BBPA', name: 'Po & Beine A', short: 'Po A', focus: 'Po-Fokus mit Kraft', legs: true, ex: ['hip-thrust', 'plie-squat', 'rdl', 'reverse-lunge', 'abduktoren', 'kabel-kickback', 'reverse-crunch'] },
   BBPB: { id: 'BBPB', name: 'Po & Beine B', short: 'Po B', focus: 'Po seitlich, Beine & Bauch', legs: true, ex: ['beinpresse', 'pull-through', 'curtsy-lunge', 'beinbeuger', 'glute-bridge-einbeinig', 'seitstuetz', 'fahrrad-crunch'] },
   OKBAUCH: { id: 'OKBAUCH', name: 'Oberkörper & Bauch', short: 'OK+Bauch', focus: 'Rücken, Schultern, Arme & Bauch', legs: false, ex: ['latzug', 'brustpresse', 'rudern-kabel', 'schulterpresse', 'seitheben', 'trizeps-kabel', 'holzhacker'] },
+  // Urlaub / unterwegs – Muskeln erhalten (2× pro Woche reicht dafür, wenn die Sätze fordernd sind)
+  URLA: { id: 'URLA', name: 'Urlaub Ganzkörper A', short: 'Urlaub A', focus: 'Ohne Geräte · ca. 30 Min', legs: true, away: true, ex: ['kniebeuge-kg', 'liegestuetz', 'inverted-row', 'glute-bridge', 'bench-dips', 'plank'] },
+  URLB: { id: 'URLB', name: 'Urlaub Ganzkörper B', short: 'Urlaub B', focus: 'Ohne Geräte · ca. 30 Min', legs: true, away: true, ex: ['split-squat', 'liegestuetz-erhoeht', 'klimmzug', 'standwaage', 'superman', 'seitstuetz'] },
+  URLKA: { id: 'URLKA', name: 'Urlaub Kurzhantel A', short: 'KH A', focus: 'Kurzhanteln / kleines Hotel-Gym · ca. 35 Min', legs: true, away: true, ex: ['goblet', 'kh-bank', 'rudern-kh', 'reverse-lunge', 'schulterdruecken', 'plank'] },
+  URLKB: { id: 'URLKB', name: 'Urlaub Kurzhantel B', short: 'KH B', focus: 'Kurzhanteln / kleines Hotel-Gym · ca. 35 Min', legs: true, away: true, ex: ['split-squat', 'schraeg-kh', 'rudern-kh', 'glute-bridge-einbeinig', 'seitheben', 'bizeps-kh', 'seitstuetz'] },
+  LAUF1: { id: 'LAUF1', name: 'Lockerer Lauf', short: 'Laufen', focus: '30–45 Min. ruhig', legs: false, away: true, cardio: true, ex: [], minutes: 40,
+    steps: ['5 Min. zügig gehen zum Aufwärmen.', '30–40 Min. so locker laufen, dass du dich noch unterhalten könntest (Puls ca. 60–70 % vom Maximum).', 'Lieber langsamer als zu schnell – Gehpausen sind völlig ok.', '5 Min. auslaufen, danach kurz Waden und Hüfte dehnen.'] },
+  LAUF2: { id: 'LAUF2', name: 'Intervall-Lauf', short: 'Intervalle', focus: 'ca. 30 Min. mit Tempowechsel', legs: false, away: true, cardio: true, ex: [], minutes: 30,
+    steps: ['10 Min. locker einlaufen.', '6 × 1 Min. zügig (anstrengend, aber kontrolliert), dazwischen je 2 Min. locker traben oder gehen.', 'Für Mannschaftssportler: 6–8 kurze Sprints à 10–15 s mit voller Erholung passen hier gut.', '5 Min. locker auslaufen.'] },
   ARME: { id: 'ARME', name: 'Schultern & Arme', short: 'Arme', focus: 'Schultern, Bizeps, Trizeps', legs: false, ex: ['schulterpresse', 'seitheben-kabel', 'reverse-fly', 'sz-curl', 'french-press', 'hammercurls', 'trizeps-kabel'] },
 });
 

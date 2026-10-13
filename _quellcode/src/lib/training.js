@@ -73,14 +73,54 @@ export function cycleWeek(k = todayKey()) {
 }
 
 /** Vorlage an die Sportart anpassen (Prävention nur, wo sie Sinn ergibt) */
+// ---------- Sportart-spezifisches Training ----------
+// Je Sportart: Schwerpunkt, Schnellkraft (athletic, kommt an den Anfang – frisch ausführen),
+// Unterkörper- und Oberkörper-Ergänzungen (Prävention & Leistung). Wird in die Tagesform-Pläne eingebaut.
+export const SPORT_PROFILE = {
+  handball: { focus: 'Wurfschulter, Sprungkraft, Richtungswechsel, Beinbeuger & Leiste', athletic: ['box-jump', 'lateral-bound'], lower: ['nordic', 'copenhagen'], upper: ['aussenrotation', 'medball-rotation'] },
+  fussball: { focus: 'Sprint & Richtungswechsel, Beinbeuger (Nordics) & Leiste (Copenhagen)', athletic: ['lateral-bound', 'jump-squat'], lower: ['nordic', 'copenhagen'], upper: ['pallof'] },
+  basketball: { focus: 'Sprungkraft, saubere Landung, Sprunggelenk & Waden', athletic: ['box-jump', 'einbein-hops'], lower: ['split-squat', 'wadenheben'], upper: ['medball-chest', 'pallof'] },
+  volleyball: { focus: 'Sprungkraft, Landung, Schulterstabilität', athletic: ['box-jump', 'einbein-hops'], lower: ['split-squat', 'wadenheben'], upper: ['aussenrotation', 'facepull'] },
+  hockey: { focus: 'Leiste & Hüfte, Rotationskraft, unterer Rücken', athletic: ['lateral-bound'], lower: ['copenhagen', 'nordic'], upper: ['medball-rotation', 'pallof'] },
+  tennis: { focus: 'Rotationskraft, Schulter (Außenrotation), seitliche Beinarbeit', athletic: ['lateral-bound'], lower: ['split-squat', 'copenhagen'], upper: ['aussenrotation', 'medball-rotation'] },
+  laufen: { focus: 'Waden & Achillessehne, einbeinige Stabilität, Hüfte', athletic: ['einbein-hops'], lower: ['wadenheben', 'standwaage'], upper: ['seitstuetz', 'pallof'] },
+  schwimmen: { focus: 'Schulterstabilität, Latissimus, Rumpf', athletic: [], lower: ['plank'], upper: ['aussenrotation', 'straight-pulldown'] },
+  kampfsport: { focus: 'Rotationskraft, Hüftstreckung, Griff & Rumpf', athletic: ['medball-slam'], lower: ['kb-swing', 'pallof'], upper: ['medball-rotation', 'farmers-walk'] },
+  radfahren: { focus: 'Rücken & Haltung (Gegenpol zum Sitzen), einbeinige Kraft, Po', athletic: [], lower: ['split-squat', 'hip-thrust'], upper: ['facepull', 'hyperextension'] },
+  andere: { focus: 'Allgemeine Athletik: Sprungkraft, Rumpf, Verletzungsprävention', athletic: ['jump-squat'], lower: ['split-squat'], upper: ['pallof'] },
+};
+export const sportProfile = (setup = setupOf()) => (setup.sport && setup.sport !== 'keiner' && setup.sportFocus !== false ? SPORT_PROFILE[setup.sport] || null : null);
+/** Alle sportspezifischen Übungen (für Vorschläge in eigenen Plänen) */
+export const sportExtras = (setup = setupOf()) => {
+  const p = SPORT_PROFILE[setup.sport];
+  return p ? [...new Set([...p.athletic, ...p.lower, ...p.upper])].filter((id) => EXERCISES[id]) : [];
+};
+
 function templateIds(tpl, setup) {
   const sp = sportOf(setup);
-  return tpl.ex.map((id) => {
+  let ids = tpl.ex.map((id) => {
     if (id === 'aussenrotation' && !sp.overhead) return 'reverse-fly';
     if (id === 'nordic' && !sp.sprint) return 'beinbeuger';
     if (id === 'copenhagen' && !sp.sprint) return 'pallof';
     return id;
   });
+  const prof = sportProfile(setup);
+  if (!prof || tpl.away) return ids;
+  const mixed = tpl.legs && /^(GK|BBP)/.test(tpl.id);
+  const lowerSess = tpl.legs && !mixed;
+  const add = (list, n) => list.filter((x) => EXERCISES[x] && (ids.indexOf(x) < 0 || ids.indexOf(x) >= 3)).slice(0, n);
+  const extra = lowerSess ? add(prof.lower, 2) : mixed ? [...add(prof.lower, 1), ...add(prof.upper, 1)] : add(prof.upper, 2);
+  // Ergänzungen direkt nach den Hauptübungen (auch wenn sie schon weiter hinten stehen),
+  // damit sie bei kurzer Trainingszeit nicht rausfallen
+  ids = ids.filter((x) => !extra.includes(x));
+  ids.splice(3, 0, ...extra);
+  // Schnellkraft an den Anfang (nach dem Aufwärmen, solange du frisch bist) – nur an Bein-/Ganzkörpertagen
+  if (tpl.legs && prof.athletic.length) {
+    const a = prof.athletic.filter((x) => EXERCISES[x] && !ids.includes(x));
+    const pickA = a[(tpl.id.charCodeAt(tpl.id.length - 1) || 0) % a.length];
+    if (pickA) ids.unshift(pickA);
+  }
+  return [...new Set(ids)];
 }
 
 const exCount = (minutes) => (minutes <= 45 ? 5 : minutes >= 75 ? 7 : 6);
@@ -202,6 +242,26 @@ export function formMode(form) {
 
 const hits = (ex, areas) => ex.stress.filter((s) => areas.includes(s));
 
+// ---------- Krank & Urlaub ----------
+// training.breaks = { id: { type: 'krank'|'urlaub', from, to?, fever?, equip?: 'koerper'|'kh'|'gym'|'frei', perWeek?, run? } }
+export const breaksList = () => Object.values((S.training && S.training.breaks) || {}).filter((b) => b && b.from).sort((a, b) => (a.from < b.from ? 1 : -1));
+export const breakOn = (k = todayKey()) => breaksList().find((b) => b.from <= k && (!b.to || b.to >= k)) || null;
+/** Blockiert die Pause das normale Gym-Training? (Urlaub mit vollem Gym = normaler Plan) */
+export const breakBlocks = (b) => !!b && (b.type === 'krank' || b.equip !== 'gym');
+export const isAwaySession = (sid) => /^(URL|LAUF)/.test(sid || '');
+export function awayRotation(b) {
+  const strength = b.equip === 'kh' ? ['URLKA', 'URLKB'] : b.equip === 'koerper' ? ['URLA', 'URLB'] : [];
+  const n = strength.length ? Math.max(1, Math.min(4, Number(b.perWeek) || 2)) : 0;
+  const runs = Math.max(0, Math.min(3, Number(b.run) || 0));
+  return [...Array.from({ length: n }, (_, i) => strength[i % 2]), ...Array.from({ length: runs }, (_, i) => (i % 2 ? 'LAUF2' : 'LAUF1'))];
+}
+/** Zuletzt beendete Krankheit (bis 4 Wochen zurück) */
+function lastSick(k) {
+  return breaksList()
+    .filter((b) => b.type === 'krank' && b.to && b.to < k && daysBetween(b.to, k) <= 28)
+    .sort((a, b) => (a.to < b.to ? 1 : -1))[0] || null;
+}
+
 // ---------- Wiedereinstieg nach Pause ----------
 // Kraft bleibt ~2–3 Wochen weitgehend erhalten, danach geht sie langsam zurück – kommt aber schnell wieder („Muscle Memory“).
 // Nach einer Pause starten die ersten Einheiten leichter und mit weniger Sätzen, dann geht es stufenweise zurück aufs alte Niveau.
@@ -215,13 +275,26 @@ const daysBetween = (a, b) => Math.round((parseKey(b) - parseKey(a)) / 864e5);
 /** Wie lange war die Pause, und in welcher Stufe des Wiedereinstiegs bist du? */
 export function comebackState(k = todayKey()) {
   if (!prefsOf().comeback) return null;
-  const log = workoutLog().filter((w) => w.date <= k);
-  if (!log.length) return null;
+  const all = workoutLog().filter((w) => w.date <= k);
+  const log = all.filter((w) => !isAwaySession(w.sessionId));
+  // Nach Krankheit: Fieber oder ≥ 7 Tage → 2 leichtere Einheiten, ab 3 Tagen → 1 leichtere Einheit
+  let sickCb = null;
+  const sick = lastSick(k);
+  if (sick) {
+    const dur = daysBetween(sick.from, sick.to) + 1;
+    const steps = sick.fever || dur >= 7 ? [0.8, 0.9] : dur >= 3 ? [0.9] : [];
+    const after = log.filter((w) => w.date > sick.to).length;
+    if (steps.length && after < steps.length) sickCb = { min: 0, label: 'nach Krankheit', steps, setsMinus: 1, rir: 3, sick: true, fever: !!sick.fever, gap: dur, step: after, factor: steps[after], total: steps.length, restartCycle: dur >= 7, maxSets: sick.fever ? 2 : undefined };
+  }
+  const pickStronger = (a) => (!a ? sickCb : !sickCb ? a : sickCb.factor < a.factor ? sickCb : a);
+  if (!log.length) return pickStronger(null);
   const gapNow = daysBetween(log[0].date, k);
   const levelFor = (gap) => [...COMEBACK].reverse().find((c) => gap >= c.min) || null;
   if (gapNow >= COMEBACK[0].min) {
-    const lv = levelFor(gapNow);
-    return { ...lv, gap: gapNow, step: 0, factor: lv.steps[0], total: lv.steps.length };
+    let lv = levelFor(gapNow);
+    // Im Urlaub mit Körpergewicht/Laufen weitertrainiert → Muskeln erhalten, nur kurzer Wiedereinstieg
+    if (all.some((w) => isAwaySession(w.sessionId) && w.date > log[0].date)) lv = COMEBACK[0];
+    return pickStronger({ ...lv, gap: gapNow, step: 0, factor: lv.steps[0], total: lv.steps.length });
   }
   // laufender Wiedereinstieg: wie viele Einheiten seit der Pause schon gemacht?
   const recent = [];
@@ -229,15 +302,20 @@ export function comebackState(k = todayKey()) {
     if (!w.comeback) break;
     recent.push(w);
   }
-  if (!recent.length) return null;
-  const gap = recent[recent.length - 1].comeback.gap;
-  const lv = levelFor(gap);
-  if (!lv || recent.length >= lv.steps.length) return null;
-  return { ...lv, gap, step: recent.length, factor: lv.steps[recent.length], total: lv.steps.length };
+  if (!recent.length) return pickStronger(null);
+  const first = recent[recent.length - 1].comeback;
+  if (first.sick) return pickStronger(null);
+  const lv = COMEBACK.find((c) => c.steps.length === first.total) || levelFor(first.gap);
+  if (!lv || recent.length >= lv.steps.length) return pickStronger(null);
+  return pickStronger({ ...lv, gap: first.gap, step: recent.length, factor: lv.steps[recent.length], total: lv.steps.length });
 }
 
 export const comebackText = (cb) =>
-  cb ? `Willkommen zurück! ${cb.gap} Tage Pause – Wiedereinstieg ${cb.step + 1}/${cb.total}: ca. ${Math.round((1 - cb.factor) * 100)} % leichter und weniger Sätze, damit Muskeln, Sehnen und Gelenke sich wieder gewöhnen.` : null;
+  !cb
+    ? null
+    : cb.sick
+      ? `Schön, dass du wieder fit bist! Nach ${cb.gap} ${cb.gap === 1 ? 'Tag' : 'Tagen'} krank${cb.fever ? ' mit Fieber' : ''} – Einheit ${cb.step + 1}/${cb.total}: ca. ${Math.round((1 - cb.factor) * 100)} % leichter und weniger Sätze. Der Körper braucht nach einer Infektion noch etwas Erholung.`
+      : `Willkommen zurück! ${cb.gap} Tage Pause – Wiedereinstieg ${cb.step + 1}/${cb.total}: ca. ${Math.round((1 - cb.factor) * 100)} % leichter und weniger Sätze, damit Muskeln, Sehnen und Gelenke sich wieder gewöhnen.`;
 
 /** Einheit für heute zusammenbauen */
 export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKey()).form) {
@@ -247,8 +325,8 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
   const strongPain = fm.pains.filter((p) => p.level >= 7).map((p) => p.area);
   const custom = S.training && S.training.custom && S.training.custom[sessionId];
   let ids = custom ? custom.filter((id) => EXERCISES[id]) : tpl.my ? tpl.ex.slice() : templateIds(tpl, setup);
-  const cb = comebackState();
-  const cw = cb && cb.restartCycle && cb.step === 0 ? { ...CYCLE[0], index: 0, n: 1 } : cycleWeek();
+  const cb = tpl.away ? null : comebackState();
+  const cw = tpl.away ? { label: 'Erhalt', rir: 2, extra: 0, off: true, n: 0, index: -1 } : cb && cb.restartCycle && cb.step === 0 ? { ...CYCLE[0], index: 0, n: 1 } : cycleWeek();
   const gameWeek = weekSetup(setup).gameDay != null && tpl.legs;
   if (setup.experience === 'anfaenger' && !custom && !tpl.my) ids = ids.map((id) => (id === 'kniebeuge' ? 'goblet' : id === 'rdl' ? 'hip-thrust' : id === 'klimmzug-assist' ? 'latzug' : id));
   const used = new Set();
@@ -274,8 +352,15 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
     used.add(ex.id);
     items.push({ ex, adaptedFrom });
   }
-  const count = custom || tpl.my ? 99 : exCount(setup.minutes);
-  const chosen = items.slice(0, count);
+  const prof = sportProfile(setup);
+  const count = custom || tpl.my || tpl.away ? 99 : exCount(setup.minutes) + (prof && tpl.legs ? 1 : 0);
+  // Sprünge/Würfe nur, wenn du fit bist: nicht im Wiedereinstieg und nicht an „leichten“ Tagen
+  let chosen = items.slice(0, count);
+  if (cb || fm.mode === 'light') {
+    const dropped = chosen.filter((x) => x.ex.plyo);
+    chosen = chosen.filter((x) => !x.ex.plyo);
+    if (dropped.length) notes.push(`${dropped.map((x) => x.ex.name).join(', ')} heute weggelassen – Sprünge erst wieder, wenn du ganz fit bist.`);
+  }
   const out = chosen.map(({ ex: ex0, adaptedFrom }) => {
     const ex = exOf(ex0.id);
     const last = lastFor(ex.id);
@@ -323,6 +408,18 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
     } else if (fm.mode === 'push' && ex.main && !pr.up) {
       reps = Math.min(ex.reps[1], reps + 1);
     }
+    if (tpl.away && /^URL[AB]$/.test(tpl.id)) {
+      w = null;
+      reps = ex.reps[1];
+      sets = Math.min(sets, 3);
+      note = ex.unit === 'Sek.' ? 'So lange sauber halten, wie es geht – bis kurz vor Schluss.' : 'Ohne Gewicht: so viele saubere Wdh., bis nur noch 1–2 gehen würden. Langsam runter (3 Sek.) macht es schwerer.';
+    }
+    if (ex.plyo) {
+      sets = ex.sets || (cw.deload ? 2 : 3);
+      rir = null;
+      if (!(last && last.forced)) w = ex.inc ? pr.w : null;
+      note = 'Schnellkraft: jede Wiederholung explosiv und sauber, 1–2 Min. Pause. Aufhören, sobald es langsamer wird.';
+    }
     if (adaptedFrom && adaptedFrom.keep) note = `Achtung ${adaptedFrom.why}: nur schmerzfrei, eher leichter.`;
     return {
       exId: ex.id,
@@ -331,6 +428,7 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
       unit: ex.unit,
       cue: ex.cue,
       main: !!ex.main,
+      plyo: !!ex.plyo,
       repRange: ex.reps,
       inc: ex.inc,
       target: { w, reps, rir },
@@ -342,7 +440,7 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
   });
   const mode = cb ? 'comeback' : cw.deload ? 'deload' : fm.mode;
   const modeLabel = cb ? comebackText(cb) : cw.deload ? 'Deload-Woche: halbe Sätze, ~10 % weniger Gewicht' : fm.label || (gameWeek ? 'Spielwoche: 1 Satz weniger pro Übung, Gewichte bleiben – frische Beine fürs Spiel.' : null);
-  return { sessionId, name: tpl.name, focus: tpl.focus, items: out, mode, modeLabel, notes, pains: fm.pains, cycle: cw, comeback: cb ? { gap: cb.gap, step: cb.step, total: cb.total, restartCycle: !!cb.restartCycle } : null };
+  return { sessionId, name: tpl.name, focus: tpl.focus, items: out, mode, modeLabel, notes, pains: fm.pains, cycle: cw, comeback: cb ? { gap: cb.gap, step: cb.step, total: cb.total, restartCycle: !!cb.restartCycle, sick: !!cb.sick } : null };
 }
 
 /** Übung im laufenden Training tauschen (z. B. Gerät besetzt) */
@@ -377,14 +475,28 @@ export function gameDayForWeek(setup, ws) {
   return setup.gameDay ?? null;
 }
 /** Setup mit dem Spieltag der Woche, in der k liegt */
-export const weekSetup = (setup, k = todayKey()) => ({ ...setup, gameDay: sportOf(setup).games ? gameDayForWeek(setup, weekStart(k)) : null });
+export const weekSetup = (setup, k = todayKey()) => {
+  const ws = weekStart(k);
+  const blocked = [];
+  const brk = {};
+  for (let i = 0; i < 7; i++) {
+    const key = addDays(ws, i);
+    const b = breakOn(key);
+    if (b && breakBlocks(b)) {
+      const d = parseKey(key).getDay();
+      blocked.push(d);
+      brk[d] = b.type;
+    }
+  }
+  return { ...setup, gameDay: sportOf(setup).games ? gameDayForWeek(setup, ws) : null, blocked, breakDays: brk };
+};
 
 /** Empfohlene Gym-Tage: bewertet alle Kombinationen und nimmt die beste
  *  (keine Beine vor Handball/Spiel, max. 2 Gym-Tage unter der Woche, Wochenende nutzen, Pausen dazwischen) */
 export function weekPlan(setup = weekSetup(setupOf())) {
   const rot = rotationOf(setup);
   const order = [1, 2, 3, 4, 5, 6, 0];
-  const free = order.filter((d) => !isHB(setup, d) && !isGame(setup, (d + 1) % 7) && (!setup.gymDays || !setup.gymDays.length || setup.gymDays.includes(d)));
+  const free = order.filter((d) => !isHB(setup, d) && !isGame(setup, (d + 1) % 7) && !(setup.blocked || []).includes(d) && (!setup.gymDays || !setup.gymDays.length || setup.gymDays.includes(d)));
   const n = Math.min(rot.length, free.length);
   const combos = [];
   const pick = (start, acc) => {
@@ -448,11 +560,37 @@ export function weekPlan(setup = weekSetup(setupOf())) {
   return plan;
 }
 
+function recommendBreak(brk, k) {
+  const ws = weekStart(k);
+  const log = workoutLog();
+  const base = { brk, reasons: [], tomorrowGame: false, yesterdayGame: false, planned: false, doneToday: log.find((w) => w.date === k) || null };
+  const sinceDays = daysBetween(brk.from, k) + 1;
+  if (brk.type === 'krank') return { ...base, status: 'sick', sinceDays, sessionId: null, rot: [], left: [], doneThisWeek: 0, perWeek: 0 };
+  const rot = awayRotation(brk);
+  if (!rot.length) return { ...base, status: 'urlaub-frei', sessionId: null, rot: [], left: [], doneThisWeek: 0, perWeek: 0 };
+  // Seit Urlaubsbeginn bzw. in dieser Woche erledigte Urlaubs-Einheiten
+  const from = brk.from > ws ? brk.from : ws;
+  const done = log.filter((w) => w.date >= from && w.date <= addDays(ws, 6) && isAwaySession(w.sessionId));
+  const left = rot.slice();
+  done.forEach((w) => {
+    const i = left.indexOf(w.sessionId);
+    if (i >= 0) left.splice(i, 1);
+  });
+  // Abwechseln: nach Kraft lieber Laufen und umgekehrt, A/B im Wechsel
+  const lastAway = log.find((w) => isAwaySession(w.sessionId) && w.date >= brk.from);
+  let sessionId = left.find((x) => !lastAway || (x !== lastAway.sessionId && x[0] !== lastAway.sessionId[0])) || left[0] || null;
+  const status = base.doneToday ? 'done' : left.length ? 'urlaub' : 'urlaub-ziel';
+  if (!sessionId) sessionId = rot[0];
+  return { ...base, status, sessionId, rot: [...new Set(rot)], left, doneThisWeek: done.length, perWeek: rot.length };
+}
+
 export const dayName = (d) => WD_LONG[d];
 export const dayShort = (d) => WD_SHORT[d];
 
 /** Was steht heute an? Folgt dem Wochenrhythmus, holt verpasste Einheiten nach */
 export function recommend(setup0 = setupOf(), k = todayKey()) {
+  const brk = breakOn(k);
+  if (brk && breakBlocks(brk)) return recommendBreak(brk, k);
   const setup = weekSetup(setup0, k);
   const d = parseKey(k).getDay();
   const tomorrowSetup = weekSetup(setup0, addDays(k, 1));
@@ -548,7 +686,8 @@ export function planIds(sessionId, setup = setupOf()) {
   if (tpl.my) return tpl.ex.slice();
   let ids = templateIds(tpl, setup);
   if (setup.experience === 'anfaenger') ids = ids.map((id) => (id === 'kniebeuge' ? 'goblet' : id === 'rdl' ? 'hip-thrust' : id === 'klimmzug-assist' ? 'latzug' : id));
-  return ids.slice(0, exCount(setup.minutes));
+  if (tpl.away) return ids;
+  return ids.slice(0, exCount(setup.minutes) + (sportProfile(setup) && tpl.legs ? 1 : 0));
 }
 export const isCustom = (sessionId) => !!(S.training && S.training.custom && S.training.custom[sessionId]);
 
