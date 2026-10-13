@@ -1,9 +1,9 @@
 import { useS, saveTraining, S, toast } from '../lib/store.js';
-import { CYCLE, cycleWeek, weeklyVolume, MUSCLE_LABEL, setupOf, sportOf, hasSport, SPORT_PROFILE } from '../lib/training.js';
+import { CYCLE, cycleWeek, weeklyVolume, MUSCLE_LABEL, setupOf, sportOf, hasSport, SPORT_PROFILE, TRAIN_GOALS, goalOf, focusMgs } from '../lib/training.js';
 import { todayKey, n1 } from '../lib/util.js';
 import { Sheet } from './common.jsx';
 import { Battery } from './workout.jsx';
-import { TrendingUp, Repeat, Layers, Gauge, HeartPulse, Shield, BookOpen, CalendarRange } from 'lucide-preact';
+import { TrendingUp, Repeat, Layers, Gauge, HeartPulse, Shield, BookOpen, CalendarRange, SlidersHorizontal, Flame } from 'lucide-preact';
 
 function Sec({ icon, title, children }) {
   return (
@@ -27,7 +27,7 @@ export function AlgoSheet() {
   return (
     <Sheet title="So funktioniert dein Plan" tall>
       <p class="algo__lead">
-        Der Plan folgt dem, was die Trainingswissenschaft zum Muskelaufbau gut belegt hat: <b>genug harte Sätze</b>, <b>jeder Muskel ca. 2× pro Woche</b>, <b>nah ans Muskelversagen</b> und <b>stetige Steigerung</b> – plus Erholung, wenn der Körper sie braucht.
+        Der Plan folgt dem, was die Trainingswissenschaft gut belegt hat: <b>genug harte Sätze</b>, <b>jeder Muskel ca. 2× pro Woche</b>, <b>nah ans Muskelversagen</b> und <b>stetige Steigerung</b> – plus Erholung, wenn der Körper sie braucht. Dein Ziel: <b>{goalOf(setup).label}</b>.
       </p>
 
       <Sec icon={<TrendingUp size={18} />} title="1. Steigerung von Training zu Training">
@@ -127,7 +127,10 @@ export function AlgoSheet() {
         <div class="vol">
           {Object.entries(vol).map(([m, v]) => (
             <div class="vol__row">
-              <span class="vol__m">{MUSCLE_LABEL[m]}</span>
+              <span class="vol__m">
+                {MUSCLE_LABEL[m]}
+                {focusMgs(setup).includes(m) ? ' ★' : ''}
+              </span>
               <div class="vol__track">
                 <div class="vol__zone" />
                 <div class={'vol__fill' + (v >= 10 ? ' vol__fill--ok' : v >= 5 ? ' vol__fill--mid' : '')} style={{ width: Math.min(100, (v / maxVol) * 100) + '%' }} />
@@ -146,17 +149,105 @@ export function AlgoSheet() {
 
       <Sec icon={<Repeat size={18} />} title="4. Frequenz & Aufteilung">
         <p>
-          Jeder Muskel wird etwa <b>2× pro Woche</b> trainiert – das ist bei gleichem Volumen mindestens so gut wie 1× und verteilt die Last besser. Deshalb: 2× = Ganzkörper, 3× = Oberkörper/Unterkörper/Oberkörper, 4× = je 2× Ober- und Unterkörper.
+          Jeder Muskel wird möglichst <b>2× pro Woche</b> trainiert – das ist bei gleichem Volumen mindestens so gut wie 1× und verteilt die Last besser. Welche Aufteilung die App dir empfiehlt (⭐), hängt von dir ab:
         </p>
+        <ul class="algo__list">
+          <li>
+            <b>Einsteiger:</b> Ganzkörper – jede Übung oft üben, Technik sitzt schneller.
+          </li>
+          <li>
+            <b>Mit Vereinssport:</b> wenig Beintage (z. B. Ober/Unter/Ober), damit die Beine fürs Training und Spiel frisch sind.
+          </li>
+          <li>
+            <b>Schwerpunkt Po/Beine oder Arme:</b> Aufteilungen mit mehr Tagen für diese Muskeln.
+          </li>
+          <li>
+            <b>Ohne Geräte:</b> eigener Ganzkörper-Plan mit Körpergewicht.
+          </li>
+        </ul>
       </Sec>
 
-      <Sec icon={<Gauge size={18} />} title="5. Intensität & Wiederholungen">
+      <Sec icon={<Gauge size={18} />} title="5. Dein Ziel: Wiederholungen, Sätze, Pausen">
         <p>
-          Muskeln wachsen in einem breiten Bereich von ca. 5–30 Wiederholungen ähnlich gut – <b>solange die Sätze nah ans Muskelversagen gehen</b>. Schwere Grundübungen nutzen 5–10 Wdh. (auch für Kraft), kleinere Übungen 10–15 Wdh. (gelenkschonend). Pausen: ca. 2 Min. bei Grundübungen, 75 Sek. sonst – längere Pausen ermöglichen mehr Leistung im nächsten Satz.
+          Muskeln wachsen in einem breiten Bereich von ca. 5–30 Wiederholungen ähnlich gut – <b>solange die Sätze nah ans Muskelversagen gehen</b>. Für Maximalkraft sind dagegen schwere Lasten (≤ 6 Wdh.) klar im Vorteil. Deshalb stellt dein Ziel die Bereiche ein:
         </p>
+        <table class="algo__table">
+          <thead>
+            <tr>
+              <th>Ziel</th>
+              <th>Hauptübungen</th>
+              <th>Pausen</th>
+            </tr>
+          </thead>
+          <tbody>
+            {TRAIN_GOALS.map((g) => (
+              <tr class={goalOf(setup).id === g.id ? 'algo__now' : ''}>
+                <td>
+                  <b>{g.label}</b>
+                </td>
+                <td>{g.text}</td>
+                <td>
+                  {g.rest[0] >= 120 ? `${String(g.rest[0] / 60).replace('.', ',')} Min` : `${g.rest[0]} s`} / {g.rest[1]} s
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p class="small muted">Sehr schwere Wiederholungen (3–6) gibt es nur bei Langhantel-Grundübungen; Maschinen und rumänisches Kreuzheben bleiben bei 5–8. Längere Pausen ermöglichen mehr Leistung im nächsten Satz, kürzere sparen Zeit. Wechselst du das Ziel, rechnet die App deine Gewichte über das geschätzte Maximum passend um.</p>
       </Sec>
 
-      <Sec icon={<HeartPulse size={18} />} title="6. Tagesform, Schmerzen & Erholung">
+      <Sec icon={<SlidersHorizontal size={18} />} title="6. Individuell: Ausstattung, Beschwerden, Schwerpunkte">
+        <ul class="algo__list">
+          <li>
+            <b>Ausstattung:</b> Fehlt ein Gerät, nimmt die App automatisch eine Übung für denselben Muskel, die mit deinen Geräten geht (z. B. Latzug → Klimmzüge oder Rudern unter dem Tisch).
+          </li>
+          <li>
+            <b>Dauerhafte Beschwerden:</b> Übungen, die die Stelle stark belasten, werden gegen schonende Varianten getauscht – wie bei Schmerzen in der Tagesform, nur dauerhaft.
+          </li>
+          <li>
+            <b>Schwerpunkt-Muskeln:</b> mehr Volumen = mehr Wachstum. Bis zu 2 Übungen pro Einheit bekommen 1 Satz mehr, dazu kommt bei Bedarf eine passende Zusatzübung.
+          </li>
+          <li>
+            <b>„Nicht mehr vorschlagen“:</b> Übungen, die du nicht magst oder die dein Gym nicht hat, ersetzt die App überall automatisch.
+          </li>
+        </ul>
+      </Sec>
+
+      <Sec icon={<Flame size={18} />} title="7. Trainingsmethoden">
+        <ul class="algo__list">
+          <li>
+            <b>Aufwärmsätze:</b> Vor Hauptübungen 2–3 leichtere Sätze (ca. 40–80 %) – bereitet Gelenke und Technik vor und macht die Arbeitssätze besser. Zählen nicht als Sätze.
+          </li>
+          <li>
+            <b>Supersätze:</b> Zwei Nebenübungen für verschiedene Muskeln im Wechsel, Pause erst nach beiden. Spart rund ein Viertel der Zeit bei gleichem Effekt. Standard beim Ziel „Fitness“, sonst in den Einstellungen.
+          </li>
+          <li>
+            <b>Schnellkraft (Sprünge, Würfe):</b> wenige, explosive Wiederholungen mit voller Pause, immer am Anfang – nie im Wiedereinstieg oder an schlechten Tagen.
+          </li>
+          <li>
+            <b>Abwechslung (optional):</b> Nebenübungen wechseln jede zweite Zyklusrunde zu einer Variante. Hauptübungen bleiben, damit dein Fortschritt messbar bleibt – zu viel Wechsel bremst die Steigerung.
+          </li>
+          <li>
+            <b>Scheibenrechner:</b> Bei Langhantel-Übungen zeigt die App, welche Scheiben pro Seite auf die Stange gehören.
+          </li>
+        </ul>
+      </Sec>
+
+      <Sec icon={<TrendingUp size={18} />} title="8. Stagnation & Ermüdung">
+        <ul class="algo__list">
+          <li>
+            <b>Stagnation:</b> Gibt es bei einer Übung 4 Einheiten hintereinander keinen Fortschritt (weder Gewicht noch Wiederholungen noch geschätztes Maximum), macht die App einen <b>Reset</b>: ~10 % leichter, dann in 2–3 Einheiten wieder vorbei. Bei Körpergewichts-Übungen schlägt sie eine schwerere Variante vor.
+          </li>
+          <li>
+            <b>Ermüdung:</b> Warst du an 3 von 7 Tagen müde, hast schlecht geschlafen oder starken Muskelkater – oder fallen mehrere Übungen unter deinen Bereich –, bietet die App eine <b>vorgezogene Entlastungswoche</b> an. Danach startet ein neuer Zyklus.
+          </li>
+          <li>
+            <b>Fortschritt sichtbar:</b> Nach jedem Training siehst du Rekorde und den Vergleich zum letzten Mal, im Training-Tab deinen Kraftverlauf der letzten 8 Wochen.
+          </li>
+        </ul>
+      </Sec>
+
+      <Sec icon={<HeartPulse size={18} />} title="9. Tagesform, Schmerzen & Erholung">
         <ul class="algo__list">
           <li>
             <b>Wenig Schlaf / Energie:</b> leichte Version (1 Satz weniger, ~10 % weniger Gewicht). Zählt nicht als Maßstab für die nächste Steigerung.
@@ -206,7 +297,7 @@ export function AlgoSheet() {
       </Sec>
 
       {hasSport(setup) && (
-        <Sec icon={<Shield size={18} />} title={`7. Abgestimmt auf ${sp.name}`}>
+        <Sec icon={<Shield size={18} />} title={`10. Abgestimmt auf ${sp.name}`}>
           <ul class="algo__list">
             {SPORT_PROFILE[sp.id] && setup.sportFocus !== false && (
               <li>
@@ -254,6 +345,10 @@ export function AlgoSheet() {
           <li>Hewett et al. (1999): Sprung- und Landetraining senkt Knieverletzungen bei Sportlerinnen. Am J Sports Med.</li>
           <li>Hupperets, Verhagen & van Mechelen (2009): Balancetraining gegen erneutes Umknicken. BMJ.</li>
           <li>Eichner (1993): Infekt und Sport – der „Neck Check“. Phys Sportsmed.</li>
+          <li>Lopez et al. (2021): Trainingslast, Muskelwachstum und Kraft – Netzwerk-Meta-Analyse. Med Sci Sports Exerc.</li>
+          <li>Weakley et al. (2017): Traditionelle Sätze vs. Supersätze – Belastung und Zeitbedarf. Eur J Appl Physiol.</li>
+          <li>Kassiano et al. (2022): Bringt Übungsvariation mehr Muskelwachstum? – Systematischer Review. J Strength Cond Res.</li>
+          <li>Fradkin, Zazryn & Smoliga (2010): Aufwärmen und Leistung – Meta-Analyse. J Strength Cond Res.</li>
         </ul>
         <p class="small muted">Hinweis: Das ist eine allgemeine Trainingslogik, keine medizinische Beratung. Bei anhaltenden Schmerzen lieber ärztlich oder physiotherapeutisch abklären lassen.</p>
       </Sec>

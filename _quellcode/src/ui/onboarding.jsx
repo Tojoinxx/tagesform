@@ -53,7 +53,7 @@ export function Onboarding() {
               <li>🍽️ Essen tracken – per Suche, Barcode oder Foto</li>
               <li>✨ „Was soll ich jetzt essen?“ – passend zu deinem Tag</li>
               <li>📊 Wochen-Check am Sonntag mit konkreten Tipps</li>
-              <li>💪 Trainingsplan fürs Gym – passt sich an Tagesform, Sport & Schmerzen an</li>
+              <li>💪 Trainingsplan für Studio oder Zuhause – passt sich an Ziel, Tagesform, Sport & Schmerzen an</li>
             </ul>
             <p class="small muted">Dauert ca. 2 Minuten. Alles kannst du später in den Einstellungen ändern.</p>
           </div>
@@ -94,7 +94,7 @@ export function Onboarding() {
         {step === 'training' && (
           <>
             <h1>Dein Trainingsplan</h1>
-            <p class="muted">Gehst du ins Fitnessstudio? Dann stellt dir die App einen Plan zusammen – passend zu deinem Sport, deinen Tagen und deiner Erfahrung. Alles später änderbar.</p>
+            <p class="muted">Ob Studio, Zuhause oder ganz ohne Geräte: Die App stellt dir einen Plan zusammen – passend zu deinem Ziel, deiner Ausstattung, deinem Sport und deiner Erfahrung. Alles später änderbar.</p>
             <SetupCard embedded onDone={() => setI(i + 1)} />
           </>
         )}
@@ -108,7 +108,7 @@ export function Onboarding() {
       </div>
       <div class="onb__foot">
         <button class={'btn btn--block btn--lg' + (step === 'training' ? '' : ' btn--primary')} onClick={next} disabled={!valid}>
-          {step === 'start' ? 'Los geht’s' : step === 'training' ? 'Ohne Gym-Plan weiter' : step === 'ai' ? (S.ai && S.ai.apiKey ? 'Fertig' : 'Später einrichten & starten') : step === 'prefs' ? 'Weiter' : 'Weiter'}
+          {step === 'start' ? 'Los geht’s' : step === 'training' ? 'Ohne Trainingsplan weiter' : step === 'ai' ? (S.ai && S.ai.apiKey ? 'Fertig' : 'Später einrichten & starten') : step === 'prefs' ? 'Weiter' : 'Weiter'}
         </button>
       </div>
     </div>

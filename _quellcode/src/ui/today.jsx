@@ -7,6 +7,7 @@ import { S } from '../lib/store.js';
 import { Ring, Bar } from './common.jsx';
 import { ChevronLeft, ChevronRight, Plus, Minus, GlassWater, Apple, Sparkles, Sunrise, Sun, Moon, Cookie, ChartColumn, HeartPulse, Dumbbell } from 'lucide-preact';
 import { nav } from './router.js';
+import { TodayTrainingTile } from './progress.jsx';
 
 const MEAL_ICON = { fruehstueck: Sunrise, mittag: Sun, abend: Moon, snacks: Cookie };
 
@@ -39,6 +40,7 @@ export function Today() {
         </button>
       </header>
       <WeekStrip k={k} target={t.kcal} />
+      {isToday && <TodayTrainingTile />}
 
       <section class="card summary">
         <div class="summary__top">

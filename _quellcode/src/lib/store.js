@@ -290,5 +290,5 @@ export function lastNDaysSums(n = 7, endKey = todayKey()) {
 export const currentWeekStart = () => weekStart(todayKey());
 
 export function exportAll() {
-  return { exportedAt: new Date().toISOString(), profile: S.profile, foods: S.foods, days: S.days, weeks: S.weeks };
+  return { exportedAt: new Date().toISOString(), profile: S.profile, training: S.training, foods: S.foods, days: S.days, weeks: S.weeks };
 }

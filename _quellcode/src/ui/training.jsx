@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'preact/hooks';
 import { useS, S, saveTraining, saveActive, toast, patchDay, openSheet, getDay } from '../lib/store.js';
-import { EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName, SPORTS, sportOf, cycleWeek, weekSetup, gameDayForWeek, sessionOf, rotationOf, usesMyPlan, SPORT_PROFILE } from '../lib/training.js';
+import { EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName, SPORTS, sportOf, cycleWeek, weekSetup, gameDayForWeek, sessionOf, rotationOf, usesMyPlan, SPORT_PROFILE, TRAIN_GOALS, EQUIP_CATS, EQUIP_PRESETS, FOCUS, LIMIT_AREAS, splitsFor, recommendSplit, fatigueState, goalOf } from '../lib/training.js';
 import { TrainingOptionsCard } from './planeditor.jsx';
 import { BreakCard, SickPanel, CardioPanel, endBreak, breakEmoji } from './breaks.jsx';
+import { ProgressCard } from './progress.jsx';
 import { weekStart, addDays, isoWeek } from '../lib/util.js';
 import { SESSIONS, ROTATIONS, EXERCISES, SPLITS } from '../lib/exercises.js';
 import { todayKey, uid, n1, fmtShortDate } from '../lib/util.js';
@@ -24,7 +25,7 @@ import { ExCard, ExAnim, startWorkout } from './exui.jsx';
 export { startWorkout };
 
 export function SetupCard({ onDone, initial, embedded }) {
-  const [st, setSt] = useState(initial || defaultSetup());
+  const [st, setSt] = useState(() => initial || { ...defaultSetup(), goal: S.profile && S.profile.goal === 'abnehmen' ? 'fit' : 'muskel' });
   const set = (p) => setSt((o) => ({ ...o, ...p }));
   const toggleDay = (d) => set({ handballDays: st.handballDays.includes(d) ? st.handballDays.filter((x) => x !== d) : [...st.handballDays, d] });
   const gymDays = st.gymDays || [];
@@ -32,6 +33,24 @@ export function SetupCard({ onDone, initial, embedded }) {
   const hasMy = myRot.length > 0;
   const toggleGym = (d) => set({ gymDays: gymDays.includes(d) ? gymDays.filter((x) => x !== d) : [...gymDays, d] });
   const sp = st.sport === 'andere' ? { ...SPORTS.find((x) => x.id === 'andere'), name: (st.sportName || '').trim() || 'Sport' } : SPORTS.find((x) => x.id === st.sport) || SPORTS[0];
+  const list = splitsFor(st);
+  const rec = recommendSplit(st);
+  const splitSel = st.split && list.some((x) => x.id === st.split) ? st.split : rec.id;
+  const eq = Array.isArray(st.equip) ? st.equip : null;
+  const preset = !eq ? 'studio' : (EQUIP_PRESETS.find((p) => p.cats && p.cats.length === eq.length && p.cats.every((c) => eq.includes(c))) || { id: 'custom' }).id;
+  const toggleEq = (c) => {
+    const cur = eq || EQUIP_CATS.map((x) => x.id);
+    const next = cur.includes(c) ? cur.filter((x) => x !== c) : [...cur, c];
+    set({ equip: next.length === EQUIP_CATS.length ? null : next, split: null });
+  };
+  const focus = st.focus || [];
+  const toggleFocus = (id) => {
+    if (focus.includes(id)) return set({ focus: focus.filter((x) => x !== id), split: null });
+    if (focus.length >= 3) return toast('Höchstens 3 Schwerpunkte – sonst ist es kein Schwerpunkt mehr 😉');
+    set({ focus: [...focus, id], split: null });
+  };
+  const limits = st.limits || [];
+  const toggleLimit = (a) => set({ limits: limits.includes(a) ? limits.filter((x) => x !== a) : [...limits, a] });
   return (
     <section class="card form">
       {!embedded && (
@@ -39,33 +58,62 @@ export function SetupCard({ onDone, initial, embedded }) {
           <h3>
             <Sparkles size={18} /> Dein Trainingsplan
           </h3>
-          <p class="small muted">Ich baue dir einen Plan fürs Studio, der um deinen Sport herum läuft und sich an Tagesform und Schmerzen anpasst.</p>
+          <p class="small muted">Ich baue dir einen Plan, der zu deinem Ziel, deiner Ausstattung und deinem Sport passt – und sich an Tagesform und Schmerzen anpasst.</p>
         </>
       )}
-      <Field group label="Trainingserfahrung im Gym">
+      <Field group label="Was ist dein Ziel?">
+        <div class="opts opts--grid2">
+          {TRAIN_GOALS.map((g) => (
+            <button type="button" class={'opt' + ((st.goal || 'muskel') === g.id ? ' opt--on' : '')} onClick={() => set({ goal: g.id, split: null })} aria-pressed={(st.goal || 'muskel') === g.id}>
+              <b>{g.label}</b>
+              <span>{g.hint}</span>
+            </button>
+          ))}
+        </div>
+      </Field>
+      <Field group label="Trainingserfahrung mit Krafttraining">
         <div class="opts opts--row">
           {EXPERIENCE.map((x) => (
-            <button type="button" class={'opt' + (st.experience === x.id ? ' opt--on' : '')} onClick={() => set({ experience: x.id })} aria-pressed={st.experience === x.id}>
+            <button type="button" class={'opt' + (st.experience === x.id ? ' opt--on' : '')} onClick={() => set({ experience: x.id, split: null })} aria-pressed={st.experience === x.id}>
               <b>{x.label}</b>
               <span>{x.hint}</span>
             </button>
           ))}
         </div>
       </Field>
-      <Field group label="Wie oft willst du pro Woche ins Gym?">
+      <Field group label="Wo trainierst du?" hint={preset === 'studio' ? 'Alle Geräte verfügbar.' : 'Übungen, für die dir Geräte fehlen, ersetzt die App automatisch.'}>
+        <div class="opts opts--grid2">
+          {EQUIP_PRESETS.map((p) => (
+            <button type="button" class={'opt' + (preset === p.id ? ' opt--on' : '')} onClick={() => set({ equip: p.cats ? [...p.cats] : null, split: null })} aria-pressed={preset === p.id}>
+              <b>{p.label}</b>
+              <span>{p.hint}</span>
+            </button>
+          ))}
+        </div>
+        {preset !== 'studio' && (
+          <div class="chips chips--wrap" style={{ marginTop: '8px' }}>
+            {EQUIP_CATS.map((c) => (
+              <Chip small active={!eq || eq.includes(c.id)} onClick={() => toggleEq(c.id)}>
+                {c.label}
+              </Chip>
+            ))}
+          </div>
+        )}
+      </Field>
+      <Field group label="Wie oft willst du pro Woche trainieren?">
         <Seg value={String(st.perWeek)} onChange={(v) => set({ perWeek: Number(v), split: null })} options={[1, 2, 3, 4, 5, 6].map((n) => ({ id: String(n), label: n + '×' }))} />
       </Field>
       <Field group label="Plan-Vorschläge" hint="Übungen, Sätze und Reihenfolge kannst du danach jederzeit anpassen.">
         <div class="opts">
-          {(SPLITS[st.perWeek] || SPLITS[3]).map((x, i) => {
-            const on = st.planType !== 'eigen' && (st.split ? st.split === x.id : i === 0);
+          {list.map((x) => {
+            const on = st.planType !== 'eigen' && splitSel === x.id;
             return (
               <button type="button" class={'opt' + (on ? ' opt--on' : '')} onClick={() => set({ split: x.id, planType: 'auto' })} aria-pressed={on}>
                 <b>
                   {x.name}
-                  {x.sport && st.sport !== 'keiner' && <span class="tag">passt zu {sp.name}</span>}
+                  {rec.id === x.id && <span class="tag tag--star">⭐ Empfohlen</span>}
                 </b>
-                <span>{x.hint}</span>
+                <span>{rec.id === x.id ? `Für dich: ${rec.why}.` : x.hint}</span>
                 <span class="opt__sess">{x.rot.map((id) => SESSIONS[id].short).join(' · ')}</span>
               </button>
             );
@@ -93,7 +141,7 @@ export function SetupCard({ onDone, initial, embedded }) {
       <Field group label="Vereinssport / weitere Sportart" hint="Plan legt keine schweren Beine direkt davor und ergänzt passende Vorbeugeübungen">
         <div class="chips chips--wrap">
           {SPORTS.map((x) => (
-            <Chip small active={st.sport === x.id} onClick={() => set({ sport: x.id, ...(x.id === 'keiner' ? { handballDays: [], gameDay: null } : {}), ...(x.games ? {} : { gameDay: null }) })}>
+            <Chip small active={st.sport === x.id} onClick={() => set({ sport: x.id, split: null, ...(x.id === 'keiner' ? { handballDays: [], gameDay: null } : {}), ...(x.games ? {} : { gameDay: null }) })}>
               {x.emoji ? x.emoji + ' ' : ''}
               {x.name}
             </Chip>
@@ -163,10 +211,32 @@ export function SetupCard({ onDone, initial, embedded }) {
           })}
         </div>
       </Field>
+      <details class="more" open={focus.length > 0 || limits.length > 0}>
+        <summary>Schwerpunkte & Beschwerden {focus.length + limits.length ? `(${focus.length + limits.length})` : ''}</summary>
+        <Field group label="Schwerpunkt-Muskeln (max. 3)" hint="Bekommen 1 Satz mehr und eine passende Zusatzübung.">
+          <div class="chips chips--wrap">
+            {FOCUS.map((f) => (
+              <Chip small active={focus.includes(f.id)} onClick={() => toggleFocus(f.id)}>
+                {f.label}
+              </Chip>
+            ))}
+          </div>
+        </Field>
+        <Field group label="Dauerhafte Beschwerden" hint="Übungen, die diese Stellen stark belasten, tauscht die App gegen schonende Varianten.">
+          <div class="chips chips--wrap">
+            {LIMIT_AREAS.map((x) => (
+              <Chip small active={limits.includes(x)} onClick={() => toggleLimit(x)}>
+                {x}
+              </Chip>
+            ))}
+          </div>
+        </Field>
+      </details>
       <button
         class="btn btn--primary btn--block btn--lg"
         onClick={() => {
-          saveTraining({ setup: { ...st, freqMy: true, cycleStart: st.cycleStart || todayKey() }, createdAt: (S.training && S.training.createdAt) || Date.now() });
+          const split = st.planType === 'eigen' ? st.split || null : splitSel;
+          saveTraining({ setup: { ...st, split, freqMy: true, cycleStart: st.cycleStart || todayKey() }, createdAt: (S.training && S.training.createdAt) || Date.now() });
           toast(initial ? 'Plan aktualisiert' : 'Plan erstellt 💪');
           onDone && onDone();
           if (st.planType === 'eigen' && !hasMy) nav('/plan');
@@ -178,6 +248,29 @@ export function SetupCard({ onDone, initial, embedded }) {
         <Download size={14} /> Plan & Gewichte aus einer anderen App übernehmen (Code)
       </button>
     </section>
+  );
+}
+
+/** Ermüdung erkannt → Entlastungswoche anbieten */
+function FatigueNotice() {
+  useS();
+  const f = fatigueState();
+  if (!f) return null;
+  const ws = weekStart(todayKey());
+  return (
+    <div class="notice notice--info small fatigue">
+      <span>
+        <b>Zeit für eine Entlastungswoche?</b> {f.why}. Eine leichtere Woche jetzt (halbe Sätze, ~10 % weniger) bringt dich schneller zurück in Form als Durchziehen.
+      </span>
+      <div class="row">
+        <button class="btn btn--sm btn--primary" onClick={() => (saveTraining({ deloadWeek: ws, setup: { ...setupOf(), cycleStart: addDays(ws, 7) } }), toast('Diese Woche wird leichter – ab nächster Woche startet ein neuer Zyklus'))}>
+          Ja, diese Woche leichter
+        </button>
+        <button class="btn btn--sm" onClick={() => saveTraining({ fatigueDismissed: ws })}>
+          Nein, normal weiter
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -371,6 +464,7 @@ function TodayCard({ setup }) {
           </button>}
           {tpl.away && !tpl.cardio && <div class="notice notice--ok small"><span>Erhaltungs-Training: Weniger Volumen reicht, solange die Sätze fordernd sind – so verlierst du im Urlaub weder Kraft noch Muskeln.</span></div>}
           {!pick && rec.reasons.filter((r) => rec.status !== 'free' || !r.startsWith('Kein fester')).map((r) => <div class="notice small"><span>{r}</span></div>)}
+          {!away && <FatigueNotice />}
           {sess.modeLabel && (
             <div class={'notice small ' + (sess.mode === 'light' || sess.mode === 'comeback' ? 'notice--info' : 'notice--ok')}>
               <span>{sess.modeLabel}</span>
@@ -520,6 +614,7 @@ export function Training() {
           <OtherTrainingCard />
           <h4 class="sect sect--page">Alle Einheiten</h4>
           <PlanOverview setup={setup} />
+          <ProgressCard />
           <Last7Card />
         </>
       )}

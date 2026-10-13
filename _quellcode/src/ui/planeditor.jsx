@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { useS, S, saveTraining, toast, closeSheet, openSheet } from '../lib/store.js';
-import { setupOf, rotationOf, sessionOf, planIds, prefsOf, DEFAULT_PREFS, exOf, lastFor, usesMyPlan } from '../lib/training.js';
+import { setupOf, rotationOf, sessionOf, planIds, prefsOf, DEFAULT_PREFS, exOf, lastFor, usesMyPlan, defaultReps, goalOf, excludedMap, splitsFor, substitute, isAvailable, isExcluded } from '../lib/training.js';
 import { EXERCISES, SESSIONS, SPLITS } from '../lib/exercises.js';
 import { uid, todayKey, num, n1 } from '../lib/util.js';
 import { Sheet, Chip, Seg, Field, NumInput } from './common.jsx';
@@ -10,7 +10,16 @@ import { nav } from './router.js';
 
 const templates = () => {
   const st = setupOf();
-  const splits = (SPLITS[st.perWeek] || SPLITS[3]).map((x) => ({ id: x.id, name: x.name, hint: x.hint, sessions: [...new Set(x.rot)].map((sid) => [SESSIONS[sid].name, SESSIONS[sid].ex]) }));
+  // Vorlagen gleich an deine Ausstattung anpassen (z. B. Zuhause nur Kurzhanteln)
+  const fit = (ids) => {
+    const out = [];
+    ids.forEach((id) => {
+      const x = isAvailable(id, st) && !isExcluded(id) ? id : (substitute(id, st, { taken: [...out, ...ids] }) || {}).id;
+      if (x && !out.includes(x)) out.push(x);
+    });
+    return out;
+  };
+  const splits = splitsFor(st).map((x) => ({ id: x.id, name: x.name, hint: x.hint, sessions: [...new Set(x.rot)].map((sid) => [SESSIONS[sid].name, fit(SESSIONS[sid].ex)]) }));
   return [
     { id: 'copy', name: 'Aktuellen Plan übernehmen', hint: 'Deine jetzigen Einheiten als Startpunkt' },
     ...splits,
@@ -207,6 +216,7 @@ export function PlanEditor() {
 }
 
 const REP_PRESETS = [
+  [3, 6],
   [5, 8],
   [6, 10],
   [8, 12],
@@ -229,7 +239,10 @@ export function ExOptsSheet({ exId }) {
   const [w, setW] = useState('');
   const save = () => {
     const tr = S.training || {};
-    const patch = { exOpts: { ...(tr.exOpts || {}), [exId]: { sets: sets || null, reps, inc } } };
+    // Nur Abweichungen speichern – so passt sich der Rest weiter an dein Trainingsziel an
+    const dr = defaultReps(exId);
+    const sameReps = dr && reps[0] === dr[0] && reps[1] === dr[1];
+    const patch = { exOpts: { ...(tr.exOpts || {}), [exId]: sets || !sameReps || inc !== base.inc ? { sets: sets || null, reps: sameReps ? null : reps, inc: inc === base.inc ? null : inc } : null } };
     if (w !== '' && num(w) >= 0) patch.baseline = { ...(tr.baseline || {}), [exId]: { w: num(w), date: todayKey(), at: Date.now(), src: 'manuell', force: true } };
     saveTraining(patch);
     toast('Gespeichert');
@@ -272,7 +285,7 @@ export function ExOptsSheet({ exId }) {
         </div>
       </Field>
       {base.unit !== 'Sek.' && (
-        <Field group label="Wiederholungsbereich" hint={`Standard: ${base.reps[0]}–${base.reps[1]}. Die App steigert innerhalb dieses Bereichs.`}>
+        <Field group label="Wiederholungsbereich" hint={`Standard für dein Ziel: ${defaultReps(exId)[0]}–${defaultReps(exId)[1]}. Die App steigert innerhalb dieses Bereichs.`}>
           <div class="chips chips--wrap">
             {REP_PRESETS.map((r) => (
               <Chip small active={reps[0] === r[0] && reps[1] === r[1]} onClick={() => setReps(r)}>
@@ -305,7 +318,11 @@ export function ExOptsSheet({ exId }) {
 export function TrainingOptionsCard() {
   useS();
   const p = prefsOf();
-  const set = (patch) => saveTraining({ prefs: { ...p, ...patch } });
+  const stored = (S.training && S.training.prefs) || {};
+  // nur geänderte Werte speichern; der Rest folgt deinem Trainingsziel
+  const set = (patch) => saveTraining({ prefs: { ...stored, ...patch } });
+  const g = goalOf();
+  const ex = Object.keys(excludedMap()).filter((id) => excludedMap()[id] && EXERCISES[id]);
   const Toggle = ({ k, label, hint }) => (
     <label class="toggle">
       <span>
@@ -318,17 +335,32 @@ export function TrainingOptionsCard() {
   return (
     <section class="card form">
       <h3>Weitere Einstellungen</h3>
+      <p class="small muted">Standard für dein Ziel „{g.label}“: {g.text}.</p>
       <Field group label="Pause bei Hauptübungen">
         <Seg value={String(p.restMain)} onChange={(v) => set({ restMain: Number(v) })} options={[60, 90, 120, 150, 180].map((v) => ({ id: String(v), label: v >= 120 ? `${v / 60} Min`.replace('.5', ',5') : `${v} s` }))} />
       </Field>
       <Field group label="Pause bei anderen Übungen">
         <Seg value={String(p.restOther)} onChange={(v) => set({ restOther: Number(v) })} options={[45, 60, 75, 90, 120].map((v) => ({ id: String(v), label: v === 120 ? '2 Min' : `${v} s` }))} />
       </Field>
+      <Toggle k="supersets" label="Supersätze (Zeit sparen)" hint="Zwei Nebenübungen für verschiedene Muskeln im Wechsel, Pause erst nach beiden – spart ca. 20–30 % Zeit." />
+      <Toggle k="warmup" label="Aufwärmsätze anzeigen" hint="Bei Hauptübungen: 2–3 leichtere Sätze vorab, mit Gewichten." />
       <Toggle k="cycle" label="5-Wochen-Zyklus" hint="Intensität steigt über 4 Wochen, Woche 5 Erholung. Aus = gleichbleibend RIR 2." />
+      <Toggle k="variety" label="Abwechslung" hint="Nebenübungen wechseln jede zweite Zyklusrunde zu einer Variante. Hauptübungen bleiben – für messbaren Fortschritt." />
       <Toggle k="wellness" label="Wellness-Abfrage vor dem Training" hint="Fitness, Schlaf, Muskelkater, Schmerzen – einmal pro Tag." />
       <Toggle k="rirPrompt" label="RIR nach jedem Satz abfragen" hint="Aus = du kannst RIR trotzdem über das Batterie-Symbol eintragen." />
       <Toggle k="comeback" label="Wiedereinstieg nach Pausen" hint="Nach 10+ Tagen ohne Training erst leichter starten." />
-      <button class="btn--link small" onClick={() => saveTraining({ prefs: { ...DEFAULT_PREFS } })}>
+      {ex.length > 0 && (
+        <Field group label="Nicht mehr vorgeschlagen">
+          <div class="chips chips--wrap">
+            {ex.map((id) => (
+              <Chip small onClick={() => (saveTraining({ excluded: { ...excludedMap(), [id]: null } }), toast(`${EXERCISES[id].name} wieder erlaubt`))}>
+                {EXERCISES[id].name} ✕
+              </Chip>
+            ))}
+          </div>
+        </Field>
+      )}
+      <button class="btn--link small" onClick={() => (saveTraining({ prefs: Object.fromEntries(Object.keys(DEFAULT_PREFS).map((k) => [k, null])) }), toast('Standardwerte für dein Ziel'))}>
         Standardwerte wiederherstellen
       </button>
     </section>

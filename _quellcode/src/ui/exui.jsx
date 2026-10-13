@@ -2,11 +2,12 @@ import { useState } from 'preact/hooks';
 import { useS, S, openSheet, closeSheet, saveActive, saveTraining, toast } from '../lib/store.js';
 import { guideOf, imgOf } from '../lib/exguide.js';
 import { EXERCISES, SESSIONS } from '../lib/exercises.js';
-import { buildSession, swapOptions, itemFor, setupOf, planIds, isCustom, mgOf, sessionOf, prefsOf, exOf, sportExtras, sportOf } from '../lib/training.js';
+import { buildSession, swapOptions, itemFor, setupOf, planIds, isCustom, mgOf, sessionOf, prefsOf, exOf, sportExtras, sportOf, isAvailable, isExcluded, excludedMap, equipList, equipLabel, defaultReps } from '../lib/training.js';
+import { ExHistory } from './progress.jsx';
 import { getDay } from '../lib/store.js';
 import { todayKey, n1, uid, norm } from '../lib/util.js';
 import { Sheet, Chip } from './common.jsx';
-import { Repeat, ChevronLeft, Play, CalendarDays, Clock, MapPin, TriangleAlert, ExternalLink, Lightbulb, Check, Gauge, Search, Plus, X, ArrowUp, ArrowDown, SlidersHorizontal } from 'lucide-preact';
+import { Repeat, ChevronLeft, Play, CalendarDays, Clock, MapPin, TriangleAlert, ExternalLink, Lightbulb, Check, Gauge, Search, Plus, X, ArrowUp, ArrowDown, SlidersHorizontal, Ban, RotateCcw } from 'lucide-preact';
 import { nav } from './router.js';
 
 export function startWorkout(sessionId, items, opts = {}) {
@@ -51,7 +52,15 @@ export function ExCard({ it, onSwap, highlight, compact }) {
           <span class="excard__group">{g.group}</span>
           <b class="excard__name">{it.name}</b>
           <span class="excard__sets">{setsText(it)}</span>
-          {it.adaptedFrom && <span class="excard__adapt">statt {it.adaptedFrom.name} – {it.adaptedFrom.why}</span>}
+          {it.adaptedFrom && !it.adaptedFrom.quiet && <span class="excard__adapt">statt {it.adaptedFrom.name} – {it.adaptedFrom.why}</span>}
+          {(it.ss || it.reset || it.focus || it.plyo) && (
+            <span class="excard__tags">
+              {it.ss && <span class="tag tag--ss">Supersatz {it.ss}{it.ssPos}</span>}
+              {it.plyo && <span class="tag tag--muted">Schnellkraft</span>}
+              {it.focus && <span class="tag">Schwerpunkt</span>}
+              {it.reset && <span class="tag tag--warn">Reset −10 %</span>}
+            </span>
+          )}
         </span>
       </button>
       {onSwap && (
@@ -65,6 +74,7 @@ export function ExCard({ it, onSwap, highlight, compact }) {
 
 /** Detailansicht einer Übung */
 export function ExerciseSheet({ exId, item }) {
+  useS();
   const ex = EXERCISES[exId];
   const g = guideOf(exId);
   return (
@@ -83,16 +93,32 @@ export function ExerciseSheet({ exId, item }) {
             {exOf(exId).reps[0]}–{exOf(exId).reps[1]} {ex.unit}
           </span>
         </div>
-        <button class="btn btn--sm" onClick={() => openSheet('exopts', { exId })}>
-          <SlidersHorizontal size={15} /> Sätze, Wdh. &amp; Gewicht einstellen
-        </button>
-        {item && item.last && (
-          <p class="small muted">
-            Letztes Mal: {item.last.sets.map((s) => s.r).join(' / ')} {ex.unit}
-            {item.last.sets[0].w ? ` · ${n1(Math.max(...item.last.sets.map((s) => s.w || 0)))} kg` : ''}
-          </p>
-        )}
+        <div class="row row--wrap">
+          <button class="btn btn--sm" onClick={() => openSheet('exopts', { exId })}>
+            <SlidersHorizontal size={15} /> Sätze, Wdh. &amp; Gewicht
+          </button>
+          <button
+            class={'btn btn--sm' + (isExcluded(exId) ? ' btn--warn' : '')}
+            onClick={() => {
+              const ex2 = isExcluded(exId);
+              saveTraining({ excluded: { ...excludedMap(), [exId]: ex2 ? null : true } });
+              toast(ex2 ? `${ex.name} wird wieder vorgeschlagen` : `${ex.name} wird nicht mehr vorgeschlagen – die App nimmt eine Alternative`);
+            }}
+          >
+            {isExcluded(exId) ? (
+              <>
+                <RotateCcw size={15} /> Wieder vorschlagen
+              </>
+            ) : (
+              <>
+                <Ban size={15} /> Nicht mehr vorschlagen
+              </>
+            )}
+          </button>
+        </div>
+        {!isAvailable(exId) && <p class="small muted">Hinweis: Passt nicht zu deiner Ausstattung ({equipLabel()}).</p>}
       </div>
+      <ExHistory exId={exId} />
       <section class="card exsteps">
         <h3>So geht’s</h3>
         <ol>
@@ -131,7 +157,17 @@ export function ExerciseSheet({ exId, item }) {
 }
 
 const MODE_LABEL = { normal: 'Normal', light: 'Leicht', push: 'Top-Form', deload: 'Deload', comeback: 'Wiedereinstieg' };
-const estMinutes = (items) => Math.round(items.reduce((a, it) => a + it.sets.length * (it.main ? 3.2 : 2.4), 0) + 6);
+/** Geschätzte Dauer: Satzzeit + deine Pausen (Supersatz: Pause erst nach der 2. Übung) + Aufwärmen */
+export const estMinutes = (items) => {
+  const pf = prefsOf();
+  let t = 5 + (items.some((it) => it.main) ? 3 : 0);
+  items.forEach((it) => {
+    const n = it.sets.length;
+    const rest = (it.plyo ? Math.max(90, pf.restOther) : it.main ? pf.restMain : pf.restOther) / 60;
+    t += n * (it.unit === 'Sek.' ? 0.8 : 1) + (it.ss && it.ssPos === 1 ? 0.3 * n : n * rest);
+  });
+  return Math.max(10, Math.round(t / 5) * 5);
+};
 
 /** Einheit ansehen (wie bei MCI): Pills oben, Übungskarten, Starten unten */
 const CATS = [
@@ -155,7 +191,9 @@ const catOf = (id) => {
 export function ExercisePicker({ title = 'Übung auswählen', exclude = [], suggest = [], onPick }) {
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('alle');
-  const all = Object.values(EXERCISES).filter((e) => !exclude.includes(e.id));
+  const restricted = !!equipList();
+  const [onlyAvail, setOnlyAvail] = useState(true);
+  const all = Object.values(EXERCISES).filter((e) => !exclude.includes(e.id) && (!restricted || !onlyAvail || isAvailable(e.id)));
   const qn = norm(q);
   const match = (e) => {
     if (cat !== 'alle' && catOf(e.id) !== cat) return false;
@@ -165,7 +203,7 @@ export function ExercisePicker({ title = 'Übung auswählen', exclude = [], sugg
     return qn.split(' ').every((t) => hay.includes(t));
   };
   const list = all.filter(match).sort((a, b) => CATS.findIndex((c) => c[0] === catOf(a.id)) - CATS.findIndex((c) => c[0] === catOf(b.id)) || a.name.localeCompare(b.name, 'de'));
-  const sugg = !qn && cat === 'alle' ? suggest.filter((id) => EXERCISES[id] && !exclude.includes(id)).map((id) => EXERCISES[id]) : [];
+  const sugg = !qn && cat === 'alle' ? suggest.filter((id) => EXERCISES[id] && !exclude.includes(id) && (!restricted || !onlyAvail || isAvailable(id))).map((id) => EXERCISES[id]) : [];
   const Row = ({ e }) => {
     const g = guideOf(e.id);
     return (
@@ -182,6 +220,7 @@ export function ExercisePicker({ title = 'Übung auswählen', exclude = [], sugg
             {e.name}
             <small class="muted">
               {g.group} · {e.equip}
+              {isExcluded(e.id) ? ' · ausgeschlossen' : ''}
             </small>
           </span>
         </button>
@@ -201,6 +240,15 @@ export function ExercisePicker({ title = 'Übung auswählen', exclude = [], sugg
           </Chip>
         ))}
       </div>
+      {restricted && (
+        <label class="toggle toggle--sm">
+          <span>
+            <b>Nur mit deiner Ausstattung</b>
+            <small class="muted">{equipLabel()}</small>
+          </span>
+          <input type="checkbox" checked={onlyAvail} onChange={(e) => setOnlyAvail(e.currentTarget.checked)} />
+        </label>
+      )}
       {sugg.length > 0 && (
         <>
           <h4 class="sect">Passende Alternativen</h4>
@@ -294,7 +342,7 @@ export function SessionPage({ query }) {
           <Clock size={16} /> ~{estMinutes(items)} Minuten
         </span>
         <span class="pill">
-          <MapPin size={16} /> Im Gym
+          <MapPin size={16} /> {tpl.away ? 'Unterwegs' : equipLabel(setup)}
         </span>
       </div>
       {base.modeLabel && <div class={'notice small ' + (base.mode === 'light' || base.mode === 'comeback' ? 'notice--info' : 'notice--ok')}>{base.modeLabel}</div>}
@@ -321,6 +369,21 @@ export function SessionPage({ query }) {
               <button class="btn--link small danger" onClick={() => remove(it)}>
                 <X size={14} /> Entfernen
               </button>
+              {it.harder && (
+                <button
+                  class="btn--link small"
+                  onClick={() => {
+                    const i = idxOf(it);
+                    const next = ids.slice();
+                    if (i >= 0) next[i] = it.harder;
+                    else next.push(it.harder);
+                    saveIds(next);
+                    toast(`${EXERCISES[it.harder].name} übernommen`);
+                  }}
+                >
+                  <ArrowUp size={14} /> {EXERCISES[it.harder].name}
+                </button>
+              )}
             </div>
           </div>
         ))}

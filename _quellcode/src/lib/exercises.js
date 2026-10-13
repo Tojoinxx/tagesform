@@ -21,7 +21,7 @@ export const EXERCISES = Object.fromEntries(
     E('trizeps-kabel', 'Trizepsdrücken am Kabel', { equip: 'Kabel', reps: [10, 15], stress: ['Ellbogen'], alt: ['trizeps-ueberkopf'], cue: 'Ellbogen bleiben am Körper, nur Unterarme bewegen.' }),
     E('trizeps-ueberkopf', 'Trizeps über Kopf (Kabel)', { equip: 'Kabel', reps: [10, 15], stress: ['Ellbogen', 'Schulter'], alt: [], cue: 'Mit dem Rücken zum Kabelturm, Ellbogen zeigen nach vorn.' }),
     // ---- Ziehen ----
-    E('latzug', 'Latzug (breit)', { equip: 'Maschine', reps: [8, 12], main: true, stress: ['Schulter', 'Ellbogen'], alt: ['latzug-eng', 'klimmzug-assist'], cue: 'Brust raus, Stange zur oberen Brust ziehen, nicht hinter den Kopf.' }),
+    E('latzug', 'Latzug (breit)', { equip: 'Maschine', reps: [8, 12], main: true, stress: ['Schulter', 'Ellbogen'], alt: ['latzug-eng', 'klimmzug-assist', 'klimmzug', 'inverted-row'], cue: 'Brust raus, Stange zur oberen Brust ziehen, nicht hinter den Kopf.' }),
     E('latzug-eng', 'Latzug enger Neutralgriff', { equip: 'Maschine', reps: [8, 12], stress: ['Ellbogen'], alt: ['rudern-kabel'], cue: 'Ellbogen nach unten zu den Hüften ziehen.' }),
     E('klimmzug-assist', 'Klimmzüge (ggf. mit Unterstützung)', { equip: 'Maschine', reps: [5, 10], main: true, inc: 2.5, stress: ['Schulter', 'Ellbogen'], alt: ['latzug', 'latzug-eng'], cue: 'Bei der Assist-Maschine ist das Gewicht die Unterstützung – weniger ist schwerer.' }),
     E('rudern-kabel', 'Rudern am Kabel (sitzend)', { equip: 'Kabel', reps: [8, 12], stress: ['Ellbogen'], alt: ['rudern-brust', 'rudern-kh'], cue: 'Aufrecht sitzen, Schulterblätter zusammen, Griff zum Bauch.' }),
@@ -37,7 +37,7 @@ export const EXERCISES = Object.fromEntries(
     E('kniebeuge', 'Kniebeuge (Langhantel)', { equip: 'Langhantel', reps: [5, 8], main: true, stress: ['Knie', 'Rücken unten', 'Hüfte'], alt: ['beinpresse', 'goblet'], cue: 'Brust raus, Knie in Richtung Zehen, mindestens parallel runter.' }),
     E('beinpresse', 'Beinpresse', { equip: 'Maschine', reps: [8, 12], inc: 5, main: true, stress: ['Knie'], alt: ['hip-thrust', 'beinbeuger'], cue: 'Füße schulterbreit, unten nicht den Po vom Polster heben.' }),
     E('goblet', 'Goblet Squat (Kurzhantel)', { equip: 'Kurzhantel', reps: [8, 12], inc: 2, stress: ['Knie', 'Hüfte'], alt: ['beinpresse'], cue: 'Kurzhantel vor der Brust, aufrecht tief runter.' }),
-    E('rdl', 'Rumänisches Kreuzheben', { equip: 'Langhantel', reps: [6, 10], main: true, stress: ['Rücken unten', 'Oberschenkel'], alt: ['hip-thrust', 'beinbeuger'], cue: 'Hüfte nach hinten schieben, Stange nah am Bein, Rücken gerade.' }),
+    E('rdl', 'Rumänisches Kreuzheben', { equip: 'Langhantel', reps: [6, 10], main: true, stress: ['Rücken unten', 'Oberschenkel'], alt: ['kh-rdl', 'hip-thrust', 'beinbeuger'], cue: 'Hüfte nach hinten schieben, Stange nah am Bein, Rücken gerade.' }),
     E('hip-thrust', 'Hip Thrust', { equip: 'Langhantel', reps: [8, 12], stress: ['Hüfte'], alt: ['beinbeuger'], cue: 'Schultern auf der Bank, oben Po fest anspannen.' }),
     E('beinbeuger', 'Beinbeuger (Maschine)', { equip: 'Maschine', reps: [10, 12], stress: ['Oberschenkel'], alt: ['hip-thrust'], cue: 'Langsam ablassen – schützt die hintere Oberschenkelmuskulatur.' }),
     E('beinstrecker', 'Beinstrecker (Maschine)', { equip: 'Maschine', reps: [10, 15], stress: ['Knie'], alt: ['goblet'], cue: 'Oben kurz halten, kontrolliert runter.' }),
@@ -45,7 +45,7 @@ export const EXERCISES = Object.fromEntries(
     E('ausfallschritte', 'Ausfallschritte gehend', { equip: 'Kurzhantel', reps: [8, 12], inc: 2, stress: ['Knie'], alt: ['beinpresse'], cue: 'Wdh. pro Bein, Oberkörper aufrecht.' }),
     E('nordic', 'Nordic Hamstring Curls', { equip: 'Körpergewicht', reps: [4, 8], inc: 0, stress: ['Oberschenkel', 'Knie'], alt: ['beinbeuger'], cue: 'Füße fixieren, so langsam wie möglich nach vorne ablassen. Top-Prävention gegen Zerrungen.' }),
     E('copenhagen', 'Copenhagen Plank (Adduktoren)', { equip: 'Körpergewicht', reps: [20, 40], inc: 0, unit: 'Sek.', stress: ['Hüfte', 'Knie'], alt: ['pallof'], cue: 'Seitstütz, oberes Bein auf der Bank. Pro Seite. Schützt die Leiste.' }),
-    E('wadenheben', 'Wadenheben (Maschine)', { equip: 'Maschine', reps: [10, 15], stress: ['Wade', 'Sprunggelenk'], alt: [], cue: 'Ganz runter dehnen, oben 1 Sek. halten.' }),
+    E('wadenheben', 'Wadenheben (Maschine)', { equip: 'Maschine', reps: [10, 15], stress: ['Wade', 'Sprunggelenk'], alt: ['wadenheben-kh', 'waden-beinpresse', 'wadenheben-sitzend'], cue: 'Ganz runter dehnen, oben 1 Sek. halten.' }),
     // ---- Rumpf ----
     E('pallof', 'Pallof Press (Kabel)', { equip: 'Kabel', reps: [10, 12], inc: 1, stress: [], alt: ['plank'], cue: 'Pro Seite. Seitlich zum Kabel, Arme gerade nach vorn drücken, nicht verdrehen lassen.' }),
     E('plank', 'Unterarmstütz', { equip: 'Körpergewicht', reps: [30, 60], inc: 0, unit: 'Sek.', stress: ['Schulter', 'Rücken unten'], alt: ['deadbug'], cue: 'Po anspannen, kein Hohlkreuz.' }),
@@ -84,6 +84,10 @@ Object.assign(SESSIONS, {
     steps: ['5 Min. zügig gehen zum Aufwärmen.', '30–40 Min. so locker laufen, dass du dich noch unterhalten könntest (Puls ca. 60–70 % vom Maximum).', 'Lieber langsamer als zu schnell – Gehpausen sind völlig ok.', '5 Min. auslaufen, danach kurz Waden und Hüfte dehnen.'] },
   LAUF2: { id: 'LAUF2', name: 'Intervall-Lauf', short: 'Intervalle', focus: 'ca. 30 Min. mit Tempowechsel', legs: false, away: true, cardio: true, ex: [], minutes: 30,
     steps: ['10 Min. locker einlaufen.', '6 × 1 Min. zügig (anstrengend, aber kontrolliert), dazwischen je 2 Min. locker traben oder gehen.', 'Für Mannschaftssportler: 6–8 kurze Sprints à 10–15 s mit voller Erholung passen hier gut.', '5 Min. locker auslaufen.'] },
+  // Zuhause ohne Geräte (Ausstattung „Ohne Geräte“) – mit Progression über Wiederholungen
+  KGA: { id: 'KGA', name: 'Ganzkörper ohne Geräte A', short: 'KG A', focus: 'Körpergewicht · Zuhause oder draußen', legs: true, ex: ['kniebeuge-kg', 'liegestuetz', 'inverted-row', 'glute-bridge-einbeinig', 'bench-dips', 'seitstuetz', 'wadenheben-kh'] },
+  KGB: { id: 'KGB', name: 'Ganzkörper ohne Geräte B', short: 'KG B', focus: 'Körpergewicht · Zuhause oder draußen', legs: true, ex: ['ausfallschritte-kg', 'liegestuetz-erhoeht', 'klimmzug', 'glute-bridge', 'liegestuetz-eng', 'superman', 'reverse-crunch'] },
+  KGC: { id: 'KGC', name: 'Ganzkörper ohne Geräte C', short: 'KG C', focus: 'Körpergewicht · mit Sprüngen', legs: true, ex: ['curtsy-lunge', 'liegestuetz', 'inverted-row', 'jump-squat', 'donkey-kicks', 'mountain-climber', 'plank'] },
   ARME: { id: 'ARME', name: 'Schultern & Arme', short: 'Arme', focus: 'Schultern, Bizeps, Trizeps', legs: false, ex: ['schulterpresse', 'seitheben-kabel', 'reverse-fly', 'sz-curl', 'french-press', 'hammercurls', 'trizeps-kabel'] },
 });
 
@@ -95,6 +99,11 @@ export const ROTATIONS = {
   5: ['OKA', 'UKA', 'OKB', 'UKB', 'GK1'],
   6: ['PUSH', 'PULL', 'BEINE', 'PUSH', 'PULL', 'BEINE'],
 };
+
+/** Plan ohne Geräte (Ausstattung „Ohne Geräte“) */
+export const KG_SPLITS = Object.fromEntries(
+  [1, 2, 3, 4, 5, 6].map((n) => [n, [{ id: 'kg' + n, name: 'Ganzkörper ohne Geräte', hint: 'Körpergewicht – Steigerung über Wiederholungen und schwerere Varianten', rot: Array.from({ length: n }, (_, i) => ['KGA', 'KGB', 'KGC'][i % (n >= 3 ? 3 : 2)]) }]]),
+);
 
 /** Plan-Vorschläge je Trainingshäufigkeit (wie in Studio-Apps üblich). Erster = Standard. */
 export const SPLITS = {

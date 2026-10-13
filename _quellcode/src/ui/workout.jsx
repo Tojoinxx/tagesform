@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { useS, S, saveActive, clearActive, patchDay, toast, getDay, openSheet } from '../lib/store.js';
 import { ExAnim } from './exui.jsx';
 import { guideOf } from '../lib/exguide.js';
-import { swapOptions, itemFor, prefsOf } from '../lib/training.js';
+import { swapOptions, itemFor, prefsOf, warmupFor, platesFor, limitsOf } from '../lib/training.js';
+import { buildSummary } from './progress.jsx';
 import { uid, n1, num, vibrate, fmtShortDate } from '../lib/util.js';
 import { Check, Plus, Info, Repeat, X, Timer, Flag, Trash2, ExternalLink, Search } from 'lucide-preact';
 import { nav } from './router.js';
@@ -39,7 +40,8 @@ export function Workout() {
   const s = useS();
   const [w, setW] = useState(() => (S.active ? JSON.parse(JSON.stringify(S.active)) : null));
   const [now, setNow] = useState(Date.now());
-  const [rest, setRest] = useState(null); // {until, total}
+  const [rest, setRestRaw] = useState(() => (S.active && S.active.rest && S.active.rest.until > Date.now() ? S.active.rest : null)); // {until, total}
+  const [showWarm, setShowWarm] = useState({});
   const [swapFor, setSwapFor] = useState(null);
   const [cueFor, setCueFor] = useState(null);
   const [rirOpen, setRirOpen] = useState(null); // {i, j}
@@ -67,6 +69,12 @@ export function Workout() {
     if (immediate) saveActive(next);
     else saveT.current = setTimeout(() => saveActive(next), 700);
   };
+  // Pause auch im gespeicherten Training merken (überlebt Neuladen / App-Wechsel)
+  const setRest = (r, base = w) => {
+    setRestRaw(r);
+    persist({ ...base, rest: r || null }, false);
+  };
+  const scrollToEx = (i) => setTimeout(() => document.getElementById('wex-' + i)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
   const upSet = (i, j, patch, immediate) => {
     const next = { ...w, items: w.items.map((it, a) => (a !== i ? it : { ...it, sets: it.sets.map((st, b) => (b !== j ? st : { ...st, ...patch })) })) };
     persist(next, immediate);
@@ -88,9 +96,17 @@ export function Workout() {
     vibrate(25);
     const pf = prefsOf();
     if (it.unit !== 'Sek.' && !it.plyo && pf.rirPrompt) setRirOpen({ i, j });
-    const secs = it.main ? pf.restMain : pf.restOther;
+    // Supersatz: nach Übung 1 direkt zur Partner-Übung, Pause erst danach
+    const pi = it.ss ? next.items.findIndex((x, a) => a !== i && x.ss === it.ss) : -1;
+    if (pi >= 0 && it.ssPos === 1 && next.items[pi].sets.some((x) => !x.done)) {
+      setRest(null, next);
+      toast(`Supersatz: direkt weiter mit ${next.items[pi].name}`);
+      return scrollToEx(pi);
+    }
+    const secs = it.plyo ? Math.max(90, pf.restOther) : it.main ? pf.restMain : pf.restOther;
     const allDone = next.items[i].sets.every((x) => x.done);
-    if (!(allDone && i === w.items.length - 1)) setRest({ until: Date.now() + secs * 1000, total: secs });
+    if (!(allDone && i === w.items.length - 1)) setRest({ until: Date.now() + secs * 1000, total: secs }, next);
+    if (pi >= 0 && it.ssPos === 2 && next.items[pi].sets.some((x) => !x.done)) scrollToEx(pi);
   };
   const addSet = (i) => {
     const it = w.items[i];
@@ -104,8 +120,9 @@ export function Workout() {
   };
   const swap = (i, exId) => {
     const fresh = itemFor(exId);
-    fresh.sets = fresh.sets.slice(0, Math.max(fresh.sets.length, w.items[i].sets.length));
-    persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...fresh, swappedFrom: x.name })) }, true);
+    const old = w.items[i];
+    fresh.sets = Array.from({ length: Math.max(fresh.sets.length, old.sets.length) }, (_, k) => fresh.sets[k] || { ...fresh.sets[0] });
+    persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...fresh, swappedFrom: x.name, ss: old.ss, ssPos: old.ssPos })) }, true);
     setSwapFor(null);
   };
 
@@ -136,17 +153,18 @@ export function Workout() {
       comeback: w.comeback || null,
       cycle: w.cycle || null,
       items: w.items
-        .map((it) => ({ exId: it.exId, name: it.name, unit: it.unit, targetRir: it.target ? it.target.rir ?? null : null, sets: it.sets.filter((x) => x.done).map((x) => ({ w: num(x.w), r: num(x.r), rir: x.rir ?? null, done: true })) }))
+        .map((it) => ({ exId: it.exId, name: it.name, unit: it.unit, targetRir: it.target ? it.target.rir ?? null : null, ...(it.reset ? { reset: true } : {}), sets: it.sets.filter((x) => x.done).map((x) => ({ w: num(x.w), r: num(x.r), rir: x.rir ?? null, done: true })) }))
         .filter((it) => it.sets.length),
     };
-    const volume = record.items.reduce((a, it) => a + it.sets.reduce((b, x) => b + x.w * x.r, 0), 0);
+    // Rekorde & Vergleich vor dem Speichern berechnen (sonst zählt das heutige Training schon mit)
+    const summary = buildSummary(w, record);
     patchDay(w.dayKey, (d) => ({
       workouts: [...(d.workouts || []), record],
       training: [...(d.training || []), { id: uid(), type: 'Kraft', session: w.name, minutes, rpe: w.mode === 'light' ? 'locker' : 'mittel', workoutId: record.id, at: Date.now() }],
     }));
     clearActive();
-    toast(`${w.name} gespeichert 💪 ${doneSets} Sätze · ${Math.round(volume).toLocaleString('de-DE')} kg bewegt`);
     nav('/training');
+    openSheet('summary', summary);
   };
 
   return (
@@ -170,7 +188,13 @@ export function Workout() {
       {w.items.map((it, i) => {
         const allDone = it.sets.every((x) => x.done);
         return (
-          <section class={'card wex' + (allDone ? ' wex--done' : '')} key={it.exId + i}>
+          <section class={'card wex' + (allDone ? ' wex--done' : '') + (it.ss ? ' wex--ss' : '')} key={it.exId + i} id={'wex-' + i}>
+            {it.ss && (
+              <div class="wex__ss">
+                Supersatz {it.ss}
+                {it.ssPos} · {it.ssPos === 1 ? 'danach direkt' : 'im Wechsel mit'} {(w.items.find((x, a) => a !== i && x.ss === it.ss) || {}).name}
+              </div>
+            )}
             <div class="wex__head">
               <button class="wex__thumb" onClick={() => openSheet('exercise', { exId: it.exId, item: it })} aria-label={`${it.name} – Ausführung ansehen`}>
                 <ExAnim id={it.exId} size="sm" play={!allDone} />
@@ -191,23 +215,55 @@ export function Workout() {
                 </button>
               </div>
             </div>
-            {it.adaptedFrom && <div class="badge badge--info">Getauscht statt {it.adaptedFrom.name} – wegen {it.adaptedFrom.why}</div>}
+            {it.adaptedFrom && !it.adaptedFrom.quiet && <div class="badge badge--info">Getauscht statt {it.adaptedFrom.name} – wegen {it.adaptedFrom.why}</div>}
             {it.swappedFrom && <div class="badge badge--info">Statt {it.swappedFrom}</div>}
             {swapFor === i && (
               <div class="swaplist">
                 <span class="small muted">Gerät besetzt oder unangenehm? Tauschen gegen:</span>
-                {swapOptions(it.exId, w.items.map((x) => x.exId))
-                  .filter((e) => !(((getDay(w.dayKey).form || {}).pains || []).some((p) => p.level >= 4 && e.stress[0] === p.area)))
+                {swapOptions(
+                  it.exId,
+                  w.items.map((x) => x.exId),
+                  [...((getDay(w.dayKey).form || {}).pains || []).filter((p) => p.level >= 4).map((p) => p.area), ...limitsOf()],
+                )
                   .map((e) => (
                   <button class="chip chip--sm" onClick={() => swap(i, e.id)}>
                     {e.name}
                   </button>
                 ))}
+                <button
+                  class="chip chip--sm"
+                  onClick={() =>
+                    openSheet('pick', {
+                      title: `${it.name} tauschen`,
+                      exclude: w.items.map((x) => x.exId),
+                      suggest: swapOptions(it.exId, w.items.map((x) => x.exId)).map((e) => e.id),
+                      onPick: (id) => swap(i, id),
+                    })
+                  }
+                >
+                  <Search size={13} /> Andere suchen …
+                </button>
               </div>
             )}
             <div class="wex__info small">
               {lastText(it) ? <span class="muted">Letztes Mal {lastText(it)}</span> : null}
               {it.note && <span class="wex__note">{it.note}</span>}
+              {(() => {
+                const pl = /Langhantel/.test(it.equip || '') && it.target && it.target.w ? platesFor(it.target.w) : null;
+                return pl && pl.length ? <span class="muted">Scheiben pro Seite: {pl.map((x) => String(x).replace('.', ',')).join(' + ')} kg (20-kg-Stange)</span> : null;
+              })()}
+              {(() => {
+                if (!prefsOf().warmup || it.sets.some((x) => x.done)) return null;
+                const firstMain = w.items.findIndex((x) => x.main) === i;
+                const wu = warmupFor(it, firstMain);
+                if (!wu) return null;
+                return (
+                  <button class="wex__warm" onClick={() => setShowWarm({ ...showWarm, [i]: !showWarm[i] })}>
+                    🔥 Aufwärmen: {wu.map((x) => `${n1(x.w)} kg × ${x.r}`).join(' → ')}
+                    {showWarm[i] && <small class="muted"> – zählen nicht als Arbeitssätze, kurze Pausen (ca. 1 Min.).</small>}
+                  </button>
+                );
+              })()}
               {it.target && it.target.rir != null && it.unit !== 'Sek.' && (
                 <span class="wex__rir">
                   Ziel {it.target.reps} Wdh. · aufhören, wenn noch <b>{it.target.rir}</b> {it.target.rir === 1 ? 'Wiederholung' : 'Wiederholungen'} gehen würden
