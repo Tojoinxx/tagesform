@@ -24,7 +24,7 @@ export const fmtTarget = (it) => {
 import { ExCard, ExAnim, startWorkout } from './exui.jsx';
 export { startWorkout };
 
-export function SetupCard({ onDone, initial, embedded }) {
+export function SetupCard({ onDone, initial, embedded, fresh }) {
   const [st, setSt] = useState(() => initial || { ...defaultSetup(), goal: S.profile && S.profile.goal === 'abnehmen' ? 'fit' : 'muskel' });
   const set = (p) => setSt((o) => ({ ...o, ...p }));
   const toggleDay = (d) => set({ handballDays: st.handballDays.includes(d) ? st.handballDays.filter((x) => x !== d) : [...st.handballDays, d] });
@@ -56,7 +56,7 @@ export function SetupCard({ onDone, initial, embedded }) {
       {!embedded && (
         <>
           <h3>
-            <Sparkles size={18} /> Dein Trainingsplan
+            <Sparkles size={18} /> {fresh ? 'Neuen Plan erstellen' : 'Dein Trainingsplan'}
           </h3>
           <p class="small muted">Ich baue dir einen Plan, der zu deinem Ziel, deiner Ausstattung und deinem Sport passt – und sich an Tagesform und Schmerzen anpasst.</p>
         </>
@@ -236,13 +236,15 @@ export function SetupCard({ onDone, initial, embedded }) {
         class="btn btn--primary btn--block btn--lg"
         onClick={() => {
           const split = st.planType === 'eigen' ? st.split || null : splitSel;
-          saveTraining({ setup: { ...st, split, freqMy: true, cycleStart: st.cycleStart || todayKey() }, createdAt: (S.training && S.training.createdAt) || Date.now() });
-          toast(initial ? 'Plan aktualisiert' : 'Plan erstellt 💪');
+          // Neuer Plan: Zyklus startet neu, eigene Änderungen an Vorlagen-Einheiten werden zurückgesetzt (Gewichte & Verlauf bleiben)
+          const custom = fresh ? Object.fromEntries(Object.keys((S.training && S.training.custom) || {}).filter((k) => SESSIONS[k]).map((k) => [k, null])) : undefined;
+          saveTraining({ setup: { ...st, split, freqMy: true, cycleStart: fresh ? todayKey() : st.cycleStart || todayKey() }, ...(custom ? { custom: { ...S.training.custom, ...custom } } : {}), createdAt: (S.training && S.training.createdAt) || Date.now() });
+          toast(fresh ? 'Neuer Plan gestartet 💪' : initial ? 'Plan aktualisiert' : 'Plan erstellt 💪');
           onDone && onDone();
           if (st.planType === 'eigen' && !hasMy) nav('/plan');
         }}
       >
-        <Check size={18} /> {initial ? 'Plan aktualisieren' : embedded ? 'Plan erstellen & weiter' : 'Plan erstellen'}
+        <Check size={18} /> {fresh ? 'Neuen Plan starten' : initial ? 'Plan aktualisieren' : embedded ? 'Plan erstellen & weiter' : 'Plan erstellen'}
       </button>
       <button type="button" class="btn--link small center" onClick={() => openSheet('import')}>
         <Download size={14} /> Plan & Gewichte aus einer anderen App übernehmen (Code)
@@ -529,7 +531,7 @@ function TodayCard({ setup }) {
   );
 }
 
-function PlanOverview({ setup }) {
+function PlanOverview({ setup, onNew }) {
   const rot = [...new Set(rotationOf(setup))];
   const mine = usesMyPlan(setup);
   return (
@@ -556,6 +558,9 @@ function PlanOverview({ setup }) {
       <button class="btn btn--block" onClick={() => nav('/plan')}>
         <Pencil size={16} /> {mine ? 'Meinen Plan bearbeiten' : 'Eigenen Plan zusammenstellen'}
       </button>
+      <button class="btn btn--block" onClick={onNew}>
+        <Sparkles size={16} /> Neuen Trainingsplan erstellen
+      </button>
     </div>
   );
 }
@@ -563,8 +568,9 @@ function PlanOverview({ setup }) {
 export function Training() {
   const s = useS();
   const [editing, setEditing] = useState(false);
+  const [fresh, setFresh] = useState(false);
   const myKey = (s.training && s.training.myRotation && s.training.myRotation.join(',')) || '';
-  useEffect(() => setEditing(false), [myKey]);
+  useEffect(() => (setEditing(false), setFresh(false)), [myKey]);
   const hasSetup = !!(s.training && s.training.setup);
   const setup = setupOf();
 
@@ -596,10 +602,18 @@ export function Training() {
         </button>
       )}
 
-      {(!hasSetup || editing) && <SetupCard initial={hasSetup ? setup : null} onDone={() => setEditing(false)} />}
-      {hasSetup && editing && <TrainingOptionsCard />}
+      {fresh && hasSetup && (
+        <>
+          <SetupCard fresh initial={{ ...setup, split: null, planType: 'auto', cycleStart: null }} onDone={() => (setFresh(false), window.scrollTo(0, 0))} />
+          <button class="btn btn--block" onClick={() => setFresh(false)}>
+            Abbrechen
+          </button>
+        </>
+      )}
+      {!fresh && (!hasSetup || editing) && <SetupCard initial={hasSetup ? setup : null} onDone={() => setEditing(false)} />}
+      {hasSetup && editing && !fresh && <TrainingOptionsCard />}
 
-      {hasSetup && !editing && (
+      {hasSetup && !editing && !fresh && (
         <>
           {!s.active && <TodayCard setup={setup} />}
           <BreakCard />
@@ -613,7 +627,7 @@ export function Training() {
           {sportOf(setup).games && setup.season !== 'off' && <GamesCard setup={setup} />}
           <OtherTrainingCard />
           <h4 class="sect sect--page">Alle Einheiten</h4>
-          <PlanOverview setup={setup} />
+          <PlanOverview setup={setup} onNew={() => (setFresh(true), setEditing(false), window.scrollTo(0, 0))} />
           <ProgressCard />
           <Last7Card />
         </>
