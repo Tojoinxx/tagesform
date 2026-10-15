@@ -300,7 +300,7 @@ function FatigueNotice() {
   );
 }
 
-function WeekRhythm({ setup: base }) {
+export function WeekRhythm({ setup: base }) {
   const setup = weekSetup(base);
   const plan = weekPlan(setup);
   const today = new Date().getDay();

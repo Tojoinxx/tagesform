@@ -3019,3 +3019,9 @@ a.btn {
 .cardiobonus__head > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; }
 .cardiobonus__ic { font-size: 22px; }
 .rot90 { transform: rotate(90deg); }
+
+/* Plan per Link */
+.planlink { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.planlink__row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2, rgba(127,127,127,.08)); font-size: 15px; }
+.planlink__row > span:last-child { text-align: right; }
+.planlink__row s { font-size: 13px; margin-right: 4px; }

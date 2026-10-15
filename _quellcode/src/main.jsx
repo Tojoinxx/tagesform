@@ -22,12 +22,13 @@ import { PlanEditor, ExOptsSheet } from './ui/planeditor.jsx';
 import { BreakSheet } from './ui/breaks.jsx';
 import { SummarySheet } from './ui/progress.jsx';
 import { importFromHealth } from './lib/health.js';
+import { PlanLinkSheet, planFromQuery } from './ui/planlink.jsx';
 import { House, ChartColumn, Dumbbell, Settings as SettingsIcon } from 'lucide-preact';
 
 applyTheme(lsGet('tf.theme', 'system'));
 setS({ day: todayKey() });
 
-const SHEETS = { add: AddSheet, amount: AmountSheet, entry: EntrySheet, custom: CustomSheet, photo: PhotoSheet, label: LabelSheet, barcode: BarcodeSheet, suggest: SuggestSheet, exercise: ExerciseSheet, algo: AlgoSheet, pick: ExercisePicker, import: ImportSheet, wellness: WellnessSheet, rir: RirSheet, exopts: ExOptsSheet, break: BreakSheet, summary: SummarySheet };
+const SHEETS = { add: AddSheet, amount: AmountSheet, entry: EntrySheet, custom: CustomSheet, photo: PhotoSheet, label: LabelSheet, barcode: BarcodeSheet, suggest: SuggestSheet, exercise: ExerciseSheet, algo: AlgoSheet, pick: ExercisePicker, import: ImportSheet, wellness: WellnessSheet, rir: RirSheet, exopts: ExOptsSheet, break: BreakSheet, summary: SummarySheet, planlink: PlanLinkSheet };
 
 function SheetHost() {
   const s = useS();
@@ -76,6 +77,13 @@ function runAction(q) {
       nav('/training');
       openSheet('break', { type: 'krank' });
       break;
+    case 'plan': {
+      const changes = planFromQuery(q);
+      nav('/training');
+      if (changes) openSheet('planlink', { changes });
+      else toast('Der Plan-Link ist ungültig', 'error');
+      return;
+    }
     case 'training':
       return nav('/training');
     case 'woche':
@@ -90,7 +98,7 @@ function Shell() {
   const r = useRoute();
   useEffect(() => {
     if (r.query.do) runAction(r.query);
-  }, [r.query.do, r.query.ml, r.query.mahlzeit, r.query.gewicht, r.query.schritte, r.query.aktiv, r.query.schlaf]);
+  }, [r.query.do, r.query.ml, r.query.mahlzeit, r.query.gewicht, r.query.schritte, r.query.aktiv, r.query.schlaf, r.query.x, r.query.split, r.query.lauf]);
   const page =
     r.path === '/woche' ? <Week query={r.query} key={r.query.last || 'w'} /> : r.path === '/training' || r.path === '/tagesform' ? <Training /> : r.path === '/workout' ? <Workout /> : r.path === '/einheit' ? <SessionPage query={r.query} key={r.query.s} /> : r.path === '/plan' ? <PlanEditor /> : r.path === '/einstellungen' ? <Settings query={r.query} /> : <Today />;
   return (
