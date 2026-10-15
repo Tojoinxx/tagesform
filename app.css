@@ -3006,3 +3006,11 @@ a.btn {
 .bmcard .h3row { margin-bottom: 0; }
 .wellness .bm { margin: 4px 0; }
 .sorelist { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+/* ---- Apple Health ---- */
+.healthrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.hsteps { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.4; }
+.hsteps li { display: flex; gap: 10px; align-items: flex-start; }
+.hsteps code, .codebox code { font-size: 12px; background: var(--card2); padding: 1px 5px; border-radius: 5px; }
+.codebox { display: flex; align-items: flex-start; gap: 6px; background: var(--card2); border-radius: 10px; padding: 8px 10px; }
+.codebox code { flex: 1; word-break: break-all; background: none; padding: 0; }
+.more .btn--sm { margin-top: 4px; }

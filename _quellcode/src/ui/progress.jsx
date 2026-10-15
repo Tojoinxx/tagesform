@@ -5,6 +5,7 @@ import { fmtShortDate, n1, n0, isoWeek, todayKey } from '../lib/util.js';
 import { Sheet } from './common.jsx';
 import { Trophy, TrendingUp, Timer, Layers, Dumbbell, ChevronRight, Play, Flame } from 'lucide-preact';
 import { nav } from './router.js';
+import { healthOn, sendWorkoutToHealth } from '../lib/health.js';
 import { estMinutes } from './exui.jsx';
 
 const kg = (v) => `${n1(v)} kg`;
@@ -83,14 +84,21 @@ export function ExHistory({ exId }) {
 }
 
 /** Nach dem Training: Rekorde, Vergleich zum letzten Mal, Kennzahlen */
-export function SummarySheet({ name, minutes, sets, volume, prs = [], cmp = [], rir }) {
+export function SummarySheet({ name, minutes, sets, volume, prs = [], cmp = [], rir, startedAt, finishedAt }) {
   return (
     <Sheet
       title="Training gespeichert"
       footer={
-        <button class="btn btn--primary btn--block btn--lg" onClick={closeSheet}>
-          Fertig
-        </button>
+        <div class="row">
+          {healthOn() && (
+            <button class="btn" onClick={() => sendWorkoutToHealth({ name, minutes, startedAt, finishedAt })} aria-label="In Apple Health eintragen">
+              ❤️ Health
+            </button>
+          )}
+          <button class="btn btn--primary btn--grow btn--lg" onClick={closeSheet}>
+            Fertig
+          </button>
+        </div>
       }
     >
       <div class="sum__hero">
@@ -186,6 +194,8 @@ export function buildSummary(w, record) {
   const volume = record.items.reduce((a, it) => a + it.sets.reduce((b, x) => b + (x.w || 0) * x.r, 0), 0);
   return {
     name: record.name,
+    startedAt: record.startedAt,
+    finishedAt: record.finishedAt,
     minutes: record.minutes,
     sets: record.items.reduce((a, it) => a + it.sets.length, 0),
     volume,

@@ -3,6 +3,7 @@ import { useS, saveProfile, toast, logout, exportAll, S, deleteFood } from '../l
 import { num, lsGet, lsSet } from '../lib/util.js';
 import { BodyFields, ActivityFields, GoalFields, TargetsCard, PrefsFields, AiSetup } from './profile.jsx';
 import { Seg } from './common.jsx';
+import { HealthSettings } from './healthui.jsx';
 import { Download, LogOut, Smartphone, Bell, Trash2 } from 'lucide-preact';
 
 export const VERSION = '1.0.0';
@@ -97,6 +98,9 @@ export function Settings({ query }) {
           </section>
         </>
       )}
+
+      <h4 class="sect sect--page">Apple Health</h4>
+      <HealthSettings />
 
       <h4 class="sect sect--page">App</h4>
       <section class="card form">

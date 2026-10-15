@@ -8,6 +8,7 @@ import { Ring, Bar } from './common.jsx';
 import { ChevronLeft, ChevronRight, Plus, Minus, GlassWater, Apple, Sparkles, Sunrise, Sun, Moon, Cookie, ChartColumn, HeartPulse, Dumbbell } from 'lucide-preact';
 import { nav } from './router.js';
 import { TodayTrainingTile } from './progress.jsx';
+import { healthOn, sendDayToHealth } from '../lib/health.js';
 
 const MEAL_ICON = { fruehstueck: Sunrise, mittag: Sun, abend: Moon, snacks: Cookie };
 
@@ -62,6 +63,20 @@ export function Today() {
           <Bar label="Kohlenhydrate" value={sum.c} max={t.c} color="var(--c)" />
           <Bar label="Fett" value={sum.f} max={t.f} color="var(--f)" />
         </div>
+        {(healthOn() || day.health) && (
+          <div class="healthrow">
+            <span class="small muted">
+              {day.health && (day.health.steps || day.health.activeKcal)
+                ? `❤️ ${[day.health.steps && `${n0(day.health.steps)} Schritte`, day.health.activeKcal && `${n0(day.health.activeKcal)} kcal aktiv`].filter(Boolean).join(' · ')}`
+                : '❤️ Apple Health'}
+            </span>
+            {healthOn() && sum.kcal > 0 && (
+              <button class="btn btn--sm" onClick={() => sendDayToHealth(k)}>
+                {day.healthSent ? '✓ gesendet · nochmal' : 'An Health senden'}
+              </button>
+            )}
+          </div>
+        )}
       </section>
 
       <div class="duo">

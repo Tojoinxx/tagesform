@@ -6,6 +6,7 @@ import { todayKey, addDays, WD_SHORT, parseKey, uid } from '../lib/util.js';
 import { Chip, Field } from './common.jsx';
 import { sportOf, isSportEntry, soreOf, buildSession, mgOf, MUSCLE_LABEL } from '../lib/training.js';
 import { BodyMap, musclesOf } from './bodymap.jsx';
+import { sleepBucket } from '../lib/health.js';
 import { Dumbbell, HeartPulse, Check, Trash2, Pencil } from 'lucide-preact';
 
 export const ENERGY = [
@@ -231,7 +232,8 @@ export function WellnessSheet({ sessionId }) {
   const k = todayKey();
   const prev = getDay(k).form;
   const [step, setStep] = useState(0);
-  const [f, setF] = useState(() => ({ energy: 4, sleep: '7 h', soreness: 'keiner', pains: [], note: '', ...(prev && prev.energy ? prev : {}) }));
+  const hs = getDay(k).health;
+  const [f, setF] = useState(() => ({ energy: 4, sleep: sleepBucket(hs && hs.sleepH) || '7 h', soreness: 'keiner', pains: [], note: '', ...(prev && prev.energy ? prev : {}) }));
   const STEPS = 4;
   const finish = (skipped) => {
     patchDay(k, { form: skipped ? { ...(prev || {}), skipped: true, at: Date.now() } : { ...f, skipped: false, at: Date.now() } });
@@ -303,6 +305,7 @@ export function WellnessSheet({ sessionId }) {
       {step === 1 && (
         <div class="wellness">
           <h2>Wie lange hast du geschlafen?</h2>
+          {hs && hs.sleepH && <p class="small muted">❤️ Laut Health: {String(hs.sleepH).replace('.', ',')} h</p>}
           <div class="chips chips--wrap">
             {SLEEP.map((x) => (
               <Chip active={f.sleep === x} onClick={() => setF({ ...f, sleep: x })}>

@@ -21,6 +21,7 @@ import { WellnessSheet } from './ui/form.jsx';
 import { PlanEditor, ExOptsSheet } from './ui/planeditor.jsx';
 import { BreakSheet } from './ui/breaks.jsx';
 import { SummarySheet } from './ui/progress.jsx';
+import { importFromHealth } from './lib/health.js';
 import { House, ChartColumn, Dumbbell, Settings as SettingsIcon } from 'lucide-preact';
 
 applyTheme(lsGet('tf.theme', 'system'));
@@ -68,6 +69,9 @@ function runAction(q) {
     case 'vorschlag':
       openSheet('suggest', { dayKey: k });
       break;
+    case 'health':
+      toast(importFromHealth(q));
+      break;
     case 'krank':
       nav('/training');
       openSheet('break', { type: 'krank' });
@@ -86,7 +90,7 @@ function Shell() {
   const r = useRoute();
   useEffect(() => {
     if (r.query.do) runAction(r.query);
-  }, [r.query.do, r.query.ml, r.query.mahlzeit]);
+  }, [r.query.do, r.query.ml, r.query.mahlzeit, r.query.gewicht, r.query.schritte, r.query.aktiv, r.query.schlaf]);
   const page =
     r.path === '/woche' ? <Week query={r.query} key={r.query.last || 'w'} /> : r.path === '/training' || r.path === '/tagesform' ? <Training /> : r.path === '/workout' ? <Workout /> : r.path === '/einheit' ? <SessionPage query={r.query} key={r.query.s} /> : r.path === '/plan' ? <PlanEditor /> : r.path === '/einstellungen' ? <Settings query={r.query} /> : <Today />;
   return (
