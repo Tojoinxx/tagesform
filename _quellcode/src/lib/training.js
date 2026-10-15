@@ -1007,7 +1007,25 @@ export function recommend(setup0 = setupOf(), k = todayKey()) {
   else if (tomorrowGame) status = 'pregame';
   else if (!left.length) status = 'goal';
   else if (!planned) status = 'free';
-  return { sessionId, status, reasons, tomorrowGame, yesterdayGame, gameDay: setup.gameDay, doneThisWeek: doneThisWeek.length, perWeek: plan.length, planned: !!planned, rot, doneToday: doneToday[0] || null, left };
+  // Optionales Cardio: Bonus an freien Tagen (nicht am Spieltag, nicht am Tag davor, nicht wenn heute schon trainiert)
+  const cardio = cardioState(setup0, k);
+  const cardioToday = cardio && cardio.left > 0 && (status === 'free' || status === 'goal') ? cardio.next : null;
+  return { sessionId, status, reasons, tomorrowGame, yesterdayGame, gameDay: setup.gameDay, doneThisWeek: doneThisWeek.length, perWeek: plan.length, planned: !!planned, rot, doneToday: doneToday[0] || null, left, cardio, cardioToday };
+}
+
+/** Optionale Läufe pro Woche: wie viele schon gemacht (Lauf-Einheiten oder eingetragene Läufe)? */
+export function cardioState(setup = setupOf(), k = todayKey()) {
+  const n = Number(setup.cardio) || 0;
+  if (!n) return null;
+  const ws = weekStart(k);
+  let done = 0;
+  for (let i = 0; i < 7; i++) {
+    const day = getDay(addDays(ws, i));
+    done += (day.training || []).filter((t) => /^Laufen/.test(t.type || '')).length;
+  }
+  const doneToday = (getDay(k).training || []).some((t) => /^Laufen/.test(t.type || ''));
+  // 1. Lauf locker; 2. Lauf mit Intervallen (Sprintsportarten profitieren davon)
+  return { n, done, left: doneToday ? 0 : Math.max(0, n - done), next: done % 2 === 1 && sportOf(setup).sprint ? 'LAUF2' : 'LAUF1' };
 }
 
 // ---------- Wochenvolumen pro Muskel ----------
@@ -1072,6 +1090,8 @@ export function recommendSplit(st) {
     (focus.includes('po') && pick((x) => /^bbp/.test(x.id), 'passt zu deinem Schwerpunkt Po')) ||
     ((focus.includes('po') || focus.includes('beine')) && pick((x) => /^(bbp|ukokuk)/.test(x.id), 'mehr Beintage für deinen Schwerpunkt')) ||
     (focus.includes('arme') && pick((x) => /arme/.test(x.id), 'eigener Arm-Tag für deinen Schwerpunkt')) ||
+    // 2× Kraft neben ≥ 2 Vereinstrainings: Ganzkörper hätte zwangsläufig Beine vor dem Training → Ober/Unter
+    (sportOn && st.perWeek <= 2 && (st.handballDays || []).length >= 2 && pick((x) => /^okuk/.test(x.id), `Beine nur 1×, mit Abstand zu ${sp && sp.id !== 'andere' ? sp.name : 'deinem Sport'} und Spiel – die Beine trainiert der Sport mit`)) ||
     (sportOn && pick((x) => x.sport, `wenig Beintage – passt neben ${sp && sp.id !== 'andere' ? sp.name : 'deinem Sport'}`)) ||
     (st.experience === 'anfaenger' && pick((x) => /^gk/.test(x.id), 'Ganzkörper: jede Übung oft üben – ideal zum Lernen')) ||
     (st.goal === 'fit' && pick((x) => /^gk/.test(x.id), 'Ganzkörper: viel Bewegung pro Einheit, jeder Muskel oft')) ||

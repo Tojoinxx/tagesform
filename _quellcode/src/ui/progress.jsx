@@ -1,6 +1,6 @@
 import { useS, S, closeSheet, saveTraining, toast } from '../lib/store.js';
 import { exHistory, progressStats, recommend, setupOf, sessionOf, buildSession, isAwaySession, e1rm } from '../lib/training.js';
-import { EXERCISES } from '../lib/exercises.js';
+import { EXERCISES, SESSIONS } from '../lib/exercises.js';
 import { fmtShortDate, n1, n0, isoWeek, todayKey } from '../lib/util.js';
 import { Sheet } from './common.jsx';
 import { Trophy, TrendingUp, Timer, Layers, Dumbbell, ChevronRight, Play, Flame } from 'lucide-preact';
@@ -312,6 +312,10 @@ export function TodayTrainingTile() {
     icon = '🧘';
     title = 'Morgen Spiel';
     sub = 'Heute frei – frische Beine';
+  } else if (rec.cardioToday) {
+    icon = '🏃';
+    title = rec.status === 'goal' ? 'Kraft-Ziel erreicht – optional laufen' : 'Optional: Laufen';
+    sub = `${SESSIONS[rec.cardioToday].name} · ${rec.cardio.done}/${rec.cardio.n} diese Woche`;
   } else if (rec.status === 'goal' || rec.status === 'urlaub-ziel') {
     icon = '🎯';
     title = 'Wochenziel erreicht';

@@ -199,6 +199,9 @@ export function SetupCard({ onDone, initial, embedded, fresh }) {
           />
         </Field>
       )}
+      <Field group label="Zusätzlich Laufen (optional)" hint="Zählt nicht zum Pflicht-Ziel: Die App schlägt den Lauf an freien Tagen vor – nicht am Spieltag und nicht am Tag davor. Wenn die Zeit fehlt, einfach auslassen.">
+        <Seg value={String(st.cardio || 0)} onChange={(v) => set({ cardio: Number(v) })} options={[0, 1, 2].map((n) => ({ id: String(n), label: n ? `bis ${n}× / Woche` : 'Nein' }))} />
+      </Field>
       <Field group label="Wann kannst du ins Gym?" hint={gymDays.length ? `${gymDays.length} Tage ausgewählt – die App plant nur hier.` : 'Nichts gewählt = flexibel: 1–2 Tage unter der Woche, Rest am Wochenende.'}>
         <div class="daypick">
           {WEEK.map((d) => {
@@ -250,6 +253,27 @@ export function SetupCard({ onDone, initial, embedded, fresh }) {
         <Download size={14} /> Plan & Gewichte aus einer anderen App übernehmen (Code)
       </button>
     </section>
+  );
+}
+
+/** Optionaler Lauf an freien Tagen */
+function CardioBonus({ id, cardio }) {
+  const [open, setOpen] = useState(false);
+  const ss = SESSIONS[id];
+  return (
+    <div class="cardiobonus">
+      <button class="cardiobonus__head" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <span class="cardiobonus__ic">🏃</span>
+        <span>
+          <b>Optional: {ss.name}</b>
+          <small class="muted">
+            {ss.focus} · {cardio.done}/{cardio.n} diese Woche – nur wenn du Zeit & Lust hast
+          </small>
+        </span>
+        <ChevronRight size={18} class={open ? 'rot90' : ''} />
+      </button>
+      {open && <CardioPanel sessionId={id} key={id} />}
+    </div>
   );
 }
 
@@ -500,6 +524,7 @@ function TodayCard({ setup }) {
           {sessionOf(rec.sessionId).name} trotzdem machen
         </button>
       )}
+      {rec.cardioToday && !pick && <CardioBonus id={rec.cardioToday} cardio={rec.cardio} />}
       {!showPlan && rec.status === 'goal' && (
         <button class="btn btn--block" onClick={() => setPick(rec.sessionId)}>
           {sessionOf(rec.sessionId).name} trotzdem machen
@@ -621,7 +646,8 @@ export function Training() {
           <section class="card">
             <WeekRhythm setup={setup} />
             <p class="small muted" style={{ marginTop: '10px' }}>
-              {sportOf(setup).id !== 'keiner' ? `Schwere Beine nie am Tag vor ${sportOf(setup).name} oder Spiel. ` : ''}Hast du an einem Tag keine Zeit, nimmst du einfach die nächste Einheit – die App merkt sich, wo du stehst.
+              {sportOf(setup).id !== 'keiner' ? `Schwere Beine nie am Tag vor ${sportOf(setup).name} oder Spiel. ` : ''}
+              {setup.cardio ? `Dazu bis ${setup.cardio}× Laufen als Bonus an freien Tagen. ` : ''}Hast du an einem Tag keine Zeit, nimmst du einfach die nächste Einheit – die App merkt sich, wo du stehst.
             </p>
           </section>
           {sportOf(setup).games && setup.season !== 'off' && <GamesCard setup={setup} />}
