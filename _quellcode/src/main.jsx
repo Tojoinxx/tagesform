@@ -22,10 +22,12 @@ import { PlanEditor, ExOptsSheet } from './ui/planeditor.jsx';
 import { BreakSheet } from './ui/breaks.jsx';
 import { SummarySheet } from './ui/progress.jsx';
 import { importFromHealth } from './lib/health.js';
+import { installViewportFix } from './lib/viewport.js';
 import { PlanLinkSheet, planFromQuery } from './ui/planlink.jsx';
 import { House, ChartColumn, Dumbbell, Settings as SettingsIcon } from 'lucide-preact';
 
 applyTheme(lsGet('tf.theme', 'system'));
+installViewportFix();
 setS({ day: todayKey() });
 
 const SHEETS = { add: AddSheet, amount: AmountSheet, entry: EntrySheet, custom: CustomSheet, photo: PhotoSheet, label: LabelSheet, barcode: BarcodeSheet, suggest: SuggestSheet, exercise: ExerciseSheet, algo: AlgoSheet, pick: ExercisePicker, import: ImportSheet, wellness: WellnessSheet, rir: RirSheet, exopts: ExOptsSheet, break: BreakSheet, summary: SummarySheet, planlink: PlanLinkSheet };
@@ -120,6 +122,7 @@ function Shell() {
         ))}
       </nav>
       <SheetHost />
+      <div class="statusbar-cover" aria-hidden="true" />
     </>
   );
 }
