@@ -45,11 +45,14 @@ function localSearch(q) {
   const hay = (f) => norm(`${f.name} ${f.brand || ''} ${f.aliases || ''}`);
   const score = (f) => {
     const h = hay(f);
-    if (!toks.every((t) => h.includes(t))) return -1;
+    if (!toks.every((t) => h.includes(t))) return null;
     const n = norm(f.name);
     let sc = 0;
     if (n.startsWith(qn)) sc += 4;
     if (n.split(' ').some((w) => w.startsWith(toks[0]))) sc += 2;
+    sc += toks.filter((t) => n.includes(t)).length * 0.8; // Treffer im Namen zählen mehr als in Marke/Suchbegriffen
+    const compact = n.replace(/[^a-z0-9]/g, '');
+    if (toks.length > 1 && toks.some((t, i) => i < toks.length - 1 && compact.includes(t + toks[i + 1]))) sc += 2; // „chicken burger“ → Chickenburger
     sc += Math.log1p(f.uses || 0);
     sc -= n.length / 60;
     return sc;
@@ -57,7 +60,7 @@ function localSearch(q) {
   const rank = (list) =>
     list
       .map((f) => [score(f), f])
-      .filter(([s]) => s >= 0)
+      .filter(([s]) => s !== null)
       .sort((a, b) => b[0] - a[0])
       .map(([, f]) => f);
   const own = rank(Object.values(S.foods).filter((f) => !f.id.startsWith('base:')));
@@ -80,7 +83,7 @@ function FoodRow({ food, onPick, onQuick }) {
           {food.name}
           <small class="muted">
             {food.brand ? food.brand + ' · ' : ''}
-            {n0(v.kcal)} kcal / 100 {food.unit || 'g'}
+            {food.restaurant && food.portions[0] ? `${food.portions[0].label} ≈ ${n0((v.kcal * food.portions[0].g) / 100)} kcal` : `${n0(v.kcal)} kcal / 100 ${food.unit || 'g'}`}
             {food.lastGrams ? ` · zuletzt ${n0(food.lastGrams)} ${food.unit || 'g'}` : ''}
           </small>
         </span>
@@ -212,15 +215,26 @@ export function AddSheet({ dayKey, meal: meal0, q: q0 = '' }) {
               </ul>
             </>
           )}
-          {local.base.length > 0 && (
-            <>
-              <h4 class="sect">Grundnahrungsmittel</h4>
-              <ul class="flist">
-                {local.base.map((f) => (
-                  <FoodRow food={f} onPick={pick} onQuick={quick} />
-                ))}
-              </ul>
-            </>
+          {[
+            ['Restaurants & Fast Food', local.base.filter((f) => f.restaurant)],
+            ['Grundnahrungsmittel', local.base.filter((f) => !f.restaurant)],
+          ].map(
+            ([label, list]) =>
+              list.length > 0 && (
+                <>
+                  <h4 class="sect">{label}</h4>
+                  <ul class="flist">
+                    {list.map((f) => (
+                      <FoodRow food={f} onPick={pick} onQuick={quick} />
+                    ))}
+                  </ul>
+                </>
+              ),
+          )}
+          {hasAi() && (
+            <button class="btn btn--block btn--ghostai" onClick={() => openSheet('voice', { dayKey, meal, back, text: q.trim() })}>
+              <Sparkles size={18} /> „{q.trim()}“ von der KI schätzen lassen
+            </button>
           )}
           <h4 class="sect">Online-Datenbank (Open Food Facts)</h4>
           {off.status === 'idle' || off.q !== q ? (
@@ -995,11 +1009,11 @@ export function BarcodeSheet({ dayKey, meal }) {
 // =============== Per Sprache eintragen ===============
 const fmtSec = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
 
-export function VoiceSheet({ dayKey, meal: meal0, back }) {
+export function VoiceSheet({ dayKey, meal: meal0, back, text: text0 = '' }) {
   const [meal, setMeal] = useState(meal0 || timeOfDayMeal());
   const [state, setState] = useState({ status: 'idle' });
   const [items, setItems] = useState([]);
-  const [text, setText] = useState('');
+  const [text, setText] = useState(text0);
   const [level, setLevel] = useState(0);
   const [ms, setMs] = useState(0);
   const rec = useRef(null);
@@ -1060,13 +1074,17 @@ export function VoiceSheet({ dayKey, meal: meal0, back }) {
     setState({ status: 'idle' });
   };
 
+  useEffect(() => {
+    if (text0 && ai) analyze({ text: text0 });
+  }, []);
+
   const chosen = items.filter((i) => i.on);
   const total = chosen.reduce((a, it) => a + scale(it.per100, it.grams).kcal, 0);
   const setItem = (id, patch) => setItems((l) => l.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   const save = () => {
     addEntries(
       dayKey,
-      chosen.map((it) => makeEntry({ food: { name: it.name, per100: it.per100, fv: it.fv, source: 'ai' }, grams: it.grams, meal, source: 'ai-voice' })),
+      chosen.map((it) => makeEntry({ food: { name: it.name, per100: it.per100, fv: it.fv, source: 'ai' }, grams: it.grams, meal, source: text0 ? 'ai-text' : 'ai-voice' })),
     );
     vibrate();
     toast(`${chosen.length} ${chosen.length === 1 ? 'Eintrag' : 'Einträge'} → ${mealLabel(meal)}`);
@@ -1097,7 +1115,7 @@ export function VoiceSheet({ dayKey, meal: meal0, back }) {
   const recording = state.status === 'rec';
   return (
     <Sheet
-      title="Per Sprache eintragen"
+      title={text0 ? 'KI-Schätzung' : 'Per Sprache eintragen'}
       tall
       onBack={back && !recording ? () => openSheet(back.name, back.props) : undefined}
       footer={

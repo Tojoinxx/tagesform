@@ -3092,3 +3092,8 @@ a.btn {
   margin: 6px 0 8px;
   font: inherit;
 }
+.btn--ghostai {
+  margin-top: 12px;
+  border-style: dashed;
+  color: var(--accent);
+}

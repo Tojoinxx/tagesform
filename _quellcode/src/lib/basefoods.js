@@ -139,7 +139,65 @@ const RAW = [
   ['zucker', 'Zucker', 400, 0, 100, 0, 0, 100, '1 TL:5', ''],
 ];
 
-export const BASE_FOODS = RAW.map(([id, name, kcal, p, c, f, fiber, sugar, portions, aliases, flags = '']) => ({
+// Restaurants & Fast Food (Deutschland): Werte je Portion laut Anbieter-Angaben bzw. gängigen Datenbanken, gerundete Richtwerte.
+// Format: [id, Marke, Name, Gramm je Stück, kcal, Eiweiß, KH, Fett, Ballaststoffe, Zucker, 'weitere Portionen', 'Suchbegriffe', flags]
+const MCD = "mc donalds mcdonalds mces maeces macces mecces";
+const BK = 'burger king bk';
+const RESTAURANT = [
+  // McDonald's
+  ['mcd-hamburger', "McDonald's", 'Hamburger', 106, 256, 13, 31, 8.6, 1.6, 6.5, '', MCD],
+  ['mcd-cheeseburger', "McDonald's", 'Cheeseburger', 120, 302, 15.5, 31, 12.5, 1.6, 7, '', MCD],
+  ['mcd-double-cheese', "McDonald's", 'Double Cheeseburger', 170, 450, 26, 32, 23, 1.8, 7.5, '', MCD + ' doppel'],
+  ['mcd-bigmac', "McDonald's", 'Big Mac', 220, 510, 26, 42, 26, 3, 9, '', MCD + ' bigmac'],
+  ['mcd-royal-ts', "McDonald's", 'Hamburger Royal TS', 241, 536, 31, 37, 29, 2.5, 9, '', MCD + ' royal ts'],
+  ['mcd-royal-kaese', "McDonald's", 'Hamburger Royal Käse', 200, 520, 31, 35, 28, 2, 7.5, '', MCD + ' royal kaese cheese'],
+  ['mcd-big-tasty', "McDonald's", 'Big Tasty Bacon', 375, 905, 49, 47, 57, 3.5, 11, '', MCD + ' bigtasty'],
+  ['mcd-chickenburger', "McDonald's", 'Chickenburger', 130, 305, 12, 36, 12, 1.5, 5, '', MCD + ' chicken burger huhn haehnchen'],
+  ['mcd-mcchicken', "McDonald's", 'McChicken Classic', 175, 455, 17, 48, 21, 3.4, 4, '', MCD + ' mc chicken burger huhn haehnchen'],
+  ['mcd-crispy-chicken', "McDonald's", 'McCrispy (Chicken)', 215, 520, 25, 49, 25, 3, 7, '', MCD + ' crispy chicken burger huhn'],
+  ['mcd-filet-o-fish', "McDonald's", 'Fish Mac / Filet-o-Fish', 135, 330, 14, 36, 14, 1.5, 4, '', MCD + ' fisch fish mac'],
+  ['mcd-mcrib', "McDonald's", 'McRib', 210, 480, 22, 48, 22, 3, 13, '', MCD + ' mc rib'],
+  ['mcd-wrap', "McDonald's", 'McWrap Chicken', 245, 560, 23, 55, 27, 4, 6, '', MCD + ' mc wrap chicken'],
+  ['mcd-nuggets', "McDonald's", 'Chicken McNuggets', 109, 267, 15, 17, 15, 1, 0.3, '4er:73|9er:163|20er:363', MCD + ' nuggets chicken mc nuggets'],
+  ['mcd-pommes', "McDonald's", 'Pommes Frites', 114, 329, 3.9, 42, 16, 4, 0.3, 'Klein:80|Groß:160', MCD + ' pommes fritten fries'],
+  ['mcd-ketchup', "McDonald's", 'Ketchup (Dip)', 20, 28, 0.3, 6.4, 0, 0.1, 5.2, '', MCD + ' ketchup dip sosse'],
+  ['mcd-mayo', "McDonald's", 'Mayonnaise (Dip)', 20, 141, 0.2, 0.6, 15.2, 0, 0.5, '', MCD + ' mayo mayonnaise dip sosse'],
+  ['mcd-suesssauer', "McDonald's", 'Süßsauer-Sauce (Dip)', 25, 49, 0.1, 12, 0, 0.1, 10, '', MCD + ' suess sauer dip sosse'],
+  ['mcd-mcflurry', "McDonald's", 'McFlurry', 200, 340, 8, 52, 11, 1, 45, '', MCD + ' mc flurry eis oreo kitkat'],
+  // Burger King
+  ['bk-whopper', 'Burger King', 'Whopper', 270, 640, 28, 50, 36, 3, 11, '', BK],
+  ['bk-whopper-jr', 'Burger King', 'Whopper Jr.', 150, 340, 15, 30, 18, 2, 6, '', BK + ' junior'],
+  ['bk-cheeseburger', 'Burger King', 'Cheeseburger', 125, 310, 16, 30, 14, 1.5, 7, '', BK],
+  ['bk-long-chicken', 'Burger King', 'Long Chicken', 220, 590, 22, 52, 32, 3, 5, '', BK + ' chicken huhn'],
+  ['bk-nuggets', 'Burger King', 'King Nuggets', 95, 270, 13, 17, 16, 1, 0.5, '9er:143|20er:317', BK + ' nuggets chicken'],
+  ['bk-pommes', 'Burger King', 'King Pommes', 116, 320, 3.8, 40, 15.5, 3.5, 0.5, 'Klein:87|Groß:150', BK + ' pommes fritten fries'],
+  // KFC
+  ['kfc-original', 'KFC', 'Original Recipe Chicken (1 Stück)', 120, 280, 22, 9, 18, 0.5, 0, '', 'kfc kentucky chicken haehnchen'],
+  ['kfc-hot-wings', 'KFC', 'Hot Wings', 160, 430, 30, 12, 29, 1, 0, '', 'kfc kentucky wings chicken', ''],
+  ['kfc-zinger', 'KFC', 'Zinger Burger', 200, 480, 26, 46, 21, 3, 5, '', 'kfc kentucky chicken burger'],
+  ['kfc-strips', 'KFC', 'Crispy Strips (3 Stück)', 135, 340, 27, 19, 17, 1, 0.5, '', 'kfc kentucky chicken strips tenders'],
+  // Subway (15 cm)
+  ['sub-teriyaki', 'Subway', 'Chicken Teriyaki (15 cm)', 260, 360, 25, 50, 5, 4, 14, '30 cm:520', 'subway sub sandwich huhn chicken'],
+  ['sub-bmt', 'Subway', 'Italian B.M.T. (15 cm)', 230, 410, 19, 44, 17, 4, 7, '30 cm:460', 'subway sub sandwich salami'],
+  ['sub-chicken-fajita', 'Subway', 'Chicken Fajita (15 cm)', 245, 340, 24, 45, 6, 4, 7, '30 cm:490', 'subway sub sandwich chicken'],
+  ['sub-tuna', 'Subway', 'Thunfisch (15 cm)', 230, 470, 19, 43, 24, 4, 6, '30 cm:460', 'subway sub sandwich tuna thunfisch'],
+  ['sub-veggie', 'Subway', 'Veggie Delite (15 cm)', 200, 230, 9, 42, 3, 4, 7, '30 cm:400', 'subway sub sandwich vegetarisch'],
+];
+const R100 = (v, g) => Math.round((v / g) * 1000) / 10;
+const RESTAURANT_FOODS = RESTAURANT.map(([id, brand, name, g, kcal, p, c, f, fiber, sugar, more, aliases]) => ({
+  id: 'base:' + id,
+  name,
+  brand,
+  source: 'base',
+  restaurant: true,
+  per100: { kcal: Math.round((kcal / g) * 100), p: R100(p, g), c: R100(c, g), f: R100(f, g), fiber: R100(fiber, g), sugar: R100(sugar, g) },
+  portions: [{ label: /Nuggets/.test(name) ? (brand === 'KFC' ? '1 Portion' : '6er') : /Pommes/.test(name) ? 'Mittel' : /Wings/.test(name) ? '5 Stück' : /\(15 cm\)/.test(name) ? '15 cm' : /Dip/.test(name) ? '1 Dip' : '1 Stück', g }, ...more.split('|').filter(Boolean).map((x) => ({ label: x.split(':')[0], g: Number(x.split(':')[1]) }))],
+  aliases: aliases + ' fast food restaurant',
+  fv: false,
+  unit: 'g',
+}));
+
+export const BASE_FOODS = [...RAW.map(([id, name, kcal, p, c, f, fiber, sugar, portions, aliases, flags = '']) => ({
   id: 'base:' + id,
   name,
   source: 'base',
@@ -154,6 +212,6 @@ export const BASE_FOODS = RAW.map(([id, name, kcal, p, c, f, fiber, sugar, porti
   aliases: aliases || '',
   fv: flags.includes('f'),
   unit: flags.includes('m') ? 'ml' : 'g',
-}));
+})), ...RESTAURANT_FOODS];
 
 export const baseById = (id) => BASE_FOODS.find((f) => f.id === id);
