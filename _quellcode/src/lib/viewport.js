@@ -1,7 +1,7 @@
 // iOS-Fehler im Home-Bildschirm-Modus: Nach dem Schließen der Tastatur bleibt der Viewport
 // manchmal „geschrumpft“ – die Navigationsleiste hängt dann mitten im Bild.
 // Abhilfe: merken, wie hoch der Viewport war, und ihn bei Bedarf neu vermessen lassen
-// (Root kurz aus- und wieder einblenden, Scrollposition bleibt).
+// (minimal scrollen, Scrollposition bleibt).
 
 const isTyping = () => {
   const a = document.activeElement;
@@ -28,15 +28,11 @@ export function installViewportFix() {
     const stuck = (want && want - window.innerHeight > 4) || (vv && Math.abs(vv.scale - 1) < 0.01 && window.innerHeight - vv.height > 40);
     if (!stuck) return;
     busy = true;
-    const root = document.body;
+    // Sanft: nur minimal scrollen, damit iOS die Ansicht neu berechnet (kein Aus-/Einblenden – das konnte weiß bleiben)
+    const x = window.scrollX;
     const y = window.scrollY;
-    if (root) {
-      root.style.display = 'none';
-      void root.offsetHeight; // erzwingt Neuberechnung
-      root.style.display = '';
-    }
-    window.scrollTo(window.scrollX, y);
-    document.documentElement.style.setProperty('--vvfix', String(Date.now() % 2)); // Stil-Neuberechnung anstoßen
+    window.scrollTo(x, y + 1);
+    requestAnimationFrame(() => window.scrollTo(x, y));
     setTimeout(() => {
       busy = false;
       note();
