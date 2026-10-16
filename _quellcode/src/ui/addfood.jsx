@@ -16,12 +16,13 @@ import {
 } from '../lib/store.js';
 import { MEALS, makeEntry, scale, mealLabel, fvFor } from '../lib/nutrition.js';
 import { BASE_FOODS } from '../lib/basefoods.js';
-import { norm, n0, num, uid, downscaleImage, vibrate } from '../lib/util.js';
+import { norm, n0, num, uid, downscaleImage, vibrate, timeOfDayMeal } from '../lib/util.js';
 import * as OFF from '../lib/off.js';
 import { hasAi, aiErrText } from '../lib/ai.js';
-import { analyzeMealPhoto, readLabel } from '../lib/aitasks.js';
+import { analyzeMealPhoto, analyzeMealSpeech, readLabel } from '../lib/aitasks.js';
+import { canRecord, startRecording, micErrText } from '../lib/voice.js';
 import { Sheet, Chip, Stepper, Spinner, Macros, Field, NumInput, Seg } from './common.jsx';
-import { Camera, ScanBarcode, ScanText, Keyboard, Search, Plus, Star, Trash2, Globe, Check, Sparkles, Info, RefreshCw } from 'lucide-preact';
+import { Camera, ScanBarcode, ScanText, Keyboard, Search, Plus, Star, Trash2, Globe, Check, Sparkles, Info, RefreshCw, Mic, Square, X } from 'lucide-preact';
 import { nav } from './router.js';
 
 export function MealChips({ meal, setMeal }) {
@@ -169,7 +170,10 @@ export function AddSheet({ dayKey, meal: meal0, q: q0 = '' }) {
         }}
       >
         <Search size={18} class="muted" />
-        <input class="search__in" type="search" placeholder="Lebensmittel suchen, z. B. Reis, Skyr …" value={q} onInput={(e) => setQ(e.currentTarget.value)} enterKeyHint="search" autoComplete="off" />
+        <input class="search__in" type="search" placeholder="Suchen oder sprechen …" value={q} onInput={(e) => setQ(e.currentTarget.value)} enterKeyHint="search" autoComplete="off" />
+        <button type="button" class="search__mic" aria-label="Essen per Sprache eintragen" onClick={() => openSheet('voice', { dayKey, meal, back })}>
+          <Mic size={20} />
+        </button>
       </form>
 
       {!q.trim() && (
@@ -613,6 +617,53 @@ function basePortionsFor(name) {
   return b && b.portions.length ? b.portions.slice(0, 3) : null;
 }
 
+/** Von der KI erkannte Komponenten: an/aus, Name, Menge, Portionen */
+function AiItems({ items, setItem, meal, setMeal, title, hint }) {
+  return (
+    <>
+      <MealChips meal={meal} setMeal={setMeal} />
+      <h4 class="sect">{title}</h4>
+      <ul class="ailist">
+        {items.map((it) => {
+          const v = scale(it.per100, it.grams);
+          const bp = basePortionsFor(it.name);
+          return (
+            <li class={'aiitem' + (it.on ? '' : ' aiitem--off')} key={it.id}>
+              <div class="aiitem__top">
+                <label class="check check--inline">
+                  <input type="checkbox" checked={it.on} onChange={(e) => setItem(it.id, { on: e.currentTarget.checked })} aria-label={`${it.name} übernehmen`} />
+                </label>
+                <input class="aiitem__name" value={it.name} onInput={(e) => setItem(it.id, { name: e.currentTarget.value })} aria-label="Name" />
+                <span class="aiitem__kcal tnum">{n0(v.kcal)} kcal</span>
+              </div>
+              <div class="aiitem__amt">
+                <Stepper value={it.grams} onChange={(g) => setItem(it.id, { grams: g })} step={10} />
+                {it.confidence === 'niedrig' && <span class="badge badge--warn">Menge unsicher</span>}
+              </div>
+              {bp && (
+                <div class="chips chips--wrap">
+                  {bp.map((p) => (
+                    <Chip small active={it.grams === p.g} onClick={() => setItem(it.id, { grams: p.g })}>
+                      {p.label} · {p.g} g
+                    </Chip>
+                  ))}
+                </div>
+              )}
+              <Macros v={v} compact />
+            </li>
+          );
+        })}
+      </ul>
+      {hint && (
+        <div class="notice">
+          <Info size={16} />
+          <span>{hint}</span>
+        </div>
+      )}
+    </>
+  );
+}
+
 export function PhotoSheet({ dayKey, meal: meal0, file }) {
   const [img, setImg] = useState(null);
   const [state, setState] = useState({ status: 'prep' });
@@ -697,45 +748,7 @@ export function PhotoSheet({ dayKey, meal: meal0, file }) {
         </div>
       ) : (
         <>
-          <MealChips meal={meal} setMeal={setMeal} />
-          <h4 class="sect">{state.title}</h4>
-          <ul class="ailist">
-            {items.map((it) => {
-              const v = scale(it.per100, it.grams);
-              const bp = basePortionsFor(it.name);
-              return (
-                <li class={'aiitem' + (it.on ? '' : ' aiitem--off')} key={it.id}>
-                  <div class="aiitem__top">
-                    <label class="check check--inline">
-                      <input type="checkbox" checked={it.on} onChange={(e) => setItem(it.id, { on: e.currentTarget.checked })} aria-label={`${it.name} übernehmen`} />
-                    </label>
-                    <input class="aiitem__name" value={it.name} onInput={(e) => setItem(it.id, { name: e.currentTarget.value })} aria-label="Name" />
-                    <span class="aiitem__kcal tnum">{n0(v.kcal)} kcal</span>
-                  </div>
-                  <div class="aiitem__amt">
-                    <Stepper value={it.grams} onChange={(g) => setItem(it.id, { grams: g })} step={10} />
-                    {it.confidence === 'niedrig' && <span class="badge badge--warn">Menge unsicher</span>}
-                  </div>
-                  {bp && (
-                    <div class="chips chips--wrap">
-                      {bp.map((p) => (
-                        <Chip small active={it.grams === p.g} onClick={() => setItem(it.id, { grams: p.g })}>
-                          {p.label} · {p.g} g
-                        </Chip>
-                      ))}
-                    </div>
-                  )}
-                  <Macros v={v} compact />
-                </li>
-              );
-            })}
-          </ul>
-          {state.hint && (
-            <div class="notice">
-              <Info size={16} />
-              <span>{state.hint}</span>
-            </div>
-          )}
+          <AiItems items={items} setItem={setItem} meal={meal} setMeal={setMeal} title={state.title} hint={state.hint} />
           <details class="more">
             <summary>Nicht richtig erkannt?</summary>
             <p class="small muted">Schreib kurz dazu, was drauf ist – dann wird es genauer. Tipp für die Menge: Gabel oder Hand mit aufs Foto.</p>
@@ -975,6 +988,195 @@ export function BarcodeSheet({ dayKey, meal }) {
           if (f) fromImage(f);
         }}
       />
+    </Sheet>
+  );
+}
+
+// =============== Per Sprache eintragen ===============
+const fmtSec = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
+
+export function VoiceSheet({ dayKey, meal: meal0, back }) {
+  const [meal, setMeal] = useState(meal0 || timeOfDayMeal());
+  const [state, setState] = useState({ status: 'idle' });
+  const [items, setItems] = useState([]);
+  const [text, setText] = useState('');
+  const [level, setLevel] = useState(0);
+  const [ms, setMs] = useState(0);
+  const rec = useRef(null);
+  const ai = hasAi();
+  const mealTouched = useRef(false); // gesagte Mahlzeit („zum Frühstück“) gewinnt, außer man tippt selbst eine an
+
+  useEffect(() => () => rec.current && rec.current.cancel(), []);
+  useEffect(() => {
+    if (state.status !== 'rec') return;
+    const t0 = Date.now();
+    const iv = setInterval(() => setMs(Date.now() - t0), 250);
+    return () => clearInterval(iv);
+  }, [state.status]);
+
+  const analyze = async (input) => {
+    setState({ status: 'loading' });
+    try {
+      const r = await analyzeMealSpeech(input);
+      if (r.transcript) setText(r.transcript);
+      if (r.meal && !mealTouched.current) setMeal(r.meal);
+      if (!r.items.length) {
+        setState({ status: 'error', error: r.transcript ? `Verstanden: „${r.transcript}“ – darin habe ich kein Essen gefunden. Versuch es nochmal oder korrigier den Text.` : 'Ich habe nichts verstanden. Sprich etwas näher am Handy und nochmal versuchen.' });
+        return;
+      }
+      setItems(r.items.map((it) => ({ ...it, id: uid(), on: true })));
+      setState({ status: 'done', title: r.title, hint: r.hint });
+    } catch (e) {
+      setState({ status: 'error', error: aiErrText(e), noKey: e.noKey });
+    }
+  };
+
+  const start = async () => {
+    setLevel(0);
+    setMs(0);
+    try {
+      rec.current = await startRecording({ onLevel: setLevel, maxMs: 60000, onAuto: () => stop() });
+      vibrate();
+      setState({ status: 'rec' });
+    } catch (e) {
+      setState({ status: 'error', error: micErrText(e), mic: true });
+    }
+  };
+  const stop = async () => {
+    const r = rec.current;
+    if (!r) return;
+    rec.current = null;
+    setState({ status: 'loading' });
+    const audio = await r.stop();
+    if (audio.ms < 700 || !audio.base64) {
+      setState({ status: 'error', error: 'Das war zu kurz – halt den Knopf nicht gedrückt, sondern tippe einmal, sprich und tippe dann auf „Fertig“.' });
+      return;
+    }
+    analyze({ audio: { mime: audio.mime, base64: audio.base64 } });
+  };
+  const cancelRec = () => {
+    rec.current && rec.current.cancel();
+    rec.current = null;
+    setState({ status: 'idle' });
+  };
+
+  const chosen = items.filter((i) => i.on);
+  const total = chosen.reduce((a, it) => a + scale(it.per100, it.grams).kcal, 0);
+  const setItem = (id, patch) => setItems((l) => l.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  const save = () => {
+    addEntries(
+      dayKey,
+      chosen.map((it) => makeEntry({ food: { name: it.name, per100: it.per100, fv: it.fv, source: 'ai' }, grams: it.grams, meal, source: 'ai-voice' })),
+    );
+    vibrate();
+    toast(`${chosen.length} ${chosen.length === 1 ? 'Eintrag' : 'Einträge'} → ${mealLabel(meal)}`);
+    closeSheet();
+  };
+  const setMealT = (m) => ((mealTouched.current = true), setMeal(m));
+
+  if (!ai) {
+    return (
+      <Sheet title="Per Sprache eintragen" onBack={back ? () => openSheet(back.name, back.props) : undefined}>
+        <div class="notice">
+          <p>Fürs Sprechen wertet die KI aus, was du sagst – dafür brauchst du einmalig den kostenlosen KI-Schlüssel.</p>
+          <button
+            class="btn btn--sm"
+            onClick={() => {
+              closeSheet();
+              nav('/einstellungen?ki=1');
+            }}
+          >
+            KI einrichten (2 Minuten, kostenlos)
+          </button>
+        </div>
+        <p class="small muted">Ohne KI: Tipp ins Suchfeld und dann aufs Mikrofon der iPhone-Tastatur – so kannst du einzelne Lebensmittel diktieren.</p>
+      </Sheet>
+    );
+  }
+
+  const recording = state.status === 'rec';
+  return (
+    <Sheet
+      title="Per Sprache eintragen"
+      tall
+      onBack={back && !recording ? () => openSheet(back.name, back.props) : undefined}
+      footer={
+        state.status === 'done' && (
+          <button class="btn btn--primary btn--block" disabled={!chosen.length} onClick={save}>
+            Eintragen · {n0(total)} kcal
+          </button>
+        )
+      }
+    >
+      {(state.status === 'idle' || recording || (state.status === 'error' && !text)) && (
+        <div class="voice">
+          {canRecord() ? (
+            <>
+              <button class={'voice__btn' + (recording ? ' voice__btn--on' : '')} style={{ '--lvl': recording ? level : 0 }} onClick={recording ? stop : start} aria-label={recording ? 'Aufnahme beenden' : 'Aufnahme starten'}>
+                {recording ? <Square size={30} fill="currentColor" /> : <Mic size={34} />}
+              </button>
+              <p class="voice__state">{recording ? <>Ich höre zu … <span class="tnum">{fmtSec(ms)}</span></> : 'Tippen und sagen, was du gegessen hast'}</p>
+              {recording ? (
+                <div class="row" style={{ justifyContent: 'center' }}>
+                  <button class="btn btn--sm" onClick={cancelRec}>
+                    <X size={16} /> Abbrechen
+                  </button>
+                  <button class="btn btn--sm btn--primary" onClick={stop}>
+                    <Check size={16} /> Fertig
+                  </button>
+                </div>
+              ) : (
+                <p class="small muted center">z. B. „Zum Frühstück zwei Scheiben Vollkornbrot mit Butter und Gouda, dazu ein Glas Orangensaft“</p>
+              )}
+            </>
+          ) : (
+            <p class="small muted">Aufnehmen geht in diesem Browser nicht – schreib es einfach unten rein (oder nutz das Mikrofon der Tastatur).</p>
+          )}
+        </div>
+      )}
+
+      {state.status === 'loading' && (
+        <div class="loading loading--big">
+          <Spinner size={24} /> KI wertet aus …
+        </div>
+      )}
+
+      {state.status === 'error' && (
+        <div class="notice notice--warn">
+          <p>{state.error}</p>
+          {state.noKey && (
+            <button
+              class="btn btn--sm"
+              onClick={() => {
+                closeSheet();
+                nav('/einstellungen?ki=1');
+              }}
+            >
+              KI einrichten
+            </button>
+          )}
+        </div>
+      )}
+
+      {state.status === 'done' && <AiItems items={items} setItem={setItem} meal={meal} setMeal={setMealT} title={state.title} hint={state.hint} />}
+
+      {!recording && state.status !== 'loading' && (
+        <details class="more" open={state.status !== 'idle' || !canRecord()}>
+          <summary>{text ? 'Verstanden – Text korrigieren' : 'Lieber schreiben'}</summary>
+          <textarea class="input voice__text" rows={3} placeholder="z. B. 250 g Spaghetti Bolognese und ein Apfel" value={text} onInput={(e) => setText(e.currentTarget.value)} />
+          <div class="row">
+            <button class="btn btn--sm" disabled={text.trim().length < 2} onClick={() => analyze({ text: text.trim() })}>
+              <RefreshCw size={16} /> {state.status === 'done' ? 'Neu auswerten' : 'Auswerten'}
+            </button>
+            {state.status !== 'idle' && canRecord() && (
+              <button class="btn btn--sm" onClick={start}>
+                <Mic size={16} /> Nochmal sprechen
+              </button>
+            )}
+          </div>
+        </details>
+      )}
+      {state.status === 'done' && <p class="small muted">Die KI schätzt – Mengen kurz prüfen. Die Aufnahme geht dafür an Google Gemini und wird nicht gespeichert.</p>}
     </Sheet>
   );
 }

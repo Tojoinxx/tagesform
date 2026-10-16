@@ -12,7 +12,7 @@ import { Onboarding } from './ui/onboarding.jsx';
 import { Login } from './ui/login.jsx';
 import { Toast } from './ui/common.jsx';
 import { Logo } from './ui/logo.jsx';
-import { AddSheet, AmountSheet, EntrySheet, CustomSheet, PhotoSheet, LabelSheet, BarcodeSheet } from './ui/addfood.jsx';
+import { AddSheet, AmountSheet, EntrySheet, CustomSheet, PhotoSheet, LabelSheet, BarcodeSheet, VoiceSheet } from './ui/addfood.jsx';
 import { SuggestSheet } from './ui/suggest.jsx';
 import { ExerciseSheet, SessionPage, ExercisePicker } from './ui/exui.jsx';
 import { AlgoSheet, RirSheet } from './ui/algo.jsx';
@@ -30,7 +30,7 @@ applyTheme(lsGet('tf.theme', 'system'));
 installViewportFix();
 setS({ day: todayKey() });
 
-const SHEETS = { add: AddSheet, amount: AmountSheet, entry: EntrySheet, custom: CustomSheet, photo: PhotoSheet, label: LabelSheet, barcode: BarcodeSheet, suggest: SuggestSheet, exercise: ExerciseSheet, algo: AlgoSheet, pick: ExercisePicker, import: ImportSheet, wellness: WellnessSheet, rir: RirSheet, exopts: ExOptsSheet, break: BreakSheet, summary: SummarySheet, planlink: PlanLinkSheet };
+const SHEETS = { add: AddSheet, amount: AmountSheet, entry: EntrySheet, custom: CustomSheet, photo: PhotoSheet, label: LabelSheet, barcode: BarcodeSheet, suggest: SuggestSheet, exercise: ExerciseSheet, algo: AlgoSheet, pick: ExercisePicker, import: ImportSheet, wellness: WellnessSheet, rir: RirSheet, exopts: ExOptsSheet, break: BreakSheet, summary: SummarySheet, planlink: PlanLinkSheet, voice: VoiceSheet };
 
 function SheetHost() {
   const s = useS();
@@ -65,6 +65,9 @@ function runAction(q) {
     case 'essen':
     case 'foto':
       openSheet('add', { dayKey: k, meal });
+      break;
+    case 'sprechen':
+      openSheet('voice', { dayKey: k, meal: q.mahlzeit || null });
       break;
     case 'scan':
       openSheet('barcode', { dayKey: k, meal });

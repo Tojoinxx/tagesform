@@ -49,6 +49,34 @@ Antworte NUR mit JSON in genau diesem Format:
   return { title: j.title || 'Mahlzeit', items, hint: j.hint || '' };
 }
 
+// ---------- Gesprochen / geschrieben ----------
+/** Essen aus gesprochener Aufnahme (audio: {mime, base64}) oder Text erkennen */
+export async function analyzeMealSpeech({ text, audio }) {
+  const prompt = `Du bist ein erfahrener Ernährungsberater in Deutschland. ${audio ? 'In der Sprachaufnahme' : 'Im folgenden Text'} beschreibt jemand, was er gegessen oder getrunken hat (Deutsch, evtl. Dialekt oder Umgangssprache).
+${audio ? '- Schreib zuerst wörtlich auf, was gesagt wurde (transcript).\n' : ''}- Zerlege es in einzelne Lebensmittel bzw. Komponenten (z. B. "Brot mit Butter und Käse" → Brot, Butter, Käse).
+- Nimm genannte Mengen genau (Gramm, ml, Stück, Scheiben, Löffel, Teller, Glas, Becher …) und rechne sie in Gramm um (Getränke in ml). Ohne Mengenangabe: typische Portion eines Erwachsenen in Deutschland.
+- Bekannte Marken- oder Fertigprodukte (z. B. Skyr, Müller Milchreis, Big Mac): typische Nährwerte dieses Produkts.
+- Nährwerte pro 100 g in der beschriebenen Zubereitung.
+- fruitVeg = true nur für Obst oder Gemüse.
+- confidence: "hoch" wenn Menge genannt, sonst "mittel" oder "niedrig".
+- meal: falls eine Mahlzeit genannt wird ("zum Frühstück", "mittags", "als Snack"): "fruehstueck", "mittag", "abend" oder "snacks", sonst leer.
+${text ? 'Text: "' + String(text).slice(0, 1500) + '"' : ''}
+Antworte NUR mit JSON in genau diesem Format:
+{"transcript":"${audio ? 'was gesagt wurde' : ''}","title":"kurzer Name der Mahlzeit","meal":"","items":[{"name":"Vollkornbrot","grams":100,"per100":{"kcal":220,"p":7,"c":40,"f":1.5,"fiber":7,"sugar":3},"fruitVeg":false,"confidence":"hoch"}],"hint":"Kurzer Hinweis, falls etwas unklar war, sonst leer"}`;
+  const j = await askJson(prompt, { image: audio, temperature: 0.2 });
+  const items = (j.items || [])
+    .map((it) => ({
+      name: String(it.name || 'Unbekannt'),
+      grams: Math.max(1, Math.round(num(it.grams))),
+      per100: per100Of(it.per100),
+      fv: !!it.fruitVeg,
+      confidence: it.confidence || 'mittel',
+    }))
+    .filter((it) => it.per100.kcal > 0 || it.per100.p + it.per100.c + it.per100.f > 0);
+  const meal = ["fruehstueck", "mittag", "abend", "snacks"].includes(j.meal) ? j.meal : null;
+  return { transcript: String(j.transcript || text || '').trim(), title: j.title || 'Mahlzeit', items, hint: j.hint || '', meal };
+}
+
 // ---------- Nährwerttabelle ----------
 export async function readLabel(image) {
   const prompt = `Lies die Nährwerttabelle bzw. Verpackung auf dem Foto aus (deutsche Lebensmittelkennzeichnung).
