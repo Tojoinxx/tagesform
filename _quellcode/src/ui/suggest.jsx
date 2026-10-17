@@ -5,6 +5,7 @@ import { hasAi, aiErrText } from '../lib/ai.js';
 import { suggestMeals, fallbackSuggestions, suggestContext } from '../lib/aitasks.js';
 import { n0, timeOfDayMeal, todayKey, vibrate } from '../lib/util.js';
 import { Sheet, Chip, Spinner } from './common.jsx';
+import { useAiJob, AiProgress } from './aiprogress.jsx';
 import { MealChips } from './addfood.jsx';
 import { RefreshCw, Clock, Sparkles, Plus } from 'lucide-preact';
 import { nav } from './router.js';
@@ -20,6 +21,7 @@ export function SuggestSheet({ dayKey }) {
   const [seen, setSeen] = useState([]);
   const ctx = suggestContext(dayKey, meal);
 
+  const job = useAiJob();
   const run = async (more = false) => {
     const exclude = more ? [...seen, ...res.list.map((x) => x.title)] : [];
     setRes({ status: 'loading', list: [] });
@@ -30,11 +32,11 @@ export function SuggestSheet({ dayKey }) {
       return;
     }
     try {
-      const list = await suggestMeals({ dayKey, meal, have: have.trim(), chips, exclude });
+      const list = await suggestMeals({ dayKey, meal, have: have.trim(), chips, exclude }, job.start());
       setSeen(exclude);
       setRes({ status: 'done', list });
     } catch (e) {
-      setRes({ status: 'done', list: fallbackSuggestions({ dayKey, meal, exclude }), error: aiErrText(e) });
+      setRes({ status: 'done', list: fallbackSuggestions({ dayKey, meal, exclude }), error: e.aborted ? null : aiErrText(e) });
     }
   };
   useEffect(() => {
@@ -88,9 +90,13 @@ export function SuggestSheet({ dayKey }) {
       )}
 
       {res.status === 'loading' ? (
-        <div class="loading loading--big">
-          <Spinner size={24} /> {hasAi() ? 'Überlege mir was Passendes …' : 'Suche passende Ideen …'}
-        </div>
+        hasAi() ? (
+          <AiProgress p={job.p} steps={['Deinen Tag zusammenfassen', 'An die KI senden', 'KI sucht passende Gerichte', 'Rezepte & Nährwerte schreiben']} expect={2600} namesLabel="Ideen" onCancel={job.cancel} />
+        ) : (
+          <div class="loading loading--big">
+            <Spinner size={24} /> Suche passende Ideen …
+          </div>
+        )
       ) : (
         <>
           {res.error && <div class="notice notice--warn small">KI gerade nicht verfügbar ({res.error}) – hier Ideen aus deinen Vorlagen.</div>}

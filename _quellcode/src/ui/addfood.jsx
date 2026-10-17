@@ -21,6 +21,7 @@ import * as OFF from '../lib/off.js';
 import { hasAi, aiErrText } from '../lib/ai.js';
 import { analyzeMealPhoto, analyzeMealSpeech, readLabel } from '../lib/aitasks.js';
 import { canRecord, startRecording, micErrText } from '../lib/voice.js';
+import { useAiJob, AiProgress } from './aiprogress.jsx';
 import { Sheet, Chip, Stepper, Spinner, Macros, Field, NumInput, Seg } from './common.jsx';
 import { Camera, ScanBarcode, ScanText, Keyboard, Search, Plus, Star, Trash2, Globe, Check, Sparkles, Info, RefreshCw, Mic, Square, X } from 'lucide-preact';
 import { nav } from './router.js';
@@ -685,10 +686,11 @@ export function PhotoSheet({ dayKey, meal: meal0, file }) {
   const [meal, setMeal] = useState(meal0);
   const [note, setNote] = useState('');
 
-  const run = async (image, hint) => {
+  const job = useAiJob();
+  const run = async (image, hint, o = job.start()) => {
     setState({ status: 'loading' });
     try {
-      const r = await analyzeMealPhoto(image, hint);
+      const r = await analyzeMealPhoto(image, hint, o);
       setItems(r.items.map((it) => ({ ...it, id: uid(), on: true })));
       setState({ status: 'done', title: r.title, hint: r.hint });
     } catch (e) {
@@ -698,10 +700,11 @@ export function PhotoSheet({ dayKey, meal: meal0, file }) {
   useEffect(() => {
     (async () => {
       try {
+        const o = hasAi() ? job.start() : null;
         const im = await downscaleImage(file, 1280);
         setImg(im);
         if (!hasAi()) setState({ status: 'error', noKey: true, error: 'Für die Foto-Erkennung brauchst du einmalig einen kostenlosen KI-Schlüssel.' });
-        else run(im);
+        else run(im, undefined, o);
       } catch (e) {
         setState({ status: 'error', error: 'Das Bild konnte nicht gelesen werden.' });
       }
@@ -736,9 +739,7 @@ export function PhotoSheet({ dayKey, meal: meal0, file }) {
     >
       {img && <img class="photo" src={img.dataUrl} alt="Dein Essen" />}
       {state.status === 'loading' || state.status === 'prep' ? (
-        <div class="loading loading--big">
-          <Spinner size={24} /> KI schätzt Komponenten und Mengen …
-        </div>
+        <AiProgress p={job.p} steps={['Foto vorbereiten', 'An die KI senden', 'KI erkennt, was auf dem Teller ist', 'Mengen & Nährwerte berechnen']} expect={700} onCancel={job.cancel} />
       ) : state.status === 'error' ? (
         <div class="notice notice--warn">
           <p>{state.error}</p>
@@ -784,16 +785,18 @@ export function PhotoSheet({ dayKey, meal: meal0, file }) {
 export function LabelSheet({ dayKey, meal, file, barcode, name }) {
   const [state, setState] = useState({ status: 'loading' });
   const [img, setImg] = useState(null);
+  const job = useAiJob();
   useEffect(() => {
     (async () => {
       try {
+        const o = hasAi() ? job.start() : null;
         const im = await downscaleImage(file, 1600, 0.85);
         setImg(im);
         if (!hasAi()) {
           setState({ status: 'error', noKey: true, error: 'Zum Auslesen der Tabelle brauchst du einmalig einen kostenlosen KI-Schlüssel. Du kannst die Werte aber auch selbst eintippen.' });
           return;
         }
-        const r = await readLabel(im);
+        const r = await readLabel(im, o);
         if (!r.readable || !(r.per100.kcal > 0)) {
           setState({ status: 'error', error: 'Die Tabelle war nicht gut lesbar. Versuch ein schärferes Foto (gerade, ohne Spiegelung) oder tipp die Werte ab.' });
           return;
@@ -808,9 +811,7 @@ export function LabelSheet({ dayKey, meal, file, barcode, name }) {
     <Sheet title="Nährwerttabelle">
       {img && <img class="photo photo--sm" src={img.dataUrl} alt="Nährwerttabelle" />}
       {state.status === 'loading' ? (
-        <div class="loading loading--big">
-          <Spinner size={24} /> Werte werden gelesen …
-        </div>
+        <AiProgress p={job.p} steps={['Foto vorbereiten', 'An die KI senden', 'KI liest die Tabelle', 'Werte übernehmen']} expect={260} onCancel={job.cancel} />
       ) : (
         <div class="notice notice--warn">
           <p>{state.error}</p>
@@ -1028,10 +1029,13 @@ export function VoiceSheet({ dayKey, meal: meal0, back, text: text0 = '' }) {
     return () => clearInterval(iv);
   }, [state.status]);
 
-  const analyze = async (input) => {
+  const job = useAiJob();
+  const [mode, setMode] = useState('text');
+  const analyze = async (input, o = job.start()) => {
+    setMode(input.audio ? 'audio' : 'text');
     setState({ status: 'loading' });
     try {
-      const r = await analyzeMealSpeech(input);
+      const r = await analyzeMealSpeech(input, o);
       if (r.transcript) setText(r.transcript);
       if (r.meal && !mealTouched.current) setMeal(r.meal);
       if (!r.items.length) {
@@ -1060,13 +1064,15 @@ export function VoiceSheet({ dayKey, meal: meal0, back, text: text0 = '' }) {
     const r = rec.current;
     if (!r) return;
     rec.current = null;
+    const o = job.start();
+    setMode('audio');
     setState({ status: 'loading' });
     const audio = await r.stop();
     if (audio.ms < 700 || !audio.base64) {
       setState({ status: 'error', error: 'Das war zu kurz – halt den Knopf nicht gedrückt, sondern tippe einmal, sprich und tippe dann auf „Fertig“.' });
       return;
     }
-    analyze({ audio: { mime: audio.mime, base64: audio.base64 } });
+    analyze({ audio: { mime: audio.mime, base64: audio.base64 } }, o);
   };
   const cancelRec = () => {
     rec.current && rec.current.cancel();
@@ -1154,9 +1160,12 @@ export function VoiceSheet({ dayKey, meal: meal0, back, text: text0 = '' }) {
       )}
 
       {state.status === 'loading' && (
-        <div class="loading loading--big">
-          <Spinner size={24} /> KI wertet aus …
-        </div>
+        <AiProgress
+          p={job.p}
+          steps={mode === 'audio' ? ['Aufnahme umwandeln', 'An die KI senden', 'KI hört zu & versteht', 'Lebensmittel & Mengen'] : ['Text vorbereiten', 'An die KI senden', 'KI versteht, was du gegessen hast', 'Lebensmittel & Mengen']}
+          expect={600}
+          onCancel={job.cancel}
+        />
       )}
 
       {state.status === 'error' && (

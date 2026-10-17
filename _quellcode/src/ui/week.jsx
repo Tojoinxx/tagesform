@@ -5,6 +5,7 @@ import { hasAi, aiErrText } from '../lib/ai.js';
 import { weekSummaryAi } from '../lib/aitasks.js';
 import { addDays, fmtShortDate, n0, n1, todayKey, weekStart, num } from '../lib/util.js';
 import { Spinner, NumInput } from './common.jsx';
+import { useAiJob, AiProgress } from './aiprogress.jsx';
 import { ChevronLeft, ChevronRight, PenLine, Flame, Beef, Droplet, Apple, GlassWater, Wheat, Candy, HeartPulse, Sparkles, Check, Scale, RefreshCw } from 'lucide-preact';
 import { nav } from './router.js';
 
@@ -51,14 +52,15 @@ export function Week({ query }) {
 
   const headline = !adv.enough ? 'Noch zu wenig Daten' : adv.tips.length === 0 ? 'Starke Woche 💪' : adv.good.length >= adv.tips.length ? 'Solide Woche 👍' : 'Da geht noch was 🙂';
 
+  const job = useAiJob();
   const runAi = async () => {
     setAi({ status: 'loading' });
     try {
-      const r = await weekSummaryAi(ws, adv);
+      const r = await weekSummaryAi(ws, adv, job.start());
       saveWeek(start, { ai: r, aiAt: Date.now() });
       setAi({ status: 'idle' });
     } catch (e) {
-      setAi({ status: 'error', error: aiErrText(e) });
+      setAi(e.aborted ? { status: 'idle' } : { status: 'error', error: aiErrText(e) });
     }
   };
 
@@ -127,6 +129,7 @@ export function Week({ query }) {
             {saved ? 'Neu zusammenfassen' : 'Mit KI zusammenfassen'}
           </button>
         )}
+        {ai.status === 'loading' && <AiProgress p={job.p} steps={['Woche auswerten', 'An die KI senden', 'KI schreibt dein Fazit', 'Fazit formulieren']} expect={900} namesLabel="Thema" onCancel={job.cancel} />}
         {ai.status === 'error' && <div class="notice notice--warn small">{ai.error}</div>}
       </section>
 

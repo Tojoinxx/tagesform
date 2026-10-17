@@ -3097,3 +3097,118 @@ a.btn {
   border-style: dashed;
   color: var(--accent);
 }
+
+/* KI-Fortschritt */
+.aiprog {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 2px 8px;
+}
+.aiprog__bar {
+  height: 8px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  overflow: hidden;
+  position: relative;
+}
+.aiprog__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.35s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+.aiprog__bar > span::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  transform: translateX(-100%);
+  animation: aiprog-shine 1.4s ease-in-out infinite;
+}
+@keyframes aiprog-shine {
+  to {
+    transform: translateX(100%);
+  }
+}
+.aiprog__meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -4px;
+}
+.aiprog__steps {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.aiprog__steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 15px;
+}
+.aiprog__steps li.is-now {
+  color: var(--text);
+  font-weight: 650;
+}
+.aiprog__steps li.is-done {
+  color: var(--text);
+}
+.aiprog__ic {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: color-mix(in srgb, var(--muted) 14%, transparent);
+}
+.is-done .aiprog__ic {
+  background: var(--accent);
+  color: #fff;
+}
+.is-now .aiprog__ic {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+.aiprog__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+.aiprog__live {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--card));
+  font-size: 14px;
+  line-height: 1.4;
+  animation: aiprog-in 0.25s ease-out;
+}
+@keyframes aiprog-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+.aiprog__warn {
+  margin: 0;
+  color: var(--warn-ink);
+}
+.aiprog__cancel {
+  align-self: center;
+}
+.aiprog .small.muted {
+  margin: 0;
+}

@@ -26,7 +26,7 @@ const prefsText = () => {
 };
 
 // ---------- Essensfoto ----------
-export async function analyzeMealPhoto(image, note) {
+export async function analyzeMealPhoto(image, note, opts = {}) {
   const prompt = `Du bist ein erfahrener Ernährungsberater in Deutschland. Analysiere das Foto einer Mahlzeit.
 - Erkenne jede Komponente einzeln (z. B. Reis, Hähnchen, Soße, Gemüse, Getränk).
 - Schätze die Menge in Gramm (Getränke in ml) so realistisch wie möglich. Nutze Größenreferenzen: Teller ≈ 26 cm, Gabel ≈ 19 cm, Hand, Besteck, Verpackungen.
@@ -36,7 +36,7 @@ export async function analyzeMealPhoto(image, note) {
 ${note ? 'Hinweis des Nutzers zum Essen: ' + note : ''}
 Antworte NUR mit JSON in genau diesem Format:
 {"title":"kurzer Name der Mahlzeit","items":[{"name":"Reis, gekocht","grams":180,"per100":{"kcal":130,"p":2.7,"c":28,"f":0.3,"fiber":0.4,"sugar":0.1},"fruitVeg":false,"confidence":"mittel"}],"hint":"Kurzer Tipp, falls etwas unsicher ist (z. B. Menge Öl), sonst leer"}`;
-  const j = await askJson(prompt, { image, temperature: 0.2 });
+  const j = await askJson(prompt, { image, temperature: 0.2, ...opts });
   const items = (j.items || [])
     .map((it) => ({
       name: String(it.name || 'Unbekannt'),
@@ -51,7 +51,7 @@ Antworte NUR mit JSON in genau diesem Format:
 
 // ---------- Gesprochen / geschrieben ----------
 /** Essen aus gesprochener Aufnahme (audio: {mime, base64}) oder Text erkennen */
-export async function analyzeMealSpeech({ text, audio }) {
+export async function analyzeMealSpeech({ text, audio }, opts = {}) {
   const prompt = `Du bist ein erfahrener Ernährungsberater in Deutschland. ${audio ? 'In der Sprachaufnahme' : 'Im folgenden Text'} beschreibt jemand, was er gegessen oder getrunken hat (Deutsch, evtl. Dialekt oder Umgangssprache).
 ${audio ? '- Schreib zuerst wörtlich auf, was gesagt wurde (transcript).\n' : ''}- Zerlege es in einzelne Lebensmittel bzw. Komponenten (z. B. "Brot mit Butter und Käse" → Brot, Butter, Käse).
 - Nimm genannte Mengen genau (Gramm, ml, Stück, Scheiben, Löffel, Teller, Glas, Becher …) und rechne sie in Gramm um (Getränke in ml). Ohne Mengenangabe: typische Portion eines Erwachsenen in Deutschland.
@@ -63,7 +63,7 @@ ${audio ? '- Schreib zuerst wörtlich auf, was gesagt wurde (transcript).\n' : '
 ${text ? 'Text: "' + String(text).slice(0, 1500) + '"' : ''}
 Antworte NUR mit JSON in genau diesem Format:
 {"transcript":"${audio ? 'was gesagt wurde' : ''}","title":"kurzer Name der Mahlzeit","meal":"","items":[{"name":"Vollkornbrot","grams":100,"per100":{"kcal":220,"p":7,"c":40,"f":1.5,"fiber":7,"sugar":3},"fruitVeg":false,"confidence":"hoch"}],"hint":"Kurzer Hinweis, falls etwas unklar war, sonst leer"}`;
-  const j = await askJson(prompt, { image: audio, temperature: 0.2 });
+  const j = await askJson(prompt, { image: audio, temperature: 0.2, ...opts });
   const items = (j.items || [])
     .map((it) => ({
       name: String(it.name || 'Unbekannt'),
@@ -78,13 +78,13 @@ Antworte NUR mit JSON in genau diesem Format:
 }
 
 // ---------- Nährwerttabelle ----------
-export async function readLabel(image) {
+export async function readLabel(image, opts = {}) {
   const prompt = `Lies die Nährwerttabelle bzw. Verpackung auf dem Foto aus (deutsche Lebensmittelkennzeichnung).
 Gib die Werte PRO 100 g bzw. 100 ml an. Steht nur ein Wert pro Portion da, rechne auf 100 g um.
 Energie in kcal (nicht kJ). Wenn der Produktname oder die Marke sichtbar ist, gib sie an.
 Antworte NUR mit JSON:
 {"name":"Produktname oder leer","brand":"Marke oder leer","unit":"g oder ml","per100":{"kcal":0,"p":0,"c":0,"f":0,"fiber":0,"sugar":0},"servingG":0,"packageG":0,"readable":true}`;
-  const j = await askJson(prompt, { image, temperature: 0 });
+  const j = await askJson(prompt, { image, temperature: 0, ...opts });
   return {
     name: j.name || '',
     brand: j.brand || '',
@@ -114,7 +114,7 @@ export function suggestContext(dayKey, meal) {
   return { t, s, rest, avgFv, avgFiber, meal };
 }
 
-export async function suggestMeals({ dayKey, meal, have, chips, exclude = [] }) {
+export async function suggestMeals({ dayKey, meal, have, chips, exclude = [] }, opts = {}) {
   const ctx = suggestContext(dayKey, meal);
   const eaten = (getDay(dayKey).entries || []).map((e) => `${mealLabel(e.meal)}: ${e.name} (${e.grams} ${e.unit || 'g'})`).join('; ');
   const favs = frequentFoods(20).map((f) => f.name).join(', ');
@@ -141,7 +141,7 @@ Mach genau 3 unterschiedliche Vorschläge, die gut zu den offenen Werten passen 
 Jeder Vorschlag besteht aus 1–4 Zutaten mit Grammangabe und Nährwerten pro 100 g.
 Antworte NUR mit JSON:
 {"suggestions":[{"title":"Rührei mit Paprika und Brot","why":"kurze Begründung (max. 15 Wörter)","minutes":10,"items":[{"name":"Rührei","grams":130,"per100":{"kcal":170,"p":11,"c":1.5,"f":13,"fiber":0,"sugar":1},"fruitVeg":false}]}]}`;
-  const j = await askJson(prompt, { temperature: 0.8 });
+  const j = await askJson(prompt, { temperature: 0.8, ...opts });
   return (j.suggestions || []).slice(0, 3).map((sg) => {
     const items = (sg.items || []).map((it) => ({
       name: String(it.name || ''),
@@ -222,7 +222,7 @@ function whyOf(tot, items, ctx) {
 }
 
 // ---------- Wochen-Fazit ----------
-export async function weekSummaryAi(ws, advice) {
+export async function weekSummaryAi(ws, advice, opts = {}) {
   const { st, targets: t } = ws;
   const prompt = `Du bist ein lockerer, motivierender Fitness- und Ernährungscoach. Schreib ein kurzes Wochen-Fazit auf Deutsch (du-Form) für Sonntagabend.
 Ernährung muss nicht 100 % clean sein – kein erhobener Zeigefinger, Ausnahmen wie Pizza oder Döner sind okay, es zählt der Schnitt.
@@ -236,7 +236,7 @@ ${prefsText()}
 Antworte NUR mit JSON:
 {"headline":"max. 6 Wörter","intro":"1–2 Sätze, was gut lief","tips":[{"emoji":"💧","text":"konkreter Tipp für nächste Woche mit konkretem Lebensmittel, max. 25 Wörter"}],"idea":"eine kleine Idee/Rezept für nächste Woche, max. 20 Wörter"}
 Höchstens 3 Tipps.`;
-  const j = await askJson(prompt, { temperature: 0.7 });
+  const j = await askJson(prompt, { temperature: 0.7, ...opts });
   return {
     headline: j.headline || 'Dein Wochen-Check',
     intro: j.intro || '',
