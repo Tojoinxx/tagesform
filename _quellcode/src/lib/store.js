@@ -94,6 +94,13 @@ function localBackend() {
       save();
       emit(path);
     },
+    wipe() {
+      const keys = Object.keys(db).filter((k) => k.startsWith('tf_'));
+      keys.forEach((k) => delete db[k]);
+      save();
+      subs.forEach(fire);
+      return keys.length;
+    },
     dump: () => db,
   };
 }
@@ -199,6 +206,28 @@ export async function logout() {
   await fb.logout();
 }
 
+/** Alle eigenen Tagesform-Daten löschen – im Konto und auf diesem Gerät */
+export async function wipeAll({ account = false, onStep } = {}) {
+  const uid = (S.auth.user && S.auth.user.uid) || 'local';
+  const { idbClearUser } = await import('./localpics.js');
+  await idbClearUser(uid);
+  if (S.mode === 'local') {
+    backend.wipe();
+    return { n: 0, account: false };
+  }
+  const fb = await import('./firebase.js');
+  const n = await fb.wipeMine(onStep);
+  let acc = false;
+  if (account) {
+    if (await fb.usedElsewhere()) acc = 'elsewhere';
+    else {
+      await fb.deleteAccount();
+      acc = true;
+    }
+  }
+  return { n, account: acc };
+}
+
 // ---------- Schreiben ----------
 export const saveProfile = (data) => backend.set('tf_meta/profile', { ...data, updatedAt: Date.now() });
 export const saveAi = (data) => backend.set('tf_meta/ai', { ...data, updatedAt: Date.now() });
@@ -298,5 +327,5 @@ export function lastNDaysSums(n = 7, endKey = todayKey()) {
 export const currentWeekStart = () => weekStart(todayKey());
 
 export function exportAll() {
-  return { exportedAt: new Date().toISOString(), profile: S.profile, training: S.training, foods: S.foods, days: S.days, weeks: S.weeks };
+  return { exportedAt: new Date().toISOString(), profile: S.profile, training: S.training, foods: S.foods, days: S.days, weeks: S.weeks, formchecks: S.checks };
 }

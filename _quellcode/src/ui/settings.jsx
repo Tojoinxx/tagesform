@@ -4,6 +4,7 @@ import { num, lsGet, lsSet } from '../lib/util.js';
 import { BodyFields, ActivityFields, GoalFields, TargetsCard, PrefsFields, AiSetup } from './profile.jsx';
 import { Seg } from './common.jsx';
 import { HealthSettings } from './healthui.jsx';
+import { PrivacyCard } from './privacy.jsx';
 import { Download, LogOut, Smartphone, Bell, Trash2 } from 'lucide-preact';
 
 export const VERSION = '1.0.0';
@@ -25,6 +26,7 @@ export function Settings({ query }) {
   };
   useEffect(() => {
     if (query && query.ki) setTimeout(() => document.getElementById('ki')?.scrollIntoView({ behavior: 'smooth' }), 50);
+    if (query && query.privat) setTimeout(() => document.getElementById('privat')?.scrollIntoView({ behavior: 'smooth' }), 50);
   }, []);
   const save = () => {
     saveProfile({ ...p, heightCm: num(p.heightCm), weightKg: num(p.weightKg), birthYear: num(p.birthYear), trainingDays: num(p.trainingDays) });
@@ -134,20 +136,12 @@ export function Settings({ query }) {
             <b>Sonntags-Erinnerung:</b> Leg dir in der Erinnerungen-App eine wöchentliche Erinnerung „Tagesform Wochen-Check“ für Sonntag 19 Uhr an – am Sonntag zeigt dir die App den Check direkt auf der Startseite.
           </span>
         </div>
-        <button
-          class="btn"
-          onClick={() => {
-            const blob = new Blob([JSON.stringify(exportAll(), null, 2)], { type: 'application/json' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `tagesform-export-${new Date().toISOString().slice(0, 10)}.json`;
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-          }}
-        >
-          <Download size={16} /> Daten exportieren (JSON)
-        </button>
       </section>
+
+      <h4 class="sect sect--page" id="privat">
+        Datenschutz & Privatsphäre
+      </h4>
+      <PrivacyCard />
 
       <h4 class="sect sect--page">Konto</h4>
       <section class="card form">

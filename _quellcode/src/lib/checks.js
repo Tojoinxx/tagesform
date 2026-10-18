@@ -2,6 +2,7 @@
 import { S, getBackend, saveProfile, saveTraining } from './store.js';
 import { setupOf, FOCUS } from './training.js';
 import { addDays, parseKey, todayKey, num } from './util.js';
+import { idbGet, idbSet, idbDel } from './localpics.js';
 
 export const POSES = [
   { id: 'vorne', label: 'Vorne', hint: 'Gerade, Arme locker neben dem Körper' },
@@ -44,23 +45,33 @@ export function saveCheck(date, data) {
 }
 export function deleteCheck(c) {
   const b = getBackend();
-  (c.poses || []).forEach((pose) => b.del(`tf_checkpics/${c.date}_${pose}`));
+  (c.poses || []).forEach((pose) => delPic(c.date, pose));
   b.del('tf_checks/' + c.date);
 }
 
+// Fotos: standardmäßig NUR auf diesem Gerät (IndexedDB). Im Konto nur, wenn ausdrücklich eingeschaltet.
+export const picsInCloud = (p = S.profile || {}) => p.picsCloud === true;
+const uidOf = () => (S.auth && S.auth.user && S.auth.user.uid) || 'local';
+const localKey = (date, pose) => `${uidOf()}/${date}_${pose}`;
 const picCache = new Map();
+
 export function savePic(date, pose, dataUrl) {
   picCache.set(`${date}_${pose}`, dataUrl);
-  getBackend().set(`tf_checkpics/${date}_${pose}`, { img: dataUrl, at: Date.now() }, false);
+  if (picsInCloud()) {
+    getBackend().set(`tf_checkpics/${date}_${pose}`, { img: dataUrl, at: Date.now() }, false);
+    idbDel(localKey(date, pose));
+  } else {
+    idbSet(localKey(date, pose), dataUrl);
+    getBackend().del(`tf_checkpics/${date}_${pose}`); // evtl. alte Kopie im Konto entfernen
+  }
 }
 export function delPic(date, pose) {
   picCache.delete(`${date}_${pose}`);
+  idbDel(localKey(date, pose));
   getBackend().del(`tf_checkpics/${date}_${pose}`);
 }
-/** Foto laden (einmalig, mit Zwischenspeicher) */
-export function loadPic(date, pose) {
-  const key = `${date}_${pose}`;
-  if (picCache.has(key)) return Promise.resolve(picCache.get(key));
+
+function cloudPic(key) {
   return new Promise((res) => {
     let done = false;
     let un = null;
@@ -69,7 +80,6 @@ export function loadPic(date, pose) {
       done = true;
       clearTimeout(t);
       setTimeout(() => un && un(), 0);
-      if (v) picCache.set(key, v);
       res(v || null);
     };
     const t = setTimeout(() => finish(null), 12000);
@@ -78,6 +88,46 @@ export function loadPic(date, pose) {
       finish(d && d.img);
     });
   });
+}
+
+/** Foto laden: erst vom Gerät, sonst aus dem Konto (und dann – wenn „nur Gerät“ eingestellt – aufs Gerät holen und im Konto löschen) */
+export async function loadPic(date, pose) {
+  const key = `${date}_${pose}`;
+  if (picCache.has(key)) return picCache.get(key);
+  let img = await idbGet(localKey(date, pose));
+  if (!img) {
+    const c = (S.checks || {})[date];
+    if (!c || c.picsAt !== 'device' || picsInCloud()) img = await cloudPic(key);
+    if (img && !picsInCloud()) {
+      await idbSet(localKey(date, pose), img);
+      getBackend().del('tf_checkpics/' + key);
+    }
+  }
+  if (img) picCache.set(key, img);
+  return img || null;
+}
+
+/** Speicherort umstellen: alle Fotos ins Konto bzw. aufs Gerät verschieben */
+export async function movePics(toCloud) {
+  saveProfile({ ...S.profile, picsCloud: !!toCloud });
+  let n = 0;
+  for (const c of checkList()) {
+    for (const pose of c.poses || []) {
+      const key = `${c.date}_${pose}`;
+      const img = (await idbGet(localKey(c.date, pose))) || (await cloudPic(key));
+      if (!img) continue;
+      if (toCloud) {
+        getBackend().set('tf_checkpics/' + key, { img, at: Date.now() }, false);
+        await idbDel(localKey(c.date, pose));
+      } else {
+        await idbSet(localKey(c.date, pose), img);
+        getBackend().del('tf_checkpics/' + key);
+      }
+      n++;
+    }
+    getBackend().set('tf_checks/' + c.date, { picsAt: toCloud ? 'cloud' : 'device' });
+  }
+  return n;
 }
 
 // ---------- Fällig? ----------

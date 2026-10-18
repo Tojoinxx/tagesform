@@ -10,6 +10,7 @@ import {
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   signOut,
+  deleteUser,
 } from 'firebase/auth';
 import {
   initializeFirestore,
@@ -24,6 +25,12 @@ import {
   query,
   where,
   documentId,
+  getDoc,
+  getDocs,
+  limit,
+  writeBatch,
+  terminate,
+  clearIndexedDbPersistence,
 } from 'firebase/firestore';
 
 let app, auth, db;
@@ -46,7 +53,72 @@ export const onAuth = (cb) => onAuthStateChanged(auth, cb);
 export const login = (email, pw) => signInWithEmailAndPassword(auth, email.trim(), pw);
 export const register = (email, pw) => createUserWithEmailAndPassword(auth, email.trim(), pw);
 export const resetPw = (email) => sendPasswordResetEmail(auth, email.trim());
-export const logout = () => signOut(auth);
+/** Abmelden und den Offline-Zwischenspeicher auf diesem Gerät löschen */
+export async function logout() {
+  await signOut(auth);
+  try {
+    await terminate(db);
+    await clearIndexedDbPersistence(db);
+  } catch (e) {}
+  location.reload();
+}
+
+/** Prüft, ob die Datenbank-Regeln fremde Bereiche sperren: Lesen eines fremden Nutzers muss scheitern */
+export async function rulesCheck() {
+  try {
+    await getDoc(doc(db, 'users', '__tagesform_probe__', 'tf_meta', 'profile'));
+    return 'open';
+  } catch (e) {
+    return String(e && e.code).includes('permission-denied') ? 'ok' : 'unknown';
+  }
+}
+
+const TF_COLS = ['tf_days', 'tf_foods', 'tf_weeks', 'tf_checks', 'tf_checkpics'];
+const TF_META = ['profile', 'ai', 'training', 'active'];
+
+/** Alle Tagesform-Daten des angemeldeten Nutzers löschen (Kartenschatz bleibt unberührt) */
+export async function wipeMine(onStep) {
+  const uid = auth.currentUser.uid;
+  let n = 0;
+  for (const c of TF_COLS) {
+    onStep && onStep(c);
+    const snap = await getDocs(collection(db, 'users', uid, c));
+    let batch = writeBatch(db);
+    let k = 0;
+    for (const d of snap.docs) {
+      batch.delete(d.ref);
+      n++;
+      if (++k === 450) {
+        await batch.commit();
+        batch = writeBatch(db);
+        k = 0;
+      }
+    }
+    if (k) await batch.commit();
+  }
+  const batch = writeBatch(db);
+  TF_META.forEach((m) => batch.delete(doc(db, 'users', uid, 'tf_meta', m)));
+  await batch.commit();
+  return n;
+}
+
+/** Wird das Anmelde-Konto noch von Kartenschatz genutzt? Dann nicht löschen. */
+export async function usedElsewhere() {
+  const uid = auth.currentUser.uid;
+  try {
+    const s = await getDocs(query(collection(db, 'users', uid, 'items'), limit(1)));
+    if (!s.empty) return true;
+    const m = await getDocs(query(collection(db, 'users', uid, 'meta'), limit(1)));
+    return !m.empty;
+  } catch (e) {
+    return false;
+  }
+}
+
+/** Anmelde-Konto löschen (Firebase verlangt eine frische Anmeldung) */
+export async function deleteAccount() {
+  await deleteUser(auth.currentUser);
+}
 export const projectId = () => app && app.options.projectId;
 
 export function cloudBackend(uid, onError) {

@@ -1,12 +1,13 @@
 // Formcheck: Fotos + Gewicht + Körperfett + Maße – Verlauf, Vergleich, Auswertung & Vorschläge
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useS, S, openSheet, closeSheet, toast, saveProfile } from '../lib/store.js';
-import { POSES, MEASURES, INTERVALS, checkList, prevCheckOf, saveCheck, deleteCheck, savePic, delPic, loadPic, checkDue, intervalOf, navyBf, bfLevel, recentWeight, evalCheck, aiRecos, applyReco } from '../lib/checks.js';
+import { picsInCloud, POSES, MEASURES, INTERVALS, checkList, prevCheckOf, saveCheck, deleteCheck, savePic, delPic, loadPic, checkDue, intervalOf, navyBf, bfLevel, recentWeight, evalCheck, aiRecos, applyReco } from '../lib/checks.js';
 import { setupOf, FOCUS } from '../lib/training.js';
 import { hasAi, aiErrText } from '../lib/ai.js';
 import { aiFormCheck } from '../lib/aitasks.js';
 import { downscaleImage, fmtShortDate, n0, n1, num, todayKey } from '../lib/util.js';
 import { Sheet, Seg, Field, NumInput } from './common.jsx';
+import { nav } from './router.js';
 import { useAiJob, AiProgress } from './aiprogress.jsx';
 import { Camera, Check, ChevronRight, Columns2, Sparkles, Trash2, X, Ruler, CalendarClock } from 'lucide-preact';
 
@@ -20,7 +21,7 @@ function Pic({ date, pose, onClick, cls = '' }) {
     loadPic(date, pose).then((s) => on && setSrc(s || ''));
     return () => (on = false);
   }, [date, pose]);
-  if (src === '') return <div class={'fcpic fcpic--none ' + cls}>kein Foto</div>;
+  if (src === '') return <div class={'fcpic fcpic--none ' + cls}>{cls.includes('thumb') ? '🔒' : 'Foto liegt auf einem anderen Gerät'}</div>;
   return src ? <img class={'fcpic ' + cls} src={src} alt={`Formcheck ${pose} vom ${fmtShortDate(date)}`} onClick={onClick} /> : <div class={'fcpic fcpic--load ' + cls} />;
 }
 
@@ -195,7 +196,7 @@ export function FormCheckSheet({ date: date0 }) {
   const canSave = nPics > 0 || num(v.weight) > 30 || bf;
 
   const save = () => {
-    const data = { weight: num(v.weight) > 30 ? Math.round(num(v.weight) * 10) / 10 : null, bf: bf ? Math.round(bf * 10) / 10 : null, bfSrc: bf ? mode : null, note: v.note.trim(), poses: POSES.map((x) => x.id).filter((id) => imgs[id]), createdAt: (existing && existing.createdAt) || Date.now() };
+    const data = { picsAt: picsInCloud() ? 'cloud' : 'device', weight: num(v.weight) > 30 ? Math.round(num(v.weight) * 10) / 10 : null, bf: bf ? Math.round(bf * 10) / 10 : null, bfSrc: bf ? mode : null, note: v.note.trim(), poses: POSES.map((x) => x.id).filter((id) => imgs[id]), createdAt: (existing && existing.createdAt) || Date.now() };
     MEASURES.forEach((m) => (data[m.id] = num(v[m.id]) > 0 ? Math.round(num(v[m.id]) * 10) / 10 : null));
     if (existing && existing.ai) data.ai = existing.ai;
     POSES.forEach((x) => {
@@ -224,7 +225,8 @@ export function FormCheckSheet({ date: date0 }) {
           <PhotoSlot pose={pose} img={imgs[pose.id]} onImg={(src) => setImgs((o) => ({ ...o, [pose.id]: src }))} onRemove={() => setImgs((o) => ({ ...o, [pose.id]: null }))} />
         ))}
       </div>
-      <p class="small muted">Tipp: morgens, gleiche Stelle, gleiches Licht, enge Kleidung oder Unterwäsche – dann sind die Fotos vergleichbar. Selbstauslöser oder Spiegel. Die Fotos liegen nur in deinem Konto.</p>
+      <p class="small muted">Tipp: morgens, gleiche Stelle, gleiches Licht, enge Kleidung oder Unterwäsche – dann sind die Fotos vergleichbar. Selbstauslöser oder Spiegel.</p>
+      <p class="small fcprivacy">🔒 {picsInCloud() ? 'Fotos werden in deinem Konto gespeichert (Sync auf alle Geräte).' : 'Fotos bleiben nur auf diesem Handy – sie werden nirgends hochgeladen.'} An die KI gehen sie nur, wenn du es auslöst. <button class="btn--link small" onClick={() => (closeSheet(), nav('/einstellungen?privat=1'))}>Datenschutz</button></p>
 
       <h4 class="sect">Gewicht</h4>
       <NumInput value={v.weight} onChange={(x) => set({ weight: x })} suffix="kg" placeholder="z. B. 78,4" />
@@ -267,7 +269,7 @@ export function FormCheckSheet({ date: date0 }) {
           </p>
         </>
       )}
-      {mode === 'ki' && <p class="small muted">{hasAi() ? 'Nach dem Speichern schätzt die KI den Körperfettanteil aus deinen Fotos (grobe Spanne). Mit Maßband oder Waage wird es genauer.' : 'Dafür brauchst du den KI-Schlüssel (Einstellungen → KI) – oder nimm das Maßband.'}</p>}
+      {mode === 'ki' && <p class="small muted">{hasAi() ? 'Nach dem Speichern schickt die App deine Fotos an Google Gemini, die KI schätzt den Körperfettanteil (grobe Spanne). Mit Maßband oder Waage wird es genauer – und die Fotos bleiben bei dir.' : 'Dafür brauchst du den KI-Schlüssel (Einstellungen → KI) – oder nimm das Maßband.'}</p>}
 
       <details class="more" open={MEASURES.some((m) => !['waist', 'neck', 'hip'].includes(m.id) && v[m.id])}>
         <summary>

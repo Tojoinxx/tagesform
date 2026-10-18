@@ -3261,3 +3261,12 @@ a.btn {
 .fccmp figcaption { margin-top: 4px; }
 .fcdue { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; margin-bottom: 12px; color: var(--text); }
 .fcdue span { flex: 1; }
+
+/* Datenschutz */
+.privacy .notice { align-items: flex-start; }
+.privacy__list p { margin: 0 0 10px; line-height: 1.45; }
+.privacy__wipe { flex-direction: column; align-items: stretch; gap: 10px; }
+.privacy__wipe p { margin: 0; }
+.btn--dangerfill { background: #e5484d; color: #fff; border-color: #e5484d; }
+.btn--dangerfill:disabled { opacity: 0.45; }
+.fcprivacy { margin: 6px 0 0; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
