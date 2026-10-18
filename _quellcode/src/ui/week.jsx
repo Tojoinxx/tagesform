@@ -6,6 +6,7 @@ import { weekSummaryAi } from '../lib/aitasks.js';
 import { addDays, fmtShortDate, n0, n1, todayKey, weekStart, num } from '../lib/util.js';
 import { Spinner, NumInput } from './common.jsx';
 import { useAiJob, AiProgress } from './aiprogress.jsx';
+import { FormCheckCard } from './formcheck.jsx';
 import { ChevronLeft, ChevronRight, PenLine, Flame, Beef, Droplet, Apple, GlassWater, Wheat, Candy, HeartPulse, Sparkles, Check, Scale, RefreshCw } from 'lucide-preact';
 import { nav } from './router.js';
 
@@ -200,6 +201,9 @@ export function Week({ query }) {
           </form>
         )}
       </section>
+
+      <div style={{ height: '14px' }} />
+      <FormCheckCard />
 
       <h4 class="sect sect--page">Tagesform & Training</h4>
       <section class="card">

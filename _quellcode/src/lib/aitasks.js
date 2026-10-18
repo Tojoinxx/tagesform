@@ -244,3 +244,43 @@ Höchstens 3 Tipps.`;
     idea: j.idea || '',
   };
 }
+
+// ---------- Formcheck ----------
+/**
+ * pics: [{ label, mime, base64 }] (aktuelle Fotos, ggf. danach Vergleichsfotos), data: Werte jetzt & vorher
+ */
+export async function aiFormCheck({ pics, cur, prev, profile, setup, focusList }, opts = {}) {
+  const p = profile || {};
+  const goalTxt = { abnehmen: 'Fett verlieren', halten: 'Gewicht halten / straffen', aufbauen: 'Muskeln aufbauen' }[p.goal] || 'halten';
+  const line = (c) =>
+    [c.date, c.weight && c.weight + ' kg', c.bf && c.bf + ' % Körperfett', c.waist && 'Bauch ' + c.waist + ' cm', c.arm && 'Oberarm ' + c.arm + ' cm', c.chest && 'Brust ' + c.chest + ' cm', c.thigh && 'Oberschenkel ' + c.thigh + ' cm'].filter(Boolean).join(', ');
+  const prompt = `Du bist ein erfahrener, ehrlicher aber freundlicher Personal Trainer in Deutschland. Werte einen Formcheck aus (du-Form, Deutsch, kurz).
+Person: ${p.sex === 'w' ? 'Frau' : p.sex === 'd' ? 'divers' : 'Mann'}, ${p.heightCm || '?'} cm, Ziel: ${goalTxt}. Trainingsziel: ${setup.goal || 'muskel'}, ${setup.perWeek || 3}× Krafttraining/Woche${setup.sport && setup.sport !== 'keiner' ? ', Vereinssport: ' + setup.sport : ''}.
+Aktuell: ${line(cur) || 'keine Werte'}
+${prev ? 'Letzter Check: ' + line(prev) : 'Erster Check (kein Vergleich).'}
+Die Bilder sind beschriftet (aktuell bzw. vorher).
+Aufgaben:
+- Körperfett grob schätzen als Spanne (ehrlich, nicht schmeicheln; Fotos sind ungenau → Spanne 3–5 %-Punkte).
+- Sichtbare Veränderungen zum letzten Check (nur wenn Vergleichsfotos da sind, sonst leer). Licht/Pose-Unterschiede berücksichtigen.
+- Was schon gut aussieht (max. 2 Punkte).
+- Welche Muskelgruppen im Verhältnis zurückliegen und mehr Volumen vertragen (max. 2) – NUR aus dieser Liste (ids): ${focusList}. Leere Liste, wenn alles ausgewogen ist.
+- Auffälligkeiten der Haltung (z. B. runde Schultern) nur wenn deutlich sichtbar, sonst leer.
+- Ein konkreter Tipp für die nächsten Wochen.
+Keine medizinischen Diagnosen, keine Bewertung des Aussehens als Person – nur trainingsrelevant.
+Antworte NUR mit JSON:
+{"bodyFat":{"low":15,"high":18},"summary":"1–2 Sätze Gesamteindruck","changes":"","strengths":["…"],"focus":["schulter"],"focusWhy":"kurz warum","posture":"","tip":"…"}`;
+  const j = await askJson(prompt, { images: pics, temperature: 0.3, ...opts });
+  const lo = num(j.bodyFat && j.bodyFat.low);
+  const hi = num(j.bodyFat && j.bodyFat.high);
+  return {
+    bodyFat: lo > 2 && hi >= lo && hi < 60 ? { low: Math.round(lo), high: Math.round(hi) } : null,
+    summary: String(j.summary || ''),
+    changes: String(j.changes || ''),
+    strengths: (j.strengths || []).map(String).slice(0, 3),
+    focus: (j.focus || []).map(String).slice(0, 2),
+    focusWhy: String(j.focusWhy || ''),
+    posture: String(j.posture || ''),
+    tip: String(j.tip || ''),
+    at: Date.now(),
+  };
+}

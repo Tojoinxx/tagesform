@@ -126,7 +126,7 @@ const TOTAL_MS = 100000; // danach endgültig aufgeben
  * onProgress({ step: 'send'|'think'|'write'|'retry', model, thought, names, chars }) – für die Fortschrittsanzeige
  * signal: AbortSignal zum Abbrechen
  */
-export async function askJson(prompt, { image, temperature = 0.4, onProgress, signal } = {}) {
+export async function askJson(prompt, { image, images, temperature = 0.4, onProgress, signal } = {}) {
   const prog = (p) => {
     try {
       onProgress && onProgress(p);
@@ -147,6 +147,10 @@ export async function askJson(prompt, { image, temperature = 0.4, onProgress, si
   }
   const parts = [{ text: prompt + '\n(Falls du vorher nachdenkst: fasse deine Gedanken kurz auf Deutsch zusammen.)' }];
   if (image) parts.push({ inline_data: { mime_type: image.mime, data: image.base64 } });
+  (images || []).forEach((im) => {
+    if (im.label) parts.push({ text: im.label });
+    parts.push({ inline_data: { mime_type: im.mime, data: im.base64 } });
+  });
   const t0 = Date.now();
   let lastErr;
   let first = true;

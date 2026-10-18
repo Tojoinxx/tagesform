@@ -13,6 +13,7 @@ export let S = {
   days: {},
   foods: {},
   weeks: {},
+  checks: {},
   toast: null,
   sheet: null,
 };
@@ -110,7 +111,7 @@ function stopWatching() {
 function startWatching() {
   stopWatching();
   const b = backend;
-  setS({ profile: null, profileLoaded: false, ai: null, training: null, active: null, days: {}, foods: {}, weeks: {} });
+  setS({ profile: null, profileLoaded: false, ai: null, training: null, active: null, days: {}, foods: {}, weeks: {}, checks: {} });
   const fallback = setTimeout(() => !S.profileLoaded && setS({ profileLoaded: true }), 7000);
   unsubs.push(() => clearTimeout(fallback));
   unsubs.push(
@@ -139,6 +140,13 @@ function startWatching() {
       },
       addDays(todayKey(), -120),
     ),
+  );
+  unsubs.push(
+    b.watchCol('tf_checks', (list) => {
+      const checks = {};
+      list.forEach((c) => (checks[c.id] = c));
+      setS({ checks });
+    }),
   );
   unsubs.push(
     b.watchCol('tf_weeks', (list) => {

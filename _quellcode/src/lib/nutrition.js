@@ -37,6 +37,9 @@ export function bmr(p) {
   const w = num(p.weightKg) || 75;
   const h = num(p.heightCm) || 178;
   const a = ageFrom(p);
+  // Mit bekanntem Körperfett (Formcheck): Katch-McArdle über die fettfreie Masse – genauer bei sehr sportlich/übergewichtig
+  const bf = num(p.bodyFat);
+  if (bf > 3 && bf < 60) return 370 + 21.6 * w * (1 - bf / 100);
   const base = 10 * w + 6.25 * h - 5 * a;
   return p.sex === 'w' ? base - 161 : p.sex === 'd' ? base - 78 : base + 5;
 }
@@ -50,7 +53,8 @@ export function calcTargets(p) {
   let factor = 1;
   if (p.goal === 'abnehmen') factor = p.pace === 'normal' ? 0.82 : 0.9;
   if (p.goal === 'aufbauen') factor = p.pace === 'normal' ? 1.1 : 1.05;
-  const kcal = Math.round((tdee * factor) / 10) * 10;
+  const adj = Math.max(-500, Math.min(500, num(p.kcalAdjust))); // Feinjustierung aus dem Formcheck
+  const kcal = Math.round((tdee * factor + adj) / 10) * 10;
   const protPerKg = p.goal === 'abnehmen' ? 2.0 : p.goal === 'aufbauen' ? 1.8 : 1.6;
   const prot = Math.round(w * protPerKg);
   const fat = Math.round(Math.max(w * 0.8, (kcal * 0.28) / 9));
