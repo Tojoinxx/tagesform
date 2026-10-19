@@ -183,8 +183,46 @@ const RESTAURANT = [
   ['sub-tuna', 'Subway', 'Thunfisch (15 cm)', 230, 470, 19, 43, 24, 4, 6, '30 cm:460', 'subway sub sandwich tuna thunfisch'],
   ['sub-veggie', 'Subway', 'Veggie Delite (15 cm)', 200, 230, 9, 42, 3, 4, 7, '30 cm:400', 'subway sub sandwich vegetarisch'],
 ];
+// Bäckerei & Backshop im Supermarkt (Aldi „Meine Backwelt“, Lidl, Kaufland, Penny, Netto, Rewe, Edeka …)
+// ALDI-Werte laut aldi-sued.de wo angegeben (Laugenbrezel, Laugenstange, Buttercroissant), sonst gängige Durchschnittswerte.
+// Format wie oben, aber Werte PRO 100 g: [id, Marke, Name, Stückgewicht, kcal, E, KH, F, Ballastst., Zucker, weitere Portionen, Suchbegriffe]
+const SHOPS = 'aldi lidl kaufland penny netto rewe edeka norma backshop backstation backtheke backwelt baecker baeckerei';
+const BAKERY = [
+  ['bk-super-berliner', 'ALDI Backwelt', 'Super-Berliner mit Kakaocreme', 100, 311, 4, 38, 15, 1.5, 17, '', 'aldi backwelt super berliner krapfen kakao schoko pfannkuchen'],
+  ['bk-kartoffel', 'ALDI Backwelt', 'Kartoffelkrüstchen (Kartoffelweckle)', 70, 245, 8, 47.5, 2, 3.3, 1, '', 'aldi backwelt kartoffelweckle kartoffelweck kartoffelbroetchen kartoffelkruestchen weckle'],
+  ['bk-aldi-brezel', 'ALDI Backwelt', 'Laugenbrezel', 80, 314, 8.5, 57, 5.1, 3.1, 4.5, '', 'aldi backwelt brezel breze laugen'],
+  ['bk-aldi-stange', 'ALDI Backwelt', 'Laugenstange', 100, 289, 8.5, 54, 3.6, 3.3, 3.5, '', 'aldi backwelt laugenstange laugen'],
+  ['bk-aldi-croissant', 'ALDI Backwelt', 'Buttercroissant', 60, 374, 8.1, 38.7, 20, 3.3, 6.4, '', 'aldi backwelt croissant gipfeli butter'],
+  ['bk-berliner', 'Backshop', 'Berliner / Krapfen (Marmelade)', 75, 340, 6, 47, 14, 2, 17, '', SHOPS + ' berliner krapfen pfannkuchen'],
+  ['bk-donut', 'Backshop', 'Donut, glasiert', 60, 410, 5, 50, 21, 1.5, 22, '', SHOPS + ' donut doughnut pinkie'],
+  ['bk-nougat-croissant', 'Backshop', 'Nuss-Nougat-Croissant', 80, 420, 7, 45, 23, 2.5, 18, '', SHOPS + ' croissant nougat schoko nutella'],
+  ['bk-schoko-croissant', 'Backshop', 'Schoko-Croissant / Pain au Chocolat', 75, 410, 7, 45, 22, 2.5, 15, '', SHOPS + ' croissant schoko pain chocolat'],
+  ['bk-franz', 'Backshop', 'Franzbrötchen (Zimt)', 90, 380, 7, 48, 17, 2, 15, '', SHOPS + ' franzbroetchen zimt schnecke'],
+  ['bk-zimtschnecke', 'Backshop', 'Zimtschnecke', 100, 370, 6, 50, 16, 2, 20, '', SHOPS + ' zimtschnecke cinnamon roll'],
+  ['bk-nussschnecke', 'Backshop', 'Nuss- / Mohnschnecke', 100, 390, 7, 46, 19, 3, 20, '', SHOPS + ' nussschnecke mohnschnecke schnecke'],
+  ['bk-rosinen', 'Backshop', 'Rosinenschnecke', 100, 330, 6, 48, 12, 2, 18, '', SHOPS + ' rosinenschnecke schnecke'],
+  ['bk-apfel', 'Backshop', 'Apfeltasche / Apfelecke', 100, 300, 4.5, 38, 14, 2, 14, '', SHOPS + ' apfeltasche apfelecke plunder'],
+  ['bk-pudding', 'Backshop', 'Puddingbrezel / Vanillestange', 95, 330, 5, 42, 15, 1.5, 16, '', SHOPS + ' puddingbrezel vanillestange puddingteilchen plunder'],
+  ['bk-quark', 'Backshop', 'Quarktasche', 100, 310, 8, 36, 15, 1.5, 12, '', SHOPS + ' quarktasche topfen plunder'],
+  ['bk-streusel', 'Backshop', 'Streuseltaler / Streuselschnecke', 100, 400, 6, 55, 17, 2, 22, '', SHOPS + ' streusel streuseltaler'],
+  ['bk-muffin', 'Backshop', 'Schoko-Muffin', 100, 430, 6, 50, 22, 2, 28, '', SHOPS + ' muffin schoko'],
+  ['bk-laugenecke', 'Backshop', 'Butter-Laugenecke / -croissant', 80, 360, 8, 42, 17, 2.5, 4, '', SHOPS + ' laugenecke laugencroissant laugen butter'],
+  ['bk-laugenbroetchen', 'Backshop', 'Laugenbrötchen / Laugenweckle', 70, 280, 9, 53, 3.5, 3, 2.5, '', SHOPS + ' laugenbroetchen laugenweckle laugensemmel laugen'],
+  ['bk-koerner', 'Backshop', 'Körnerbrötchen (Sonnenblume, Kürbis)', 70, 285, 10, 44, 7, 6, 2, '', SHOPS + ' koernerbroetchen sonnenblumen kuerbiskern krustchen kruestchen'],
+  ['bk-mehrkorn', 'Backshop', 'Mehrkorn- / Dinkelbrötchen', 75, 270, 10, 42, 5.5, 6.5, 2.5, '', SHOPS + ' mehrkorn dinkel kornschatz vollkorn broetchen weckle'],
+  ['bk-kaiser', 'Backshop', 'Kaiserbrötchen / Weizenbrötchen', 55, 265, 8.5, 52, 1.8, 3, 2, '', SHOPS + ' kaiser broetchen weckle semmel weizen'],
+  ['bk-baguette', 'Backshop', 'Baguette', 250, 255, 8.5, 51, 1.5, 3, 2, 'Halbes:125|1 Stück (ca. 1/6):40', SHOPS + ' baguette flute stangenweissbrot'],
+  ['bk-kaesestange', 'Backshop', 'Käsestange / Käsebrötchen', 100, 330, 13, 40, 12, 2.5, 2, '', SHOPS + ' kaesestange kaesestick kaesebroetchen'],
+  ['bk-pizzastick', 'Backshop', 'Pizzastange / Pizzabrötchen (Salami)', 120, 290, 11, 36, 11, 2, 3, '', SHOPS + ' pizza pizzastick pizzabroetchen salami'],
+  ['bk-wienerle', 'Backshop', 'Wiener im Laugen-/Blätterteig', 130, 300, 11, 30, 15, 1.5, 2, '', SHOPS + ' wienerle wiener wuerstchen laugen schlafrock'],
+  ['bk-gefluegel', 'Backshop', 'Geflügel- / Hähnchenrolle', 130, 300, 10, 30, 15, 1.5, 2, '', SHOPS + ' gefluegelrolle haehnchenrolle chicken'],
+  ['bk-boerek', 'Backshop', 'Börek / Börekstange Spinat-Feta', 110, 320, 9, 30, 18, 2, 2, '', SHOPS + ' boerek spinat feta'],
+  ['bk-flammkuchen', 'Backshop', 'Flammkuchen-Snack', 120, 270, 9, 32, 12, 1.5, 3, '', SHOPS + ' flammkuchen pizza snack'],
+];
+
 const R100 = (v, g) => Math.round((v / g) * 1000) / 10;
 const RESTAURANT_FOODS = RESTAURANT.map(([id, brand, name, g, kcal, p, c, f, fiber, sugar, more, aliases]) => ({
+  cat: 'restaurant',
   id: 'base:' + id,
   name,
   brand,
@@ -193,6 +231,20 @@ const RESTAURANT_FOODS = RESTAURANT.map(([id, brand, name, g, kcal, p, c, f, fib
   per100: { kcal: Math.round((kcal / g) * 100), p: R100(p, g), c: R100(c, g), f: R100(f, g), fiber: R100(fiber, g), sugar: R100(sugar, g) },
   portions: [{ label: /Nuggets/.test(name) ? (brand === 'KFC' ? '1 Portion' : '6er') : /Pommes/.test(name) ? 'Mittel' : /Wings/.test(name) ? '5 Stück' : /\(15 cm\)/.test(name) ? '15 cm' : /Dip/.test(name) ? '1 Dip' : '1 Stück', g }, ...more.split('|').filter(Boolean).map((x) => ({ label: x.split(':')[0], g: Number(x.split(':')[1]) }))],
   aliases: aliases + ' fast food restaurant',
+  fv: false,
+  unit: 'g',
+}));
+const P1 = (v) => Math.round(v * 10) / 10;
+const BAKERY_FOODS = BAKERY.map(([id, brand, name, g, kcal, p, c, f, fiber, sugar, more, aliases]) => ({
+  id: 'base:' + id,
+  name,
+  brand,
+  source: 'base',
+  restaurant: true,
+  cat: 'bakery',
+  per100: { kcal, p: P1(p), c: P1(c), f: P1(f), fiber: P1(fiber), sugar: P1(sugar) },
+  portions: [{ label: '1 Stück', g }, ...more.split('|').filter(Boolean).map((x) => ({ label: x.split(':')[0], g: Number(x.split(':')[1]) }))],
+  aliases: aliases + ' gebaeck backwaren',
   fv: false,
   unit: 'g',
 }));
@@ -212,6 +264,6 @@ export const BASE_FOODS = [...RAW.map(([id, name, kcal, p, c, f, fiber, sugar, p
   aliases: aliases || '',
   fv: flags.includes('f'),
   unit: flags.includes('m') ? 'ml' : 'g',
-})), ...RESTAURANT_FOODS];
+})), ...RESTAURANT_FOODS, ...BAKERY_FOODS];
 
 export const baseById = (id) => BASE_FOODS.find((f) => f.id === id);

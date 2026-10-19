@@ -217,7 +217,8 @@ export function AddSheet({ dayKey, meal: meal0, q: q0 = '' }) {
             </>
           )}
           {[
-            ['Restaurants & Fast Food', local.base.filter((f) => f.restaurant)],
+            ['Bäckerei & Backshop', local.base.filter((f) => f.cat === 'bakery')],
+            ['Restaurants & Fast Food', local.base.filter((f) => f.cat === 'restaurant')],
             ['Grundnahrungsmittel', local.base.filter((f) => !f.restaurant)],
           ].map(
             ([label, list]) =>
