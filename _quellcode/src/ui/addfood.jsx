@@ -52,6 +52,7 @@ function localSearch(q) {
     if (n.startsWith(qn)) sc += 4;
     if (n.split(' ').some((w) => w.startsWith(toks[0]))) sc += 2;
     sc += toks.filter((t) => n.includes(t)).length * 0.8; // Treffer im Namen zählen mehr als in Marke/Suchbegriffen
+    if (f.brand) sc += toks.filter((t) => t.length > 2 && norm(f.brand).includes(t)).length * 1.5; // „lidl brezel“ → erst Lidl, dann allgemein
     const compact = n.replace(/[^a-z0-9]/g, '');
     if (toks.length > 1 && toks.some((t, i) => i < toks.length - 1 && compact.includes(t + toks[i + 1]))) sc += 2; // „chicken burger“ → Chickenburger
     sc += Math.log1p(f.uses || 0);
