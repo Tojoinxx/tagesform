@@ -52,3 +52,19 @@ export function installViewportFix() {
   if (window.visualViewport) window.visualViewport.addEventListener('resize', later(150));
   window.__tfHealViewport = heal;
 }
+
+/** Zwei-Finger-Zoom aus (iOS ignoriert dafür die Viewport-Einstellung) – die Foto-Großansicht zoomt selbst */
+export function blockPinchZoom() {
+  const allowed = (e) => e.target && e.target.closest && e.target.closest('[data-zoom]');
+  const stop = (e) => {
+    if (!allowed(e)) e.preventDefault();
+  };
+  ['gesturestart', 'gesturechange'].forEach((t) => document.addEventListener(t, stop, { passive: false }));
+  document.addEventListener(
+    'touchmove',
+    (e) => {
+      if (e.touches && e.touches.length > 1 && !allowed(e)) e.preventDefault();
+    },
+    { passive: false },
+  );
+}

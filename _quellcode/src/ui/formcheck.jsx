@@ -25,6 +25,51 @@ function Pic({ date, pose, onClick, cls = '' }) {
   return src ? <img class={'fcpic ' + cls} src={src} alt={`Formcheck ${pose} vom ${fmtShortDate(date)}`} onClick={onClick} /> : <div class={'fcpic fcpic--load ' + cls} />;
 }
 
+/** Großansicht mit eigenem Zoom (zwei Finger / Doppeltipp) – die App selbst zoomt nicht */
+function ZoomView({ onClose, children }) {
+  const [t, setT] = useState({ s: 1, x: 0, y: 0 });
+  const g = useRef(null);
+  const lastTap = useRef(0);
+  const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  const onStart = (e) => {
+    const ts = e.touches;
+    if (ts.length === 2) g.current = { d: dist(ts[0], ts[1]), s: t.s, x: t.x, y: t.y };
+    else if (ts.length === 1) g.current = { px: ts[0].clientX, py: ts[0].clientY, x: t.x, y: t.y, s: t.s, moved: false };
+  };
+  const onMove = (e) => {
+    const ts = e.touches;
+    const st = g.current;
+    if (!st) return;
+    e.preventDefault();
+    if (ts.length === 2 && st.d) setT({ ...t, s: Math.min(5, Math.max(1, (st.s * dist(ts[0], ts[1])) / st.d)) });
+    else if (ts.length === 1 && st.px != null && t.s > 1) {
+      st.moved = true;
+      setT({ ...t, x: st.x + ts[0].clientX - st.px, y: st.y + ts[0].clientY - st.py });
+    }
+  };
+  const onEnd = (e) => {
+    const st = g.current;
+    g.current = null;
+    if (e.touches.length || !st || st.d || st.moved) return;
+    const now = Date.now();
+    if (now - lastTap.current < 300) {
+      setT(t.s > 1 ? { s: 1, x: 0, y: 0 } : { s: 2.5, x: 0, y: 0 });
+      lastTap.current = 0;
+    } else lastTap.current = now;
+  };
+  return (
+    <div class="fcbig" onTouchStart={onStart} onTouchMove={onMove} onTouchEnd={onEnd}>
+      <div class="fcbig__in" style={{ transform: `translate(${t.x}px, ${t.y}px) scale(${t.s})` }}>
+        {children}
+      </div>
+      <button class="fcbig__x" onClick={onClose} aria-label="Schließen">
+        <X size={20} />
+      </button>
+      {t.s === 1 && <span class="fcbig__hint small">Zwei Finger oder Doppeltipp zum Zoomen</span>}
+    </div>
+  );
+}
+
 // =============== Karte in „Woche“ ===============
 export function FormCheckCard() {
   const s = useS();
@@ -374,9 +419,9 @@ export function CheckViewSheet({ date, autoAi }) {
         </div>
       )}
       {big && (
-        <div class="fcbig" onClick={() => setBig(null)}>
+        <ZoomView onClose={() => setBig(null)}>
           <Pic date={date} pose={big} cls="fcpic--big" />
-        </div>
+        </ZoomView>
       )}
 
       <div class={'fcverdict fcverdict--' + ev.verdict.tone}>

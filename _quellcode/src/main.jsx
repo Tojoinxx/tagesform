@@ -22,13 +22,14 @@ import { PlanEditor, ExOptsSheet } from './ui/planeditor.jsx';
 import { BreakSheet } from './ui/breaks.jsx';
 import { SummarySheet } from './ui/progress.jsx';
 import { importFromHealth } from './lib/health.js';
-import { installViewportFix } from './lib/viewport.js';
+import { installViewportFix, blockPinchZoom } from './lib/viewport.js';
 import { PlanLinkSheet, planFromQuery } from './ui/planlink.jsx';
 import { FormCheckSheet, CheckViewSheet, CheckCompareSheet } from './ui/formcheck.jsx';
 import { House, ChartColumn, Dumbbell, Settings as SettingsIcon } from 'lucide-preact';
 
 applyTheme(lsGet('tf.theme', 'system'));
 installViewportFix();
+blockPinchZoom();
 setS({ day: todayKey() });
 
 const SHEETS = { add: AddSheet, amount: AmountSheet, entry: EntrySheet, custom: CustomSheet, photo: PhotoSheet, label: LabelSheet, barcode: BarcodeSheet, suggest: SuggestSheet, exercise: ExerciseSheet, algo: AlgoSheet, pick: ExercisePicker, import: ImportSheet, wellness: WellnessSheet, rir: RirSheet, exopts: ExOptsSheet, break: BreakSheet, summary: SummarySheet, planlink: PlanLinkSheet, voice: VoiceSheet, formcheck: FormCheckSheet, checkview: CheckViewSheet, checkcompare: CheckCompareSheet };
