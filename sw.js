@@ -1,5 +1,5 @@
 // Tagesform Service Worker: App offline verfügbar halten (Netz zuerst, sonst Cache)
-const VERSION = '1.0.0-202610191045';
+const VERSION = '1.0.0-202610200558';
 const CACHE = 'tf-' + VERSION;
 const SHELL = ['./', './index.html', './app.css', './config.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png', ...["./js/c-4ZDYZ67B.js","./js/c-AM3CJMBL.js","./js/c-GOJD2GXO.js","./js/c-MJN5UIHP.js","./js/c-OOPXXTS2.js","./js/c-SQSAKXH3.js","./js/c-Z6SMJ3PX.js","./js/main.js"]];
 

@@ -65,6 +65,7 @@
 }
 html {
   background: var(--bg);
+  touch-action: manipulation; /* kein Zoom per Doppeltipp */
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
 }
@@ -3270,3 +3271,7 @@ a.btn {
 .btn--dangerfill { background: #e5484d; color: #fff; border-color: #e5484d; }
 .btn--dangerfill:disabled { opacity: 0.45; }
 .fcprivacy { margin: 6px 0 0; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+
+/* Kein Zoom per Doppeltipp – auch auf Knöpfen, Karten & Bildern (Scrollen und Zwei-Finger-Zoom bleiben möglich) */
+body, button, a, input, select, textarea, label, .card, .sheet, img, svg { touch-action: manipulation; }
+.aiitem__name { font-size: 16px; }
