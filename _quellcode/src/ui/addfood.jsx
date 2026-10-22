@@ -23,7 +23,7 @@ import { analyzeMealPhoto, analyzeMealSpeech, readLabel } from '../lib/aitasks.j
 import { canRecord, startRecording, micErrText } from '../lib/voice.js';
 import { useAiJob, AiProgress } from './aiprogress.jsx';
 import { Sheet, Chip, Stepper, Spinner, Macros, Field, NumInput, Seg } from './common.jsx';
-import { Camera, ScanBarcode, ScanText, Keyboard, Search, Plus, Star, Trash2, Globe, Check, Sparkles, Info, RefreshCw, Mic, Square, X } from 'lucide-preact';
+import { Camera, ScanBarcode, ScanText, Keyboard, Search, Plus, Star, Trash2, Globe, Check, Sparkles, Info, RefreshCw, Mic, Square, X, ChevronDown } from 'lucide-preact';
 import { nav } from './router.js';
 
 export function MealChips({ meal, setMeal }) {
@@ -289,11 +289,16 @@ export function AmountSheet({ dayKey, meal: meal0, food: food0, entry, back }) {
   const [meal, setMeal] = useState(entry ? entry.meal : meal0);
   const [naming, setNaming] = useState(false);
   const [pname, setPname] = useState('Meine Portion');
-  const v = scale(food.per100, g);
+  // Nährwerte korrigierbar bei KI-/Schätz-Einträgen (nicht bei Produkten aus der Datenbank)
+  const editable = !!entry && (!food.id || String(entry.source || '').startsWith('ai') || entry.source === 'suggestion');
+  const [p100, setP100] = useState(() => ({ ...food.per100 }));
+  const [fvFood, setFvFood] = useState(entry ? !!entry.fvFood : !!food.fv);
+  const v = scale(editable ? p100 : food.per100, g);
 
   const submit = () => {
     if (entry) {
-      updateEntry(dayKey, entry.id, { ...scale(food.per100, g), grams: Math.round(g), meal, fv: fvFor(entry.fvFood, g) });
+      if (editable) updateEntry(dayKey, entry.id, { ...scale(p100, g), per100: { ...p100 }, grams: Math.round(g), meal, fvFood, fv: fvFor(fvFood, g) });
+      else updateEntry(dayKey, entry.id, { ...scale(food.per100, g), grams: Math.round(g), meal, fv: fvFor(entry.fvFood, g) });
       toast('Gespeichert');
     } else {
       const remembered = food.source === 'ai' ? food : rememberFood(food, g);
@@ -379,6 +384,20 @@ export function AmountSheet({ dayKey, meal: meal0, food: food0, entry, back }) {
           )}
         </div>
       </div>
+      {editable && (
+        <details class="more">
+          <summary>Nährwerte korrigieren</summary>
+          <NutrEditor
+            it={{ id: 'e', per100: p100, grams: g, unit, fv: fvFood }}
+            setItem={(_, patch) => {
+              if (patch.per100) setP100(patch.per100);
+              if ('fv' in patch) setFvFood(patch.fv);
+            }}
+            orig={{ per100: food.per100 }}
+          />
+        </details>
+      )}
+      {entry && entry.dish && <p class="small muted">Teil von „{entry.dish.name}“</p>}
       {food.source !== 'ai' && food.id && (
         <div class="portion-save">
           {naming ? (
@@ -634,43 +653,155 @@ function basePortionsFor(name) {
   return b && b.portions.length ? b.portions.slice(0, 3) : null;
 }
 
-/** Von der KI erkannte Komponenten: an/aus, Name, Menge, Portionen */
-function AiItems({ items, setItem, meal, setMeal, title, hint }) {
+const NUTR = [
+  ['kcal', 'Kalorien', 'kcal'],
+  ['p', 'Eiweiß', 'g'],
+  ['c', 'Kohlenhydrate', 'g'],
+  ['f', 'Fett', 'g'],
+  ['fiber', 'Ballaststoffe', 'g'],
+  ['sugar', 'davon Zucker', 'g'],
+];
+const r1n = (v) => Math.round(v * 10) / 10;
+
+/** Nährwerte einer Komponente bearbeiten – wahlweise pro Portion oder pro 100 g */
+function NutrEditor({ it, setItem, orig }) {
+  const [base, setBase] = useState('portion');
+  const v = scale(it.per100, it.grams);
+  const unit = it.unit || 'g';
+  const val = (k) => (base === 'portion' ? (k === 'kcal' ? Math.round(v[k]) : r1n(v[k] || 0)) : k === 'kcal' ? Math.round(it.per100[k] || 0) : r1n(it.per100[k] || 0));
+  const change = (k, raw) => {
+    const n = Math.max(0, num(raw));
+    const per = base === 'portion' ? (it.grams > 0 ? (n / it.grams) * 100 : 0) : n;
+    setItem(it.id, { per100: { ...it.per100, [k]: k === 'kcal' ? Math.round(per) : r1n(per) }, edited: true });
+  };
+  const changed = orig && JSON.stringify(orig.per100) !== JSON.stringify(it.per100);
+  return (
+    <div class="nutred">
+      <div class="nutred__head">
+        <Seg
+          value={base}
+          onChange={setBase}
+          options={[
+            { id: 'portion', label: `Diese Portion (${n0(it.grams)} ${unit})` },
+            { id: '100', label: `pro 100 ${unit}` },
+          ]}
+        />
+      </div>
+      <div class="nutred__grid">
+        {NUTR.map(([k, label, u]) => (
+          <label class="nutred__f" key={k}>
+            <span class="small muted">{label}</span>
+            <NumInput key={base + k} value={String(val(k)).replace('.', ',')} onChange={(x) => change(k, x)} suffix={u} />
+          </label>
+        ))}
+      </div>
+      <div class="nutred__foot">
+        <label class="check check--inline small">
+          <input type="checkbox" checked={!!it.fv} onChange={(e) => setItem(it.id, { fv: e.currentTarget.checked })} />
+          <span>Obst / Gemüse</span>
+        </label>
+        {changed && (
+          <button class="btn--link small" onClick={() => setItem(it.id, { per100: { ...orig.per100 }, edited: false })}>
+            <RefreshCw size={13} /> KI-Werte wiederherstellen
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Von der KI erkanntes Gericht: Summe oben, jede Komponente aufklappbar mit Nährwerten zum Korrigieren */
+function AiItems({ items, setItem, setItems, meal, setMeal, title, setTitle, hint }) {
+  const [open, setOpen] = useState(null);
+  const orig = useRef({});
+  items.forEach((it) => {
+    if (!orig.current[it.id]) orig.current[it.id] = { per100: { ...it.per100 }, grams: it.grams };
+  });
+  const on = items.filter((i) => i.on);
+  const tot = on.reduce(
+    (a, it) => {
+      const v = scale(it.per100, it.grams);
+      ['kcal', 'p', 'c', 'f', 'fiber'].forEach((k) => (a[k] += v[k] || 0));
+      return a;
+    },
+    { kcal: 0, p: 0, c: 0, f: 0, fiber: 0 },
+  );
+  const addItem = () => {
+    const id = uid();
+    setItems((l) => [...l, { id, name: '', grams: 100, per100: { kcal: 0, p: 0, c: 0, f: 0, fiber: 0, sugar: 0 }, on: true, manual: true, confidence: 'hoch' }]);
+    setOpen(id);
+  };
   return (
     <>
       <MealChips meal={meal} setMeal={setMeal} />
-      <h4 class="sect">{title}</h4>
+      <section class="dish">
+        <input class="dish__title" value={title} onInput={(e) => setTitle && setTitle(e.currentTarget.value)} aria-label="Name des Gerichts" placeholder="Name des Gerichts" />
+        <div class="dish__sum tnum">
+          <b>{n0(tot.kcal)} kcal</b>
+          <span class="m-p">E {n0(tot.p)} g</span>
+          <span class="m-c">K {n0(tot.c)} g</span>
+          <span class="m-f">F {n0(tot.f)} g</span>
+        </div>
+        <span class="small muted">
+          {on.length} {on.length === 1 ? 'Bestandteil' : 'Bestandteile'} · antippen für Details & Korrektur
+        </span>
+      </section>
       <ul class="ailist">
         {items.map((it) => {
           const v = scale(it.per100, it.grams);
           const bp = basePortionsFor(it.name);
+          const isOpen = open === it.id;
           return (
-            <li class={'aiitem' + (it.on ? '' : ' aiitem--off')} key={it.id}>
+            <li class={'aiitem' + (it.on ? '' : ' aiitem--off') + (isOpen ? ' aiitem--open' : '')} key={it.id}>
               <div class="aiitem__top">
                 <label class="check check--inline">
-                  <input type="checkbox" checked={it.on} onChange={(e) => setItem(it.id, { on: e.currentTarget.checked })} aria-label={`${it.name} übernehmen`} />
+                  <input type="checkbox" checked={it.on} onChange={(e) => setItem(it.id, { on: e.currentTarget.checked })} aria-label={`${it.name || 'Bestandteil'} übernehmen`} />
                 </label>
-                <input class="aiitem__name" value={it.name} onInput={(e) => setItem(it.id, { name: e.currentTarget.value })} aria-label="Name" />
-                <span class="aiitem__kcal tnum">{n0(v.kcal)} kcal</span>
+                <button class="aiitem__toggle" onClick={() => setOpen(isOpen ? null : it.id)} aria-expanded={isOpen}>
+                  <span class="aiitem__label">
+                    <b>{it.name || 'Neuer Bestandteil'}</b>
+                    <small class="muted tnum">
+                      {n0(it.grams)} {it.unit || 'g'} · E {n0(v.p)} · K {n0(v.c)} · F {n0(v.f)}
+                      {it.edited ? ' · ✎ angepasst' : ''}
+                    </small>
+                  </span>
+                  <span class="aiitem__kcal tnum">{n0(v.kcal)} kcal</span>
+                  <ChevronDown size={18} class={'aiitem__chev' + (isOpen ? ' is-open' : '')} />
+                </button>
               </div>
-              <div class="aiitem__amt">
-                <Stepper value={it.grams} onChange={(g) => setItem(it.id, { grams: g })} step={10} />
-                {it.confidence === 'niedrig' && <span class="badge badge--warn">Menge unsicher</span>}
-              </div>
-              {bp && (
-                <div class="chips chips--wrap">
-                  {bp.map((p) => (
-                    <Chip small active={it.grams === p.g} onClick={() => setItem(it.id, { grams: p.g })}>
-                      {p.label} · {p.g} g
-                    </Chip>
-                  ))}
+              {it.confidence === 'niedrig' && !isOpen && <span class="badge badge--warn aiitem__badge">Menge unsicher</span>}
+              {isOpen && (
+                <div class="aiitem__body">
+                  <Field label="Name">
+                    <input class="input" value={it.name} placeholder="z. B. Olivenöl" onInput={(e) => setItem(it.id, { name: e.currentTarget.value })} />
+                  </Field>
+                  <span class="field__label">Menge</span>
+                  <div class="aiitem__amt">
+                    <Stepper value={it.grams} onChange={(g) => setItem(it.id, { grams: g })} step={it.grams >= 100 ? 10 : 5} />
+                    {it.confidence === 'niedrig' && <span class="badge badge--warn">Menge unsicher</span>}
+                  </div>
+                  {bp && (
+                    <div class="chips chips--wrap">
+                      {bp.map((p) => (
+                        <Chip small active={it.grams === p.g} onClick={() => setItem(it.id, { grams: p.g })}>
+                          {p.label} · {p.g} g
+                        </Chip>
+                      ))}
+                    </div>
+                  )}
+                  <NutrEditor it={it} setItem={setItem} orig={it.manual ? null : orig.current[it.id]} />
+                  <button class="btn--link small aiitem__del" onClick={() => setItems((l) => l.filter((x) => x.id !== it.id))}>
+                    <Trash2 size={13} /> Bestandteil entfernen
+                  </button>
                 </div>
               )}
-              <Macros v={v} compact />
             </li>
           );
         })}
       </ul>
+      <button class="btn btn--sm btn--block aiitem__add" onClick={addItem}>
+        <Plus size={16} /> Bestandteil hinzufügen (z. B. Soße, Öl)
+      </button>
       {hint && (
         <div class="notice">
           <Info size={16} />
@@ -681,8 +812,20 @@ function AiItems({ items, setItem, meal, setMeal, title, hint }) {
   );
 }
 
+/** Erkannte Bestandteile als ein Gericht speichern (in „Heute“ zusammengefasst, aufklappbar) */
+function saveDish(dayKey, items, meal, title, source) {
+  const chosen = items.filter((i) => i.on && i.grams > 0 && (i.name || '').trim());
+  const dish = chosen.length > 1 ? { id: uid().slice(0, 10), name: (title || 'Mahlzeit').trim() } : null;
+  addEntries(
+    dayKey,
+    chosen.map((it) => ({ ...makeEntry({ food: { name: it.name.trim(), per100: it.per100, fv: it.fv, source: 'ai' }, grams: it.grams, meal, source }), ...(dish ? { dish } : {}) })),
+  );
+  return chosen.length;
+}
+
 export function PhotoSheet({ dayKey, meal: meal0, file }) {
   const [img, setImg] = useState(null);
+  const [title, setTitle] = useState('');
   const [state, setState] = useState({ status: 'prep' });
   const [items, setItems] = useState([]);
   const [meal, setMeal] = useState(meal0);
@@ -694,6 +837,7 @@ export function PhotoSheet({ dayKey, meal: meal0, file }) {
     try {
       const r = await analyzeMealPhoto(image, hint, o);
       setItems(r.items.map((it) => ({ ...it, id: uid(), on: true })));
+      setTitle(r.title);
       setState({ status: 'done', title: r.title, hint: r.hint });
     } catch (e) {
       setState({ status: 'error', error: aiErrText(e), noKey: e.noKey });
@@ -718,12 +862,9 @@ export function PhotoSheet({ dayKey, meal: meal0, file }) {
   const setItem = (id, patch) => setItems((l) => l.map((x) => (x.id === id ? { ...x, ...patch } : x)));
 
   const save = () => {
-    addEntries(
-      dayKey,
-      chosen.map((it) => makeEntry({ food: { name: it.name, per100: it.per100, fv: it.fv, source: 'ai' }, grams: it.grams, meal, source: 'ai-photo' })),
-    );
+    const n = saveDish(dayKey, items, meal, title, 'ai-photo');
     vibrate();
-    toast(`${chosen.length} ${chosen.length === 1 ? 'Eintrag' : 'Einträge'} → ${mealLabel(meal)}`);
+    toast(`${n > 1 ? `„${title || 'Mahlzeit'}“ (${n} Teile)` : n + ' Eintrag'} → ${mealLabel(meal)}`);
     closeSheet();
   };
 
@@ -765,7 +906,7 @@ export function PhotoSheet({ dayKey, meal: meal0, file }) {
         </div>
       ) : (
         <>
-          <AiItems items={items} setItem={setItem} meal={meal} setMeal={setMeal} title={state.title} hint={state.hint} />
+          <AiItems items={items} setItem={setItem} setItems={setItems} meal={meal} setMeal={setMeal} title={title} setTitle={setTitle} hint={state.hint} />
           <details class="more">
             <summary>Nicht richtig erkannt?</summary>
             <p class="small muted">Schreib kurz dazu, was drauf ist – dann wird es genauer. Tipp für die Menge: Gabel oder Hand mit aufs Foto.</p>
@@ -1017,6 +1158,7 @@ export function VoiceSheet({ dayKey, meal: meal0, back, text: text0 = '' }) {
   const [state, setState] = useState({ status: 'idle' });
   const [items, setItems] = useState([]);
   const [text, setText] = useState(text0);
+  const [title, setTitle] = useState('');
   const [level, setLevel] = useState(0);
   const [ms, setMs] = useState(0);
   const rec = useRef(null);
@@ -1045,6 +1187,7 @@ export function VoiceSheet({ dayKey, meal: meal0, back, text: text0 = '' }) {
         return;
       }
       setItems(r.items.map((it) => ({ ...it, id: uid(), on: true })));
+      setTitle(r.title);
       setState({ status: 'done', title: r.title, hint: r.hint });
     } catch (e) {
       setState({ status: 'error', error: aiErrText(e), noKey: e.noKey });
@@ -1090,12 +1233,9 @@ export function VoiceSheet({ dayKey, meal: meal0, back, text: text0 = '' }) {
   const total = chosen.reduce((a, it) => a + scale(it.per100, it.grams).kcal, 0);
   const setItem = (id, patch) => setItems((l) => l.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   const save = () => {
-    addEntries(
-      dayKey,
-      chosen.map((it) => makeEntry({ food: { name: it.name, per100: it.per100, fv: it.fv, source: 'ai' }, grams: it.grams, meal, source: text0 ? 'ai-text' : 'ai-voice' })),
-    );
+    const n = saveDish(dayKey, items, meal, title, text0 ? 'ai-text' : 'ai-voice');
     vibrate();
-    toast(`${chosen.length} ${chosen.length === 1 ? 'Eintrag' : 'Einträge'} → ${mealLabel(meal)}`);
+    toast(`${n > 1 ? `„${title || 'Mahlzeit'}“ (${n} Teile)` : n + ' Eintrag'} → ${mealLabel(meal)}`);
     closeSheet();
   };
   const setMealT = (m) => ((mealTouched.current = true), setMeal(m));
@@ -1187,7 +1327,7 @@ export function VoiceSheet({ dayKey, meal: meal0, back, text: text0 = '' }) {
         </div>
       )}
 
-      {state.status === 'done' && <AiItems items={items} setItem={setItem} meal={meal} setMeal={setMealT} title={state.title} hint={state.hint} />}
+      {state.status === 'done' && <AiItems items={items} setItem={setItem} setItems={setItems} meal={meal} setMeal={setMealT} title={title} setTitle={setTitle} hint={state.hint} />}
 
       {!recording && state.status !== 'loading' && (
         <details class="more" open={state.status !== 'idle' || !canRecord()}>

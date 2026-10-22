@@ -44,9 +44,10 @@ export function SuggestSheet({ dayKey }) {
   }, [meal]);
 
   const take = (sg) => {
+    const dish = sg.items.length > 1 ? { id: Math.random().toString(36).slice(2, 12), name: sg.title } : null;
     addEntries(
       dayKey,
-      sg.items.map((it) => makeEntry({ food: { name: it.name, per100: it.per100, fv: it.fv, unit: it.unit, source: 'ai' }, grams: it.grams, meal, source: 'suggestion' })),
+      sg.items.map((it) => ({ ...makeEntry({ food: { name: it.name, per100: it.per100, fv: it.fv, unit: it.unit, source: 'ai' }, grams: it.grams, meal, source: 'suggestion' }), ...(dish ? { dish } : {}) })),
     );
     vibrate();
     toast(`„${sg.title}“ → ${mealLabel(meal)}`);

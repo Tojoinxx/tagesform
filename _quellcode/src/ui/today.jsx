@@ -1,3 +1,4 @@
+import { useState } from 'preact/hooks';
 import { useS, getDay, patchDay, openSheet, setS } from '../lib/store.js';
 import { daySums, mealSums, MEALS, targetsOf } from '../lib/nutrition.js';
 import { addDays, fmtDayTitle, fmtShortDate, liters, n0, todayKey, parseKey, n1, isoWeek, weekStart, WD_SHORT } from '../lib/util.js';
@@ -5,13 +6,89 @@ import { weekPlan, setupOf, sportOf, isSportEntry, weekSetup, sessionOf, breakOn
 import { SESSIONS } from '../lib/exercises.js';
 import { S } from '../lib/store.js';
 import { Ring, Bar } from './common.jsx';
-import { ChevronLeft, ChevronRight, Plus, Minus, GlassWater, Apple, Sparkles, Sunrise, Sun, Moon, Cookie, ChartColumn, HeartPulse, Dumbbell } from 'lucide-preact';
+import { ChevronLeft, ChevronRight, Plus, Minus, GlassWater, Apple, Sparkles, Sunrise, Sun, Moon, Cookie, ChartColumn, HeartPulse, Dumbbell, ChevronDown } from 'lucide-preact';
 import { nav } from './router.js';
 import { TodayTrainingTile } from './progress.jsx';
 import { FormCheckDue } from './formcheck.jsx';
 import { healthOn, sendDayToHealth } from '../lib/health.js';
 
 const MEAL_ICON = { fruehstueck: Sunrise, mittag: Sun, abend: Moon, snacks: Cookie };
+
+/** Einträge eines Gerichts (KI-Foto, Sprache, Vorschlag) zusammenfassen – Reihenfolge bleibt */
+function groupDishes(entries) {
+  const out = [];
+  const byId = {};
+  entries.forEach((e) => {
+    if (e.dish && e.dish.id) {
+      if (!byId[e.dish.id]) out.push((byId[e.dish.id] = { dish: e.dish, entries: [] }));
+      byId[e.dish.id].entries.push(e);
+    } else out.push({ entries: [e] });
+  });
+  // Gericht mit nur noch einem Teil → normal anzeigen
+  return out.map((g) => (g.dish && g.entries.length < 2 ? { entries: g.entries } : g));
+}
+
+function EntryRow({ e, dayKey, sub }) {
+  return (
+    <li>
+      <button class={'entry' + (sub ? ' entry--sub' : '')} onClick={() => openSheet('entry', { dayKey, id: e.id })}>
+        <span class="entry__name">
+          {e.name}
+          <small class="muted">
+            {e.grams ? `${n0(e.grams)} ${e.unit || 'g'}` : ''}
+            {e.brand ? ` · ${e.brand}` : ''}
+            {sub ? ` · E ${n0(e.p)} · K ${n0(e.c)} · F ${n0(e.f)}` : ''}
+          </small>
+        </span>
+        <span class="entry__kcal tnum">{n0(e.kcal)}</span>
+      </button>
+    </li>
+  );
+}
+
+function DishRow({ dish, entries, dayKey }) {
+  const [open, setOpen] = useState(false);
+  const [sure, setSure] = useState(false);
+  const kcal = entries.reduce((a, e) => a + (Number(e.kcal) || 0), 0);
+  const p = entries.reduce((a, e) => a + (Number(e.p) || 0), 0);
+  return (
+    <li class={'dishrow' + (open ? ' dishrow--open' : '')}>
+      <button class="entry" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <span class="entry__name">
+          {dish.name}
+          <small class="muted">
+            {entries.length} Bestandteile · E {n0(p)} g
+          </small>
+        </span>
+        <span class="entry__kcal tnum">{n0(kcal)}</span>
+        <ChevronDown size={16} class={'dishrow__chev' + (open ? ' is-open' : '')} />
+      </button>
+      {open && (
+        <ul class="entries entries--sub">
+          {entries.map((e) => (
+            <EntryRow key={e.id} e={e} dayKey={dayKey} sub />
+          ))}
+          <li>
+            <button
+              class="btn--link small dishrow__del"
+              onClick={() => {
+                if (!sure) {
+                  setSure(true);
+                  setTimeout(() => setSure(false), 3000);
+                  return;
+                }
+                const ids = new Set(entries.map((e) => e.id));
+                patchDay(dayKey, (d) => ({ entries: (d.entries || []).filter((e) => !ids.has(e.id)) }));
+              }}
+            >
+              {sure ? 'Wirklich löschen? Nochmal tippen' : 'Ganzes Gericht löschen'}
+            </button>
+          </li>
+        </ul>
+      )}
+    </li>
+  );
+}
 
 export function Today() {
   const s = useS();
@@ -170,20 +247,13 @@ export function Today() {
             </div>
             {entries.length > 0 && (
               <ul class="entries">
-                {entries.map((e) => (
-                  <li key={e.id}>
-                    <button class="entry" onClick={() => openSheet('entry', { dayKey: k, id: e.id })}>
-                      <span class="entry__name">
-                        {e.name}
-                        <small class="muted">
-                          {e.grams ? `${n0(e.grams)} ${e.unit || 'g'}` : ''}
-                          {e.brand ? ` · ${e.brand}` : ''}
-                        </small>
-                      </span>
-                      <span class="entry__kcal tnum">{n0(e.kcal)}</span>
-                    </button>
-                  </li>
-                ))}
+                {groupDishes(entries).map((g) =>
+                  g.dish ? (
+                    <DishRow key={g.dish.id} dish={g.dish} entries={g.entries} dayKey={k} />
+                  ) : (
+                    <EntryRow key={g.entries[0].id} e={g.entries[0]} dayKey={k} />
+                  ),
+                )}
               </ul>
             )}
           </section>

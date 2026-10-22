@@ -3279,3 +3279,34 @@ body, button, a, input, select, textarea, label, .card, .sheet, img, svg { touch
 .fcbig__in { transition: transform 0.05s linear; will-change: transform; display: grid; place-items: center; }
 .fcbig__x { position: absolute; top: calc(env(safe-area-inset-top) + 12px); right: 14px; width: 40px; height: 40px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, 0.18); color: #fff; display: grid; place-items: center; }
 .fcbig__hint { position: absolute; bottom: calc(env(safe-area-inset-bottom) + 18px); left: 0; right: 0; text-align: center; color: rgba(255, 255, 255, 0.7); }
+
+/* KI-Gericht: Summe + aufklappbare Bestandteile */
+.dish { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 16px; background: color-mix(in srgb, var(--accent) 9%, var(--card)); margin: 12px 0 10px; }
+.dish__title { border: 0; background: transparent; font: inherit; font-size: 18px; font-weight: 750; color: var(--text); padding: 0; width: 100%; }
+.dish__title:focus { outline: none; border-bottom: 1.5px solid var(--accent); }
+.dish__sum { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; font-size: 14px; }
+.dish__sum b { font-size: 20px; }
+.aiitem__toggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; border: 0; background: none; padding: 0; text-align: left; color: var(--text); font: inherit; }
+.aiitem__label { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.aiitem__label b { font-size: 15.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aiitem__label small { font-size: 12.5px; }
+.aiitem__chev { color: var(--muted); flex: none; transition: transform 0.2s; }
+.aiitem__chev.is-open, .dishrow__chev.is-open { transform: rotate(180deg); }
+.aiitem__badge { align-self: flex-start; margin-left: 32px; }
+.aiitem__body { display: flex; flex-direction: column; gap: 8px; padding-top: 6px; border-top: 1px solid var(--line); }
+.aiitem__body .aiitem__name { border: 1px solid var(--line); }
+.aiitem--open { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 45%, transparent); }
+.aiitem__del { align-self: flex-start; color: #e5484d; }
+.aiitem__add { margin-top: 8px; border-style: dashed; }
+.nutred { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.nutred__head .seg__opt { font-size: 13px; }
+.nutred__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.nutred__f { display: flex; flex-direction: column; gap: 3px; }
+.nutred__f .input { font-size: 16px; }
+.nutred__foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* Heute: Gericht zusammengefasst */
+.dishrow .entry { position: relative; }
+.dishrow__chev { color: var(--muted); flex: none; transition: transform 0.2s; margin-left: -6px; }
+.entries--sub { margin: 0 0 6px 12px; border-top: 0; border-left: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); padding-left: 10px; }
+.entry--sub .entry__name { font-size: 14.5px; }
+.dishrow__del { color: #e5484d; padding: 6px 0; }
