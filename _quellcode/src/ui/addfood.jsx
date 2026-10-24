@@ -19,7 +19,7 @@ import { BASE_FOODS } from '../lib/basefoods.js';
 import { norm, n0, num, uid, downscaleImage, vibrate, timeOfDayMeal } from '../lib/util.js';
 import * as OFF from '../lib/off.js';
 import { hasAi, aiErrText } from '../lib/ai.js';
-import { analyzeMealPhoto, analyzeMealSpeech, readLabel } from '../lib/aitasks.js';
+import { analyzeMealPhoto, analyzeMealSpeech, readLabel, estimateFood } from '../lib/aitasks.js';
 import { canRecord, startRecording, micErrText } from '../lib/voice.js';
 import { useAiJob, AiProgress } from './aiprogress.jsx';
 import { Sheet, Chip, Stepper, Spinner, Macros, Field, NumInput, Seg } from './common.jsx';
@@ -38,17 +38,50 @@ export function MealChips({ meal, setMeal }) {
   );
 }
 
+/** Levenshtein-Abstand mit Abbruch, wenn größer als max (Präfix-tolerant: Wortanfang reicht) */
+function editDist(a, b, max) {
+  if (Math.abs(a.length - b.length) > max + 2) return max + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  let best = prev[b.length];
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let rowMin = i;
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      rowMin = Math.min(rowMin, cur[j]);
+    }
+    best = Math.min(best, cur[b.length]);
+    if (rowMin > max) return best <= max ? best : max + 1;
+    prev = cur;
+  }
+  return best;
+}
+
 /** Suche in eigenen + Grundnahrungsmitteln */
 function localSearch(q) {
   const qn = norm(q);
   if (!qn) return { own: [], base: [] };
-  const toks = qn.split(' ');
+  const toks = qn.split(' ').filter(Boolean);
   const hay = (f) => norm(`${f.name} ${f.brand || ''} ${f.aliases || ''}`);
+  // Tippfehler verzeihen: „hänchen“, „spagetti“, „brokoli“ – ab 4 Buchstaben 1 Fehler, ab 7 Buchstaben 2
+  const fuzzyIn = (h, t) => {
+    if (t.length < 4) return false;
+    const max = t.length >= 7 ? 2 : 1;
+    return h.split(/[^a-z0-9]+/).some((w) => w.length >= t.length - max && editDist(w.slice(0, t.length + max), t, max) <= max);
+  };
   const score = (f) => {
     const h = hay(f);
-    if (!toks.every((t) => h.includes(t))) return null;
+    let fuzzy = 0;
+    let fuzzyName = 0;
     const n = norm(f.name);
-    let sc = 0;
+    for (const t of toks) {
+      if (h.includes(t)) continue;
+      if (fuzzyIn(h, t)) {
+        fuzzy++;
+        if (fuzzyIn(n, t)) fuzzyName++;
+      } else return null;
+    }
+    let sc = -fuzzy * 1.5 + fuzzyName * 1.2;
     if (n.startsWith(qn)) sc += 4;
     if (n.split(' ').some((w) => w.startsWith(toks[0]))) sc += 2;
     sc += toks.filter((t) => n.includes(t)).length * 0.8; // Treffer im Namen zählen mehr als in Marke/Suchbegriffen
@@ -140,16 +173,51 @@ export function AddSheet({ dayKey, meal: meal0, q: q0 = '' }) {
     vibrate();
     toast(`${food.name} (${n0(food.lastGrams)} ${food.unit || 'g'}) → ${mealLabel(meal)}`);
   };
-  const searchOnline = async () => {
-    if (q.trim().length < 2) return;
-    setOff({ status: 'loading', list: [], q });
+  const [est, setEst] = useState({ status: 'idle', q: '' });
+  const estJob = useAiJob();
+  const qRef = useRef(q);
+  qRef.current = q;
+  const estimate = async (term = q.trim()) => {
+    if (!hasAi() || term.length < 2) return;
+    setEst({ status: 'loading', q: term });
     try {
-      const list = await OFF.search(q);
-      setOff({ status: 'done', list, q });
+      const r = await estimateFood(term, estJob.start());
+      if (qRef.current.trim() === term) setEst({ status: 'done', q: term, r });
     } catch (e) {
-      setOff({ status: 'error', list: [], q, error: navigator.onLine === false ? 'Du bist offline.' : 'Online-Suche gerade nicht erreichbar. Versuch es gleich nochmal.' });
+      if (qRef.current.trim() === term) setEst(e.aborted ? { status: 'idle', q: '' } : { status: 'error', q: term, error: aiErrText(e) });
     }
   };
+  const searchOnline = async (term = q.trim()) => {
+    if (term.length < 2) return;
+    setOff({ status: 'loading', list: [], q: term });
+    try {
+      const list = await OFF.search(term);
+      if (qRef.current.trim() !== term) return;
+      setOff({ status: 'done', list, q: term });
+      // Nichts Passendes in Datenbank & lokal → KI schätzt automatisch
+      if (!list.length && hasAi()) estimate(term);
+    } catch (e) {
+      if (qRef.current.trim() !== term) return;
+      setOff({ status: 'error', list: [], q: term, error: navigator.onLine === false ? 'Du bist offline.' : 'Online-Suche gerade nicht erreichbar.' });
+      if (hasAi() && navigator.onLine !== false) estimate(term);
+    }
+  };
+  // Automatisch online suchen, sobald man kurz aufhört zu tippen
+  useEffect(() => {
+    const term = q.trim();
+    if (term.length < 3) return;
+    const t = setTimeout(() => {
+      if (off.q !== term) searchOnline(term);
+    }, 800);
+    return () => clearTimeout(t);
+  }, [q]);
+  const pickEst = (r) =>
+    openSheet('amount', {
+      dayKey,
+      meal,
+      back,
+      food: { id: 'aiest:' + norm(r.name + ' ' + r.brand).replace(/\s+/g, '-').slice(0, 60), name: r.name, brand: r.brand, per100: r.per100, portions: r.portions, fv: r.fv, unit: r.unit, source: 'aiest' },
+    });
 
   return (
     <Sheet title={`${mealLabel(meal)} hinzufügen`} tall>
@@ -218,10 +286,13 @@ export function AddSheet({ dayKey, meal: meal0, q: q0 = '' }) {
             </>
           )}
           {[
+            ['Lebensmittel & Gerichte', local.base.filter((f) => !f.restaurant)],
             ['Bäckerei & Backshop', local.base.filter((f) => f.cat === 'bakery')],
             ['Restaurants & Fast Food', local.base.filter((f) => f.cat === 'restaurant')],
-            ['Grundnahrungsmittel', local.base.filter((f) => !f.restaurant)],
-          ].map(
+          ]
+            // Abschnitt mit dem besten Treffer zuerst
+            .sort((a, b) => (a[1].length ? local.base.indexOf(a[1][0]) : 999) - (b[1].length ? local.base.indexOf(b[1][0]) : 999))
+            .map(
             ([label, list]) =>
               list.length > 0 && (
                 <>
@@ -234,24 +305,19 @@ export function AddSheet({ dayKey, meal: meal0, q: q0 = '' }) {
                 </>
               ),
           )}
-          {hasAi() && (
-            <button class="btn btn--block btn--ghostai" onClick={() => openSheet('voice', { dayKey, meal, back, text: q.trim() })}>
-              <Sparkles size={18} /> „{q.trim()}“ von der KI schätzen lassen
-            </button>
-          )}
           <h4 class="sect">Online-Datenbank (Open Food Facts)</h4>
-          {off.status === 'idle' || off.q !== q ? (
-            <button class="btn btn--block" onClick={searchOnline} disabled={off.status === 'loading'}>
+          {off.status === 'idle' || off.q !== q.trim() ? (
+            <button class="btn btn--block" onClick={() => searchOnline()} disabled={off.status === 'loading'}>
               <Globe size={18} /> „{q.trim()}“ online suchen
             </button>
           ) : off.status === 'loading' ? (
             <div class="loading">
-              <Spinner /> Suche läuft …
+              <Spinner /> Suche in über 3 Mio. Produkten …
             </div>
           ) : off.status === 'error' ? (
-            <div class="notice notice--warn">
+            <div class="notice notice--warn small">
               {off.error}{' '}
-              <button class="btn--link" onClick={searchOnline}>
+              <button class="btn--link" onClick={() => searchOnline()}>
                 Nochmal
               </button>
             </div>
@@ -262,14 +328,91 @@ export function AddSheet({ dayKey, meal: meal0, q: q0 = '' }) {
               ))}
             </ul>
           ) : (
-            <div class="notice">
-              Nichts gefunden. Scanne den Barcode, fotografiere die Nährwerttabelle oder lege es{' '}
-              <button class="btn--link" onClick={() => openSheet('custom', { dayKey, meal, prefill: { name: q.trim() }, back })}>
-                selbst an
-              </button>
-              .
-            </div>
+            <p class="small muted">Kein verpacktes Produkt mit „{q.trim()}“ gefunden.</p>
           )}
+
+          {hasAi() ? (
+            est.q === q.trim() && est.status !== 'idle' ? (
+              <>
+                <h4 class="sect">
+                  <Sparkles size={13} /> KI-Schätzung
+                </h4>
+                {est.status === 'loading' ? (
+                  <AiProgress p={estJob.p} compact steps={['', '', '', '']} expect={330} namesLabel="Erkannt" onCancel={estJob.cancel} />
+                ) : est.status === 'error' ? (
+                  <div class="notice notice--warn small">
+                    {est.error}{' '}
+                    <button class="btn--link" onClick={() => estimate()}>
+                      Nochmal
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <ul class="flist">
+                      <li class="frow frow--ai">
+                        <button class="frow__main" onClick={() => pickEst(est.r)}>
+                          <span class="frow__name">
+                            {est.r.name}
+                            <small class="muted">
+                              {est.r.brand ? est.r.brand + ' · ' : ''}
+                              {est.r.portions[0] ? `${est.r.portions[0].label} ≈ ${n0((est.r.per100.kcal * est.r.portions[0].g) / 100)} kcal · ` : ''}
+                              {n0(est.r.per100.kcal)} kcal / 100 {est.r.unit}
+                            </small>
+                          </span>
+                          <span class={'badge' + (est.r.confidence === 'niedrig' ? ' badge--warn' : '')}>{est.r.confidence === 'hoch' ? 'KI · sicher' : est.r.confidence === 'niedrig' ? 'KI · grob' : 'KI'}</span>
+                        </button>
+                      </li>
+                    </ul>
+                    {est.r.alternatives.length > 0 && (
+                      <div class="chips chips--wrap estalt">
+                        <span class="small muted">Meintest du:</span>
+                        {est.r.alternatives.map((a) => (
+                          <Chip small onClick={() => (setQ(a), estimate(a))}>
+                            {a}
+                          </Chip>
+                        ))}
+                      </div>
+                    )}
+                    <p class="small muted">Geschätzt – nach dem Antippen kannst du Menge und Nährwerte noch anpassen. Danach steht es unter „Zuletzt gegessen“.</p>
+                  </>
+                )}
+              </>
+            ) : (
+              <button class="btn btn--block btn--ghostai" onClick={() => estimate()}>
+                <Sparkles size={18} /> „{q.trim()}“ von der KI schätzen lassen
+              </button>
+            )
+          ) : (
+            off.status === 'done' &&
+            off.q === q.trim() &&
+            !off.list.length &&
+            !local.own.length &&
+            !local.base.length && (
+              <div class="notice small nores">
+                <span>
+                  <b>Werte unbekannt?</b> So geht's ohne Abtippen:
+                </span>
+                <div class="row">
+                  <button class="btn btn--sm" onClick={() => openSheet('barcode', { dayKey, meal })}>
+                    <ScanBarcode size={16} /> Barcode
+                  </button>
+                  <button
+                    class="btn btn--sm"
+                    onClick={() => {
+                      closeSheet();
+                      nav('/einstellungen?ki=1');
+                    }}
+                  >
+                    <Sparkles size={16} /> KI einrichten
+                  </button>
+                </div>
+                <span class="muted">Mit dem kostenlosen KI-Schlüssel schätzt die App alles, was in keiner Datenbank steht – Gerichte, Bäcker, Restaurant.</span>
+              </div>
+            )
+          )}
+          <button class="btn--link small center addmanual" onClick={() => openSheet('custom', { dayKey, meal, prefill: { name: q.trim() }, back })}>
+            Werte selbst eintragen
+          </button>
         </>
       )}
     </Sheet>
@@ -290,7 +433,7 @@ export function AmountSheet({ dayKey, meal: meal0, food: food0, entry, back }) {
   const [naming, setNaming] = useState(false);
   const [pname, setPname] = useState('Meine Portion');
   // Nährwerte korrigierbar bei KI-/Schätz-Einträgen (nicht bei Produkten aus der Datenbank)
-  const editable = !!entry && (!food.id || String(entry.source || '').startsWith('ai') || entry.source === 'suggestion');
+  const editable = food.source === 'aiest' || (!!entry && (!food.id || String(entry.source || '').startsWith('ai') || entry.source === 'suggestion'));
   const [p100, setP100] = useState(() => ({ ...food.per100 }));
   const [fvFood, setFvFood] = useState(entry ? !!entry.fvFood : !!food.fv);
   const v = scale(editable ? p100 : food.per100, g);
@@ -301,7 +444,8 @@ export function AmountSheet({ dayKey, meal: meal0, food: food0, entry, back }) {
       else updateEntry(dayKey, entry.id, { ...scale(food.per100, g), grams: Math.round(g), meal, fv: fvFor(entry.fvFood, g) });
       toast('Gespeichert');
     } else {
-      const remembered = food.source === 'ai' ? food : rememberFood(food, g);
+      const f2 = editable ? { ...food, per100: { ...p100 }, fv: fvFood } : food;
+      const remembered = f2.source === 'ai' ? f2 : rememberFood(f2, g);
       addEntries(dayKey, [makeEntry({ food: remembered, grams: g, meal })]);
       vibrate();
       toast(`${food.name} → ${mealLabel(meal)}`);
@@ -386,7 +530,7 @@ export function AmountSheet({ dayKey, meal: meal0, food: food0, entry, back }) {
       </div>
       {editable && (
         <details class="more">
-          <summary>Nährwerte korrigieren</summary>
+          <summary>{food.source === 'aiest' && !entry ? 'KI-Schätzung prüfen & anpassen' : 'Nährwerte korrigieren'}</summary>
           <NutrEditor
             it={{ id: 'e', per100: p100, grams: g, unit, fv: fvFood }}
             setItem={(_, patch) => {

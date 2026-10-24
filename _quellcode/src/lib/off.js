@@ -67,23 +67,55 @@ export async function byBarcode(code) {
   return m && m.hasNutrition ? m : m ? { ...m, incomplete: true } : null;
 }
 
-/** Textsuche (erst neue Suche, dann klassische als Ausweichlösung) */
+const normq = (t) =>
+  String(t || '')
+    .toLowerCase()
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss');
+
+/** Treffer sortieren: alle Suchwörter im Namen/Marke > einige > keins (dann raus); deutsche Produkte zuerst */
+function rank(list, term) {
+  const toks = normq(term).split(/\s+/).filter((t) => t.length > 1);
+  const seen = new Set();
+  return list
+    .filter((p) => p && p.hasNutrition && !seen.has(p.id) && seen.add(p.id))
+    .map((p) => {
+      const h = normq(`${p.name} ${p.brand}`);
+      const hit = toks.filter((t) => h.includes(t)).length;
+      return [hit / Math.max(1, toks.length) + (p.de ? 0.3 : 0) - p.name.length / 400, hit, p];
+    })
+    .filter(([, hit]) => hit > 0)
+    .sort((a, b) => b[0] - a[0])
+    .map(([, , p]) => p);
+}
+
+const sal = (q) => getJson(`https://search.openfoodfacts.org/search?q=${encodeURIComponent(q)}&langs=de,en&page_size=40&fields=${FIELDS},countries_tags`);
+
+/** Textsuche: deutsche Produkte und weltweit parallel, dazu klassische Suche als Ausweichlösung */
 export async function search(q) {
   const term = q.trim();
   if (term.length < 2) return [];
+  const map = (j, de) => ((j && (j.hits || j.products)) || []).map((p) => {
+    const m = mapProduct(p);
+    if (m) m.de = de || (Array.isArray(p.countries_tags) && p.countries_tags.includes('en:germany'));
+    return m;
+  });
+  const tries = await Promise.allSettled([sal(`${term} countries_tags:"en:germany"`), sal(term)]);
+  let list = [];
+  tries.forEach((t, i) => t.status === 'fulfilled' && (list = list.concat(map(t.value, i === 0))));
+  let ranked = rank(list, term);
+  if (ranked.length >= 3) return ranked.slice(0, 30);
+  // klassische Suche (Deutschland), falls die neue wenig liefert
   try {
     const j = await getJson(
-      `https://search.openfoodfacts.org/search?q=${encodeURIComponent(term)}&langs=de,en&page_size=25&fields=${FIELDS}`,
+      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(term)}&search_simple=1&action=process&json=1&page_size=40&lc=de&cc=de&fields=${FIELDS},countries_tags`,
+      15000,
     );
-    const hits = (j && (j.hits || j.products)) || [];
-    const list = hits.map(mapProduct).filter((p) => p && p.hasNutrition);
-    if (list.length) return list;
+    ranked = rank(list.concat(map(j, false)), term);
   } catch (e) {
-    /* weiter mit klassischer Suche */
+    if (!ranked.length && tries.every((t) => t.status === 'rejected')) throw e;
   }
-  const j = await getJson(
-    `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(term)}&search_simple=1&action=process&json=1&page_size=25&lc=de&fields=${FIELDS}`,
-    15000,
-  );
-  return ((j && j.products) || []).map(mapProduct).filter((p) => p && p.hasNutrition);
+  return ranked.slice(0, 30);
 }

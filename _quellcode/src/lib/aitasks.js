@@ -77,6 +77,54 @@ Antworte NUR mit JSON in genau diesem Format:
   return { transcript: String(j.transcript || text || '').trim(), title: j.title || 'Mahlzeit', items, hint: j.hint || '', meal };
 }
 
+// ---------- Lebensmittel schätzen (wenn die Suche nichts findet) ----------
+const EST_KEY = 'tf.aiest.v1';
+const estCache = () => {
+  try {
+    return JSON.parse(localStorage.getItem(EST_KEY) || '{}');
+  } catch (e) {
+    return {};
+  }
+};
+/** Nährwerte für einen Suchbegriff schätzen (Produkt, Gericht, Restaurant) – mit Zwischenspeicher, spart Kontingent */
+export async function estimateFood(q, opts = {}) {
+  const key = String(q).trim().toLowerCase();
+  const c = estCache();
+  if (c[key] && Date.now() - c[key].at < 60 * 864e5) return c[key].r;
+  const prompt = `Du bist eine Nährwert-Datenbank für Deutschland. Jemand sucht nach: "${String(q).slice(0, 120)}".
+Gib die wahrscheinlichste Bedeutung als EIN Lebensmittel/Gericht/Produkt zurück (bei Marken- oder Restaurantprodukten die typischen Angaben dieses Produkts, bei Gerichten eine übliche Zubereitung in Deutschland).
+- Nährwerte pro 100 g (Getränke pro 100 ml)
+- 1–3 typische Portionen mit Gramm (z. B. "1 Stück", "1 Teller", "1 Becher")
+- fruitVeg = true nur für reines Obst/Gemüse
+- confidence: "hoch" (bekanntes Produkt mit festen Werten), "mittel" oder "niedrig" (sehr unterschiedlich je nach Zubereitung)
+- alternatives: bis zu 2 andere mögliche Bedeutungen als kurze Namen (z. B. bei mehrdeutigen Begriffen), sonst leer
+Antworte NUR mit JSON:
+{"name":"Name auf Deutsch","brand":"Marke oder leer","unit":"g","per100":{"kcal":0,"p":0,"c":0,"f":0,"fiber":0,"sugar":0},"portions":[{"label":"1 Stück","g":100}],"fruitVeg":false,"confidence":"mittel","alternatives":[]}`;
+  const j = await askJson(prompt, { temperature: 0.2, ...opts });
+  const per100 = per100Of(j.per100);
+  if (!(per100.kcal > 0 || per100.p + per100.c + per100.f > 0)) throw Object.assign(new Error('keine Werte'), { friendly: 'Dazu konnte die KI keine Werte schätzen.' });
+  const r = {
+    name: String(j.name || q).trim(),
+    brand: String(j.brand || '').trim(),
+    unit: j.unit === 'ml' ? 'ml' : 'g',
+    per100,
+    portions: (j.portions || [])
+      .map((p) => ({ label: String(p.label || 'Portion'), g: Math.round(num(p.g)) }))
+      .filter((p) => p.g > 0)
+      .slice(0, 3),
+    fv: !!j.fruitVeg,
+    confidence: j.confidence || 'mittel',
+    alternatives: (j.alternatives || []).map(String).filter(Boolean).slice(0, 2),
+  };
+  try {
+    const all = { ...estCache(), [key]: { r, at: Date.now() } };
+    const keys = Object.keys(all);
+    if (keys.length > 80) keys.sort((a, b) => all[a].at - all[b].at).slice(0, keys.length - 80).forEach((k) => delete all[k]);
+    localStorage.setItem(EST_KEY, JSON.stringify(all));
+  } catch (e) {}
+  return r;
+}
+
 // ---------- Nährwerttabelle ----------
 export async function readLabel(image, opts = {}) {
   const prompt = `Lies die Nährwerttabelle bzw. Verpackung auf dem Foto aus (deutsche Lebensmittelkennzeichnung).

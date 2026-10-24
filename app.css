@@ -3310,3 +3310,9 @@ body, button, a, input, select, textarea, label, .card, .sheet, img, svg { touch
 .entries--sub { margin: 0 0 6px 12px; border-top: 0; border-left: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); padding-left: 10px; }
 .entry--sub .entry__name { font-size: 14.5px; }
 .dishrow__del { color: #e5484d; padding: 6px 0; }
+.frow--ai .frow__main { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.frow--ai { background: color-mix(in srgb, var(--accent) 7%, var(--card)); border-radius: 12px; }
+.estalt { align-items: center; margin-top: 6px; }
+.nores { flex-direction: column; align-items: stretch; gap: 8px; }
+.addmanual { display: block; margin: 14px auto 4px; }
+.frow--ai .badge { white-space: nowrap; flex: none; }
