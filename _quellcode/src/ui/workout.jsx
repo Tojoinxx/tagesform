@@ -5,7 +5,7 @@ import { guideOf } from '../lib/exguide.js';
 import { swapOptions, itemFor, prefsOf, warmupFor, platesFor, limitsOf } from '../lib/training.js';
 import { buildSummary } from './progress.jsx';
 import { uid, n1, num, vibrate, fmtShortDate } from '../lib/util.js';
-import { Check, Plus, Info, Repeat, X, Timer, Flag, Trash2, ExternalLink, Search } from 'lucide-preact';
+import { Check, Plus, Info, Repeat, X, Timer, Flag, Trash2, ExternalLink, Search, Flame } from 'lucide-preact';
 import { nav } from './router.js';
 
 /** Batterie wie bei MCI: 0 = leer (am Limit) … 3+ = voll (viel Reserve) */
@@ -41,7 +41,6 @@ export function Workout() {
   const [w, setW] = useState(() => (S.active ? JSON.parse(JSON.stringify(S.active)) : null));
   const [now, setNow] = useState(Date.now());
   const [rest, setRestRaw] = useState(() => (S.active && S.active.rest && S.active.rest.until > Date.now() ? S.active.rest : null)); // {until, total}
-  const [showWarm, setShowWarm] = useState({});
   const [swapFor, setSwapFor] = useState(null);
   const [cueFor, setCueFor] = useState(null);
   const [rirOpen, setRirOpen] = useState(null); // {i, j}
@@ -118,11 +117,31 @@ export function Workout() {
     if (it.sets.length <= 1) return;
     persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...x, sets: x.sets.slice(0, -1) })) }, true);
   };
+  // Aufwärmsätze: Vorschlag, bis man sie anfasst – dann im Training gespeichert. Zählen nicht als Arbeitssätze.
+  const warmOf = (it, i) => {
+    if (Array.isArray(it.warm)) return it.warm;
+    if (!prefsOf().warmup || it.sets.some((x) => x.done)) return [];
+    return (warmupFor(it, i, w.items) || []).map((x) => ({ ...x, done: false }));
+  };
+  const upWarm = (i, j, patch) => {
+    const it = w.items[i];
+    const cur = warmOf(it, i).map((x, b) => (b === j ? { ...x, ...patch } : x));
+    persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...x, warm: cur })) }, false);
+  };
+  const doneWarm = (i, j) => {
+    const it = w.items[i];
+    const cur = warmOf(it, i).map((x, b) => (b === j ? { ...x, done: !x.done } : x));
+    const next = { ...w, items: w.items.map((x, a) => (a !== i ? x : { ...x, warm: cur })) };
+    persist(next, true);
+    vibrate(15);
+    // kurze Pause nach Aufwärmsätzen (nicht nach dem letzten, wenn danach direkt gearbeitet wird: 60 s)
+    if (cur[j].done) setRest({ until: Date.now() + 60 * 1000, total: 60, warm: true }, next);
+  };
   const swap = (i, exId) => {
     const fresh = itemFor(exId);
     const old = w.items[i];
     fresh.sets = Array.from({ length: Math.max(fresh.sets.length, old.sets.length) }, (_, k) => fresh.sets[k] || { ...fresh.sets[0] });
-    persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...fresh, swappedFrom: x.name, ss: old.ss, ssPos: old.ssPos })) }, true);
+    persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...fresh, warm: undefined, swappedFrom: x.name, ss: old.ss, ssPos: old.ssPos })) }, true);
     setSwapFor(null);
   };
 
@@ -252,18 +271,6 @@ export function Workout() {
                 const pl = /Langhantel/.test(it.equip || '') && it.target && it.target.w ? platesFor(it.target.w) : null;
                 return pl && pl.length ? <span class="muted">Scheiben pro Seite: {pl.map((x) => String(x).replace('.', ',')).join(' + ')} kg (20-kg-Stange)</span> : null;
               })()}
-              {(() => {
-                if (!prefsOf().warmup || it.sets.some((x) => x.done)) return null;
-                const firstMain = w.items.findIndex((x) => x.main) === i;
-                const wu = warmupFor(it, firstMain);
-                if (!wu) return null;
-                return (
-                  <button class="wex__warm" onClick={() => setShowWarm({ ...showWarm, [i]: !showWarm[i] })}>
-                    🔥 Aufwärmen: {wu.map((x) => `${n1(x.w)} kg × ${x.r}`).join(' → ')}
-                    {showWarm[i] && <small class="muted"> – zählen nicht als Arbeitssätze, kurze Pausen (ca. 1 Min.).</small>}
-                  </button>
-                );
-              })()}
               {it.target && it.target.rir != null && it.unit !== 'Sek.' && (
                 <span class="wex__rir">
                   Ziel {it.target.reps} Wdh. · aufhören, wenn noch <b>{it.target.rir}</b> {it.target.rir === 1 ? 'Wiederholung' : 'Wiederholungen'} gehen würden
@@ -284,6 +291,25 @@ export function Workout() {
                 )}
                 <span />
               </div>
+              {warmOf(it, i).map((st, j) => (
+                <div class={'sets__row sets__row--warm' + (st.done ? ' sets__row--done' : '')} key={'w' + j}>
+                  <span class="sets__n sets__n--warm tnum" title="Aufwärmsatz">
+                    <Flame size={12} />
+                    {j + 1}
+                  </span>
+                  <input class="input sets__in" inputMode="decimal" value={String(st.w).replace('.', ',')} onInput={(e) => upWarm(i, j, { w: e.currentTarget.value })} aria-label={`Aufwärmen Nr. ${j + 1}: Gewicht`} />
+                  <input class="input sets__in" inputMode="numeric" value={st.r} onInput={(e) => upWarm(i, j, { r: e.currentTarget.value })} aria-label={`Aufwärmen Nr. ${j + 1}: Wiederholungen`} />
+                  <span class="sets__warmlbl small">locker</span>
+                  <button class={'setcheck setcheck--warm' + (st.done ? ' setcheck--on' : '')} onClick={() => doneWarm(i, j)} aria-label={`Aufwärmen Nr. ${j + 1} ${st.done ? "zurücksetzen" : "erledigt"}`}>
+                    <Check size={18} />
+                  </button>
+                </div>
+              ))}
+              {warmOf(it, i).length > 0 && !it.sets.some((x) => x.done) && (
+                <button class="btn--link small sets__skipwarm" onClick={() => persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...x, warm: [] })) }, true)}>
+                  Aufwärmen überspringen
+                </button>
+              )}
               {it.sets.map((st, j) => (
                 <>
                 <div class={'sets__row' + (st.done ? ' sets__row--done' : '')}>

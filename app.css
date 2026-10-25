@@ -3316,3 +3316,10 @@ body, button, a, input, select, textarea, label, .card, .sheet, img, svg { touch
 .nores { flex-direction: column; align-items: stretch; gap: 8px; }
 .addmanual { display: block; margin: 14px auto 4px; }
 .frow--ai .badge { white-space: nowrap; flex: none; }
+/* Aufwärmsätze */
+.sets__row--warm { opacity: 0.92; }
+.sets__row--warm .sets__in { background: color-mix(in srgb, var(--kcal) 7%, var(--card)); }
+.sets__n--warm { color: var(--kcal); display: inline-flex; align-items: center; gap: 1px; font-weight: 700; }
+.sets__warmlbl { color: var(--muted); text-align: center; }
+.setcheck--warm.setcheck--on { background: var(--kcal); border-color: var(--kcal); }
+.sets__skipwarm { display: block; margin: 2px 0 6px; color: var(--muted); }

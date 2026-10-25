@@ -343,7 +343,7 @@ export function TrainingOptionsCard() {
         <Seg value={String(p.restOther)} onChange={(v) => set({ restOther: Number(v) })} options={[45, 60, 75, 90, 120].map((v) => ({ id: String(v), label: v === 120 ? '2 Min' : `${v} s` }))} />
       </Field>
       <Toggle k="supersets" label="Supersätze (Zeit sparen)" hint="Zwei Nebenübungen für verschiedene Muskeln im Wechsel, Pause erst nach beiden – spart ca. 20–30 % Zeit." />
-      <Toggle k="warmup" label="Aufwärmsätze anzeigen" hint="Bei Hauptübungen: 2–3 leichtere Sätze vorab, mit Gewichten." />
+      <Toggle k="warmup" label="Aufwärmsätze anzeigen" hint="Leichtere Sätze zum Abhaken vor der ersten Übung je Muskel – zählen nicht als Arbeitssätze." />
       <Toggle k="cycle" label="5-Wochen-Zyklus" hint="Intensität steigt über 4 Wochen, Woche 5 Erholung. Aus = gleichbleibend RIR 2." />
       <Toggle k="variety" label="Abwechslung" hint="Nebenübungen wechseln jede zweite Zyklusrunde zu einer Variante. Hauptübungen bleiben – für messbaren Fortschritt." />
       <Toggle k="wellness" label="Wellness-Abfrage vor dem Training" hint="Fitness, Schlaf, Muskelkater, Schmerzen – einmal pro Tag." />

@@ -395,16 +395,30 @@ export function harderOf(id, setup = setupOf(), taken = []) {
 }
 
 /** Aufwärmsätze für Hauptübungen: erste Hauptübung mit voller Rampe, weitere mit einem Satz */
-export function warmupFor(it, first) {
-  if (!it || !it.main || it.unit !== 'Wdh.' || !it.target || !it.target.w || it.target.w < 20) return null;
+/**
+ * Aufwärmsätze für eine Übung im Training.
+ * - Muskel noch kalt + Hauptübung: 2–3 Rampensätze (schwer: 40/60/80 %, sonst 50/75 %)
+ * - Muskel kalt + Maschine/Kabel: 1 Satz mit ca. 50 %
+ * - Muskel schon durch eine frühere Übung warm: Hauptübung 1 kurzer Satz (70 % × 3), sonst keiner
+ * items/idx: alle Übungen des Trainings, um „schon warm“ zu erkennen. Rückgabe [{ w, r }] oder null
+ */
+export function warmupFor(it, idx = 0, items = []) {
+  if (!it || it.unit !== 'Wdh.' || !it.target || !it.target.w) return null;
   const w = it.target.w;
-  const bar = /Langhantel|SZ/.test(it.equip || '') ? 20 : 0;
-  const step = it.inc >= 2.5 ? 2.5 : it.inc || 1;
-  const ramp = first ? (w >= 60 ? [[0.4, 8], [0.6, 5], [0.8, 3]] : [[0.5, 8], [0.75, 4]]) : [[0.6, 5]];
+  const machine = /Maschine|Kabel/.test(it.equip || '');
+  if (w < (machine ? 15 : 20)) return null;
+  const mg = priMg(it.exId);
+  const warm = items.slice(0, idx).some((x) => x && x.exId && priMg(x.exId) === mg);
+  const bar = /Langhantel|SZ/.test(it.equip || '') ? (/SZ/.test(it.equip) ? 10 : 20) : 0;
+  const step = it.inc >= 2.5 ? it.inc : it.inc || 1;
+  let ramp;
+  if (it.main) ramp = warm ? [[0.7, 3]] : w >= 60 ? [[0.4, 8], [0.6, 5], [0.8, 3]] : [[0.5, 10], [0.75, 4]];
+  else if (!warm) ramp = [[0.5, 10]];
+  else return null;
   const out = [];
-  for (const [p, r] of ramp) {
-    const x = Math.max(bar, roundTo(w * p, step));
-    if (x < w && (!out.length || x > out[out.length - 1].w)) out.push({ w: x, r });
+  for (const [pc, r] of ramp) {
+    const x = Math.max(bar, roundTo(w * pc, step));
+    if (x > 0 && x < w && (!out.length || x > out[out.length - 1].w)) out.push({ w: x, r });
   }
   return out.length ? out : null;
 }
