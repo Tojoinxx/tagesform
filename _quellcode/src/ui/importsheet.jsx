@@ -39,7 +39,8 @@ export function ImportSheet() {
       myRotation: d.rotation || Object.keys(d.sessions),
       baseline,
       custom,
-      setup: { ...st, planType: 'eigen', cycleStart: st.cycleStart || todayKey() },
+      ...(d.opts ? { exOpts: { ...(tr.exOpts || {}), ...d.opts } } : {}),
+      setup: { ...st, planType: 'eigen', cycleStart: st.cycleStart || todayKey(), ...(d.perWeek ? { perWeek: d.perWeek, freqMy: true } : {}) },
       createdAt: tr.createdAt || Date.now(),
     });
     if (withDone && d.done) {
@@ -93,7 +94,12 @@ export function ImportSheet() {
               Code gültig – {Object.keys(d.sessions).length} Einheiten, {Object.keys(d.baseline || {}).length} Startgewichte{d.src ? ` aus ${d.src}` : ''}.
             </span>
           </div>
-          {(d.rotation || Object.keys(d.sessions)).map((sid) => {
+          {d.rotation && d.rotation.length > Object.keys(d.sessions).length && (
+            <p class="small">
+              <b>Reihenfolge:</b> {d.rotation.map((sid) => d.sessions[sid].name).join(' → ')}
+            </p>
+          )}
+          {Object.keys(d.sessions).map((sid) => {
             const ss = d.sessions[sid];
             return (
               <section class="card">
@@ -107,6 +113,7 @@ export function ImportSheet() {
                         <span class="expv__name">{EXERCISES[id].name}</span>
                         <span class="expv__t tnum">
                           {sets} Sätze{w ? ` · ${n1(w)} kg` : ' · Gewicht testen'}
+                          {d.opts && d.opts[id] && d.opts[id].inc != null ? ` · +${n1(d.opts[id].inc)} kg` : ''}
                         </span>
                       </li>
                     );

@@ -158,6 +158,8 @@ export const MORE = [
   // ---- Arme ----
   X('sz-curl', 'SZ-Curls', 'SZ-Stange', [8, 12], { stress: ['Ellbogen', 'Handgelenk'], alt: ['bizeps-kh', 'bizeps-kabel'], mg: 'bizeps|', cue: 'Ellbogen am Körper, ohne Schwung.' },
     ['Bizeps', ['Bizeps'], ['SZ-Stange im Untergriff schulterbreit.', 'Zu den Schultern curlen.', 'Langsam ganz ablassen.'], ['Schwung aus dem Rücken', 'Ellbogen wandern nach vorne']], 'EZ-Bar_Curl'),
+  X('seitheben-maschine', 'Seitheben (Maschine)', 'Maschine', [12, 15], { inc: 2.5, stress: ['Schulter'], alt: ['seitheben-kabel', 'seitheben'], mg: 'schulter|', cue: 'Ellbogen führen die Bewegung, bis Schulterhöhe – nicht höher.' },
+    ['Schultern', ['Seitliche Schulter'], ['Aufrecht sitzen, Arme an den Polstern.', 'Arme seitlich bis Schulterhöhe heben.', 'Langsam absenken, Spannung halten.'], ['Schultern hochziehen', 'Mit Schwung arbeiten']], 'Cable_Seated_Lateral_Raise'),
   X('scott-curl', 'Scottcurls', 'SZ-Stange', [10, 12], { stress: ['Ellbogen'], alt: ['bizeps-maschine', 'bizeps-kh'], mg: 'bizeps|', cue: 'Oberarme fest auf dem Polster, unten nicht ganz durchstrecken.' },
     ['Bizeps', ['Bizeps'], ['Oberarme auf das Scottpult, Stange im Untergriff.', 'Nach oben curlen.', 'Langsam absenken, Spannung halten.'], ['Unten ganz durchstrecken (Ellbogen)', 'Po hebt ab']], 'Preacher_Curl'),
   X('konz-curl', 'Konzentrationscurls', 'Kurzhantel', [10, 12], { inc: 1, stress: ['Ellbogen'], alt: ['bizeps-kh'], mg: 'bizeps|', cue: 'Ellbogen am Oberschenkel abstützen.' },
@@ -177,6 +179,8 @@ export const MORE = [
     ['Bauch', ['Untere Bauchmuskeln', 'Hüftbeuger'], ['An der Stange hängen, Schultern aktiv.', 'Beine (gebeugt = leichter) nach oben heben, Becken einrollen.', 'Langsam absenken.'], ['Schwingen', 'Nur Hüftbeuger, Becken bleibt starr']], 'Hanging_Leg_Raise'),
   X('beinheben-liegend', 'Beinheben liegend', 'Körpergewicht', [10, 15], { inc: 0, stress: ['Rücken unten'], alt: ['deadbug'], mg: 'rumpf|', cue: 'Unterer Rücken bleibt am Boden.' },
     ['Bauch', ['Untere Bauchmuskeln'], ['Auf den Rücken, Hände neben dem Po.', 'Beine gestreckt bis senkrecht heben.', 'Langsam absenken, ohne Hohlkreuz.'], ['Hohlkreuz', 'Beine fallen lassen']], 'Flat_Bench_Lying_Leg_Raise'),
+  X('rotary-torso', 'Rotary Torso (Rumpfrotation Maschine)', 'Maschine', [12, 15], { inc: 5, stress: ['Rücken unten'], alt: ['pallof', 'russian-twist'], mg: 'rumpf|', cue: 'Langsam drehen, Bewegung aus dem Rumpf – nicht mit Schwung. Beide Seiten.' },
+    ['Bauch', ['Schräge Bauchmuskeln', 'Rumpf'], ['Aufrecht sitzen, Beine fixieren, Oberkörper am Polster.', 'Kontrolliert zur Seite drehen, kurz halten.', 'Langsam zurück, danach die andere Seite.'], ['Schwung holen', 'Zu weit drehen bei Rückenproblemen']], 'Seated_Barbell_Twist'),
   X('bauchmaschine', 'Bauchpresse (Maschine)', 'Maschine', [12, 15], { stress: ['Rücken unten'], alt: ['kabelcrunch', 'crunches'], mg: 'rumpf|', cue: 'Oberkörper einrollen, nicht mit den Armen ziehen.' },
     ['Bauch', ['Gerade Bauchmuskeln'], ['Hinsetzen, Griffe/Polster fassen.', 'Oberkörper nach vorne einrollen.', 'Langsam zurück.'], ['Mit den Armen ziehen', 'Schwung']], 'Ab_Crunch_Machine'),
   X('crunches', 'Crunches', 'Körpergewicht', [15, 25], { inc: 0, stress: ['Nacken'], alt: ['bauchmaschine'], mg: 'rumpf|', cue: 'Nur Schulterblätter abheben, Kinn nicht zur Brust ziehen.' },
