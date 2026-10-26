@@ -222,7 +222,7 @@ export function ExercisePicker({ title = 'Übung auswählen', exclude = [], sugg
     if (cat !== 'alle' && catOf(e.id) !== cat) return false;
     if (!qn) return true;
     const g = guideOf(e.id);
-    const hay = norm(`${e.name} ${g.group} ${(g.muscles || []).join(' ')} ${e.equip}`);
+    const hay = norm(`${e.name} ${g.group} ${(g.muscles || []).join(' ')} ${e.equip} ${e.aliases || ''}`);
     return qn.split(' ').every((t) => hay.includes(t));
   };
   const list = all.filter(match).sort((a, b) => CATS.findIndex((c) => c[0] === catOf(a.id)) - CATS.findIndex((c) => c[0] === catOf(b.id)) || a.name.localeCompare(b.name, 'de'));
