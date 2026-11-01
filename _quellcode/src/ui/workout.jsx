@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { useS, S, saveActive, clearActive, patchDay, toast, getDay, openSheet } from '../lib/store.js';
 import { ExAnim } from './exui.jsx';
 import { guideOf } from '../lib/exguide.js';
-import { swapOptions, itemFor, prefsOf, warmupFor, platesFor, limitsOf } from '../lib/training.js';
+import { swapOptions, itemFor, prefsOf, warmupFor, platesFor, limitsOf, liveAdjust } from '../lib/training.js';
 import { buildSummary } from './progress.jsx';
 import { uid, n1, num, vibrate, fmtShortDate } from '../lib/util.js';
 import { Check, Plus, Info, Repeat, X, Timer, Flag, Trash2, ExternalLink, Search, Flame } from 'lucide-preact';
@@ -93,21 +93,47 @@ export function Workout() {
         a !== i ? x : { ...x, sets: x.sets.map((y, b) => (b === j ? { ...y, r, w: wt, done: true } : b > j && !y.done && (y.w === '' || y.w == null || y.w === st.w) ? { ...y, w: wt } : y)) },
       ),
     };
-    persist(next, true);
-    vibrate(25);
     const pf = prefsOf();
-    if (it.unit !== 'Sek.' && !it.plyo && pf.rirPrompt) setRirOpen({ i, j });
+    const askRir = it.unit !== 'Sek.' && !it.plyo && pf.rirPrompt;
+    // ohne RIR-Abfrage gleich nach Wiederholungen anpassen, sonst nach der RIR-Antwort
+    const next2 = askRir ? next : adjustAfter(next, i, j);
+    persist(next2, true);
+    vibrate(25);
+    if (askRir) setRirOpen({ i, j });
     // Supersatz: nach Übung 1 direkt zur Partner-Übung, Pause erst danach
     const pi = it.ss ? next.items.findIndex((x, a) => a !== i && x.ss === it.ss) : -1;
     if (pi >= 0 && it.ssPos === 1 && next.items[pi].sets.some((x) => !x.done)) {
-      setRest(null, next);
+      setRest(null, next2);
       toast(`Supersatz: direkt weiter mit ${next.items[pi].name}`);
       return scrollToEx(pi);
     }
     const secs = it.plyo ? Math.max(90, pf.restOther) : it.main ? pf.restMain : pf.restOther;
     const allDone = next.items[i].sets.every((x) => x.done);
-    if (!(allDone && i === w.items.length - 1)) setRest({ until: Date.now() + secs * 1000, total: secs }, next);
+    if (!(allDone && i === w.items.length - 1)) setRest({ until: Date.now() + secs * 1000, total: secs }, next2);
     if (pi >= 0 && it.ssPos === 2 && next.items[pi].sets.some((x) => !x.done)) scrollToEx(pi);
+  };
+  // Live-Anpassung: offene Sätze nach einem zu schweren/zu leichten Satz anpassen (nur Sätze, deren Gewicht du nicht selbst geändert hast)
+  const adjustAfter = (base, i, j) => {
+    if (!prefsOf().autoAdjust) return base;
+    const it = base.items[i];
+    const st = it.sets[j];
+    const adj = liveAdjust(it, st, j);
+    if (!adj) return base;
+    const open = it.sets.map((x, b) => b > j && !x.done && (x.w === '' || x.w == null || Number(x.w) === Number(st.w)));
+    if (!open.some(Boolean)) return base;
+    const kg = String(adj.w).replace('.', ',');
+    toast(adj.dir < 0 ? `${adj.why} → nächste Sätze ${kg} kg` : `${adj.why} → nächste Sätze ${kg} kg 💪`);
+    return {
+      ...base,
+      items: base.items.map((x, a) =>
+        a !== i ? x : { ...x, sets: x.sets.map((y, b) => (open[b] ? { ...y, w: adj.w } : y)), adjusted: { from: Number(st.w), to: adj.w, why: adj.why, dir: adj.dir, after: j } },
+      ),
+    };
+  };
+  const undoAdjust = (i) => {
+    const it = w.items[i];
+    if (!it.adjusted) return;
+    persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...x, adjusted: null, sets: x.sets.map((y, b) => (b > x.adjusted.after && !y.done && Number(y.w) === Number(x.adjusted.to) ? { ...y, w: x.adjusted.from } : y)) })) }, true);
   };
   const addSet = (i) => {
     const it = w.items[i];
@@ -273,6 +299,14 @@ export function Workout() {
                 const pl = /Langhantel/.test(it.equip || '') && it.target && it.target.w ? platesFor(it.target.w) : null;
                 return pl && pl.length ? <span class="muted">Scheiben pro Seite: {pl.map((x) => String(x).replace('.', ',')).join(' + ')} kg (20-kg-Stange)</span> : null;
               })()}
+              {it.adjusted && it.sets.some((x, b) => b > it.adjusted.after && !x.done) && (
+                <span class={'wex__adj' + (it.adjusted.dir > 0 ? ' wex__adj--up' : '')}>
+                  {it.adjusted.dir < 0 ? '↓' : '↑'} {it.adjusted.why} – restliche Sätze {String(it.adjusted.to).replace('.', ',')} kg{' '}
+                  <button class="btn--link small" onClick={() => undoAdjust(i)}>
+                    rückgängig
+                  </button>
+                </span>
+              )}
               {it.target && it.target.rir != null && it.unit !== 'Sek.' && (
                 <span class="wex__rir">
                   Ziel {it.target.reps} Wdh. · aufhören, wenn noch <b>{it.target.rir}</b> {it.target.rir === 1 ? 'Wiederholung' : 'Wiederholungen'} gehen würden
@@ -351,7 +385,8 @@ export function Workout() {
                         <button
                           class={'rirpick__o' + (st.rir === v ? ' rirpick__o--on' : '')}
                           onClick={() => {
-                            upSet(i, j, { rir: v }, true);
+                            const base = { ...w, items: w.items.map((x, a) => (a !== i ? x : { ...x, sets: x.sets.map((y, b) => (b !== j ? y : { ...y, rir: v })) })) };
+                            persist(st.done ? adjustAfter(base, i, j) : base, true);
                             setRirOpen(null);
                           }}
                         >

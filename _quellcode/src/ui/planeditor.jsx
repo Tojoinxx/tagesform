@@ -348,6 +348,7 @@ export function TrainingOptionsCard() {
       <Toggle k="variety" label="Abwechslung" hint="Nebenübungen wechseln jede zweite Zyklusrunde zu einer Variante. Hauptübungen bleiben – für messbaren Fortschritt." />
       <Toggle k="wellness" label="Wellness-Abfrage vor dem Training" hint="Fitness, Schlaf, Muskelkater, Schmerzen – einmal pro Tag." />
       <Toggle k="rirPrompt" label="RIR nach jedem Satz abfragen" hint="Aus = du kannst RIR trotzdem über das Batterie-Symbol eintragen." />
+      <Toggle k="autoAdjust" label="Sätze live anpassen" hint="War ein Satz viel zu schwer (Limit erreicht oder 2+ Wdh. zu wenig), werden die restlichen Sätze leichter – war der erste viel zu leicht, schwerer." />
       <Toggle k="comeback" label="Wiedereinstieg nach Pausen" hint="Nach 10+ Tagen ohne Training erst leichter starten." />
       {ex.length > 0 && (
         <Field group label="Nicht mehr vorgeschlagen">

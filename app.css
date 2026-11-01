@@ -3353,3 +3353,6 @@ body, button, a, input, select, textarea, label, .card, .sheet, img, svg { touch
 .main:has(+ .livebar) { padding-bottom: calc(var(--tabh) + env(safe-area-inset-bottom) + 90px); }
 .tab { position: relative; }
 .tab__live { position: absolute; top: 2px; left: calc(50% + 8px); width: 9px; height: 9px; border-radius: 50%; background: #e5484d; box-shadow: 0 0 0 2px var(--card); animation: livepulse 1.4s ease-in-out infinite; }
+.wex__adj { display: block; margin: 4px 0 2px; padding: 6px 10px; border-radius: 10px; background: var(--warn-bg); color: var(--warn-ink); font-size: 13px; font-weight: 600; }
+.wex__adj--up { background: color-mix(in srgb, var(--accent) 12%, var(--card)); color: var(--text); }
+.wex__adj .btn--link { margin-left: 4px; }

@@ -55,7 +55,7 @@ export const TRAIN_GOALS = [
 export const goalOf = (setup = setupOf()) => TRAIN_GOALS.find((g) => g.id === setup.goal) || TRAIN_GOALS[0];
 
 // ---------- Persönliche Trainings-Optionen ----------
-export const DEFAULT_PREFS = { restMain: 120, restOther: 75, cycle: true, wellness: true, rirPrompt: true, comeback: true, supersets: false, variety: false, warmup: true };
+export const DEFAULT_PREFS = { restMain: 120, restOther: 75, cycle: true, wellness: true, rirPrompt: true, comeback: true, supersets: false, variety: false, warmup: true, autoAdjust: true };
 /** Gespeicherte Optionen haben Vorrang, sonst Standard des Trainingsziels (null = nicht gesetzt) */
 export function prefsOf() {
   const g = goalOf();
@@ -427,6 +427,33 @@ export function warmupFor(it, idx = 0, items = []) {
     if (x > 0 && x < w && (!out.length || x > out[out.length - 1].w)) out.push({ w: x, r });
   }
   return out.length ? out : null;
+}
+
+/**
+ * Live-Anpassung im Training: Nach einem Satz die noch offenen Sätze anpassen.
+ * - deutlich zu schwer (RIR 0 bei Ziel ≥ 2, oder ≥ 2 Wdh. unter Ziel): −1 Stufe (ca. 5 %, mind. 1 Steigerung)
+ * - deutlich zu leicht (RIR 3+ bei Ziel ≤ 1 und Ziel-Wdh. geschafft, nur beim 1. Satz): +1 Steigerung
+ * Rückgabe: { w, dir, why } oder null
+ */
+export function liveAdjust(it, set, setIndex) {
+  if (!it || !it.target || it.unit !== 'Wdh.' || it.plyo) return null;
+  const w = Number(set.w) || 0;
+  const inc = it.inc || 0;
+  if (!w || !inc) return null;
+  const tgtR = Number(it.target.reps) || 0;
+  const tgtRir = it.target.rir ?? 2;
+  const r = Number(set.r) || 0;
+  const rir = set.rir === '' || set.rir == null ? null : Number(set.rir);
+  const short = tgtR && r && r <= tgtR - 2;
+  const failed = rir === 0 && tgtRir >= 2;
+  if (short || failed) {
+    const nw = Math.max(inc, Math.min(roundTo(w * 0.95, inc), w - inc));
+    if (nw >= w) return null;
+    return { w: nw, dir: -1, why: short ? `Satz ${setIndex + 1}: nur ${r} statt ${tgtR} Wdh.` : `Satz ${setIndex + 1} ging bis zum Limit (RIR 0)` };
+  }
+  const easy = rir != null && rir >= 3 && tgtRir <= 1 && r >= tgtR && setIndex === 0;
+  if (easy) return { w: roundTo(w + inc, inc), dir: 1, why: `Satz 1 war leicht (RIR 3+)` };
+  return null;
 }
 
 /** Scheiben pro Seite für die Langhantel (20-kg-Stange) */
