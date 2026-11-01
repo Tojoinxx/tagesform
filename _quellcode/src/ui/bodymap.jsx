@@ -1,5 +1,5 @@
 // Körpermodell (vorne & hinten) mit einzeln ansprechbaren Muskelgruppen.
-// Muskelgruppen wie in der Volumen-Zählung: brust, ruecken, schulter, bizeps, trizeps, quad, beinbeuger, po, adduktoren, waden, rumpf
+// Muskelgruppen wie in der Volumen-Zählung: brust, ruecken, schulter, nacken (Trapez), bizeps, trizeps, quad, beinbeuger, po, adduktoren, waden, rumpf
 // Formen: rechte Körperhälfte als Punktliste (x = Abstand zur Mitte), gespiegelt und mit Catmull-Rom-Kurven geglättet.
 import { MUSCLE_LABEL } from '../lib/training.js';
 
@@ -58,6 +58,7 @@ function bodyPath(female) {
 
 // Muskeln: [Gruppe, Punkte rechts] (werden gespiegelt). 'mid' = über die Mitte (nicht spiegeln)
 const FRONT = [
+  ['nacken', [[8, 43], [11, 49], [20, 54], [29, 58], [18, 58.5], [8, 55]]],
   ['schulter', [[31, 58, 1], [40, 61, 1], [45, 72, 1], [44, 88, 1], [38, 86, 1], [33, 72, 1]]],
   ['brust', [[2, 62], [15, 57], [30, 61], [34, 74], [29, 89], [15, 94], [2, 90]]],
   ['bizeps', [[35, 92, 1], [41, 92, 1], [44, 106, 1], [42, 122, 1], [37, 124, 1], [35.5, 108, 1]]],
@@ -68,7 +69,7 @@ const FRONT = [
 ];
 const ABS = [[98, 112], [114, 128], [130, 144], [146, 164]];
 const BACK = [
-  ['ruecken', [[0, 47], [8, 48], [24, 56], [14, 66], [4, 96], [0, 101]]],
+  ['nacken', [[0, 38], [7, 39], [9, 48], [24, 56], [14, 66], [4, 96], [0, 101]]],
   ['schulter', [[31, 58, 1], [40, 61, 1], [45, 72, 1], [44, 88, 1], [38, 86, 1], [33, 72, 1]]],
   ['ruecken', [[6, 72], [18, 66], [31, 90], [30, 112], [24, 140], [10, 146], [6, 110]]],
   ['ruecken', [[1, 142], [9, 140], [10, 172], [1, 174]]],

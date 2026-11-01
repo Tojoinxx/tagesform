@@ -732,11 +732,12 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
       reps = Math.min(ex.reps[1], reps + 1);
     }
     // Starker Muskelkater im Zielmuskel: 1 Satz weniger, ~5 % leichter – Training hilft der Erholung, Vollgas nicht
-    const soreLv = soreOf(form)[priMg(ex.id)];
+    const soreMapF = soreOf(form);
+    const soreLv = soreMapF[priMg(ex.id)] || (soreMapF.nacken === 'stark' && /(^|[|,])nacken/.test(mgOf(ex.id)) ? 'stark' : undefined);
     if (soreLv === 'stark' && !cb && !cw.deload && !tpl.away) {
       sets = Math.max(2, sets - 1);
       if (w && ex.inc) w = roundTo(w * 0.95, ex.inc || 0.5);
-      note = `Starker Muskelkater (${MUSCLE_LABEL[priMg(ex.id)]}): heute 1 Satz weniger und etwas leichter.`;
+      note = `Starker Muskelkater (${MUSCLE_LABEL[soreMapF[priMg(ex.id)] ? priMg(ex.id) : 'nacken']}): heute 1 Satz weniger und etwas leichter.`;
     }
     // Stagnation: 4 Einheiten ohne Fortschritt → Reset (−10 %) und neu hocharbeiten
     if (!cb && !cw.deload && fm.mode !== 'light' && !tpl.away && !ex.plyo && !pr.up && !(last && last.forced) && soreLv !== 'stark') {
@@ -1060,17 +1061,29 @@ const MG = {
   kniebeuge: 'quad|po', beinpresse: 'quad|po', goblet: 'quad|po', rdl: 'beinbeuger|po', 'hip-thrust': 'po|beinbeuger', beinbeuger: 'beinbeuger|', beinstrecker: 'quad|',
   'split-squat': 'quad|po', ausfallschritte: 'quad|po', nordic: 'beinbeuger|', copenhagen: 'adduktoren|rumpf', wadenheben: 'waden|', pallof: 'rumpf|', plank: 'rumpf|', deadbug: 'rumpf|', kabelcrunch: 'rumpf|',
 };
-export const MUSCLE_LABEL = { brust: 'Brust', ruecken: 'Rücken', schulter: 'Schultern', bizeps: 'Bizeps', trizeps: 'Trizeps', quad: 'Oberschenkel vorne', beinbeuger: 'Beinbeuger', po: 'Po', adduktoren: 'Adduktoren', waden: 'Waden', rumpf: 'Rumpf' };
-export const mgOf = (id) => MG[id] || (EXERCISES[id] && EXERCISES[id].mg) || '|';
+export const MUSCLE_LABEL = { brust: 'Brust', ruecken: 'Rücken', schulter: 'Schultern', nacken: 'Nacken / Trapez', bizeps: 'Bizeps', trizeps: 'Trizeps', quad: 'Oberschenkel vorne', beinbeuger: 'Beinbeuger', po: 'Po', adduktoren: 'Adduktoren', waden: 'Waden', rumpf: 'Rumpf' };
+// Trapez/Nacken: Hauptmuskel bei Shrugs, hilft bei Rudern, Kreuzheben, Schulterdrücken, Seitheben & Co.
+const NECK_PRI = ['shrugs'];
+const NECK_SEC = ['upright-row', 'farmers-walk', 'kreuzheben', 'sumo-kreuzheben', 'rdl', 'kh-rdl', 'facepull', 'reverse-fly', 'reardelt-kabel', 'reardelt-seil', 'rudern-reardelt', 'rudern-kabel', 'rudern-brust', 'rudern-kh', 'langhantelrudern', 'tbar', 'high-row', 'inverted-row', 'schulterdruecken', 'schulterpresse', 'military-press', 'seitheben', 'seitheben-kabel', 'seitheben-maschine'];
+export const mgOf = (id) => {
+  const base = MG[id] || (EXERCISES[id] && EXERCISES[id].mg) || '|';
+  if (NECK_PRI.includes(id)) return 'nacken|' + base.split('|').join(',').replace(/^,|,$/g, '');
+  if (NECK_SEC.includes(id)) {
+    const [a, b] = base.split('|');
+    return `${a}|${[b, 'nacken'].filter(Boolean).join(',')}`;
+  }
+  return base;
+};
 
 export function weeklyVolume(setup = { ...setupOf(), gameDay: null }) {
-  const vol = Object.fromEntries(Object.keys(MUSCLE_LABEL).map((k) => [k, 0]));
+  // Nacken/Trapez nur für Muskelkater & Anzeige – nicht im Wochenvolumen (wird über Rücken/Schulter mittrainiert)
+  const vol = Object.fromEntries(Object.keys(MUSCLE_LABEL).filter((k) => k !== 'nacken').map((k) => [k, 0]));
   weekPlan(setup).forEach((p) => {
     buildSession(p.sessionId, setup, null).items.forEach((it) => {
       const [pri, sec] = mgOf(it.exId).split('|');
       const n = it.sets.length;
-      pri.split(',').filter(Boolean).forEach((m) => (vol[m] += n));
-      (sec || '').split(',').filter(Boolean).forEach((m) => (vol[m] += n / 2));
+      pri.split(',').filter((m) => m in vol).forEach((m) => (vol[m] += n));
+      (sec || '').split(',').filter((m) => m in vol).forEach((m) => (vol[m] += n / 2));
     });
   });
   return vol;
