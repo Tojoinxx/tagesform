@@ -102,7 +102,7 @@ export function AlgoSheet() {
           ))}
         </div>
         <p class="small">
-          Du bist gerade in <b>Woche {cw.n}: {cw.label}</b>.
+          Du bist gerade in <b>Woche {cw.n}: {cw.label}</b>. Weiter geht es nur nach Wochen, in denen du wirklich im Gym warst – wer neu einsteigt, beginnt immer mit Woche 1, und Wochen ohne Training (krank, Urlaub, keine Zeit) zählen nicht.
         </p>
         <p class="small muted">
           <b>RIR</b> = „Reps in Reserve“: wie viele Wiederholungen du am Satzende noch geschafft hättest. RIR 2 heißt: aufhören, wenn noch 2 gehen würden. Kleine Isolationsübungen gehen 1 Wdh. näher ran.

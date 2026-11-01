@@ -170,22 +170,28 @@ export function cycleWeek(k = todayKey()) {
   if (tr.deloadWeek && tr.deloadWeek === weekStart(k)) return { ...CYCLE[4], index: 4, n: 5, early: true, c: 0 };
   if (!prefsOf().cycle) return { label: 'Gleichbleibend', rir: 2, extra: 0, text: 'ohne Zyklus', index: -1, n: 0, off: true, c: 0 };
   const start = (tr.setup && tr.setup.cycleStart) || (tr.createdAt ? dateKey(new Date(tr.createdAt)) : k);
-  let weeks = Math.round((parseKey(weekStart(k)) - parseKey(weekStart(start))) / (7 * 864e5));
-  // Kranke Wochen und Urlaub ohne Gym zählen nicht: der Zyklus macht dort weiter, wo du warst
-  weeks -= Math.floor(breakDaysBetween(start, k) / 7);
+  // Nur Wochen, in denen wirklich im Gym trainiert wurde, schieben den Zyklus weiter.
+  // So startet jeder mit Woche 1 – auch wenn der Plan schon länger angelegt ist –, und krank, Urlaub
+  // oder Wochen ohne Zeit fürs Gym zählen nicht: der Zyklus macht dort weiter, wo du warst.
+  const weeks = gymWeeksBetween(weekStart(start), weekStart(k));
   const i = ((weeks % CYCLE.length) + CYCLE.length) % CYCLE.length;
   return { ...CYCLE[i], index: i, n: i + 1, c: Math.max(0, Math.floor(weeks / CYCLE.length)) };
 }
-function breakDaysBetween(start, k) {
-  let days = 0;
-  const end = addDays(k, -1);
-  for (const b of breaksList()) {
-    if (!breakBlocks(b)) continue;
-    const from = b.from > start ? b.from : start;
-    const to = (b.to || end) < end ? b.to || end : end;
-    if (from <= to) days += daysBetween(from, to) + 1;
+/** Anzahl Kalenderwochen in [ws0, ws1) mit mindestens einem echten Gym-Training (ohne Lauf/Urlaubs-Ersatz) */
+let _gwDays = null;
+let _gwSet = null;
+function gymWeeksBetween(ws0, ws1) {
+  if (S.days !== _gwDays) {
+    _gwDays = S.days;
+    _gwSet = new Set();
+    Object.keys(S.days || {}).forEach((dk) => {
+      const ws = ((S.days[dk] && S.days[dk].workouts) || []).filter((w) => w && !/^(LAUF|URL)/.test(w.sessionId || ''));
+      if (ws.length) _gwSet.add(weekStart(dk));
+    });
   }
-  return days;
+  let n = 0;
+  _gwSet.forEach((w) => w >= ws0 && w < ws1 && n++);
+  return n;
 }
 
 /** Vorlage an die Sportart anpassen (Prävention nur, wo sie Sinn ergibt) */
