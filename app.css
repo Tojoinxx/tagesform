@@ -3356,3 +3356,8 @@ body, button, a, input, select, textarea, label, .card, .sheet, img, svg { touch
 .wex__adj { display: block; margin: 4px 0 2px; padding: 6px 10px; border-radius: 10px; background: var(--warn-bg); color: var(--warn-ink); font-size: 13px; font-weight: 600; }
 .wex__adj--up { background: color-mix(in srgb, var(--accent) 12%, var(--card)); color: var(--text); }
 .wex__adj .btn--link { margin-left: 4px; }
+/* Plan-Änderungen übernehmen */
+.pchg { list-style: none; padding: 0; margin: 12px 0 16px; display: grid; gap: 8px; }
+.pchg__row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); }
+.pchg__ic { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px; flex: none; background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+.pchg__ic--skip { background: color-mix(in srgb, #e5484d 14%, transparent); color: #e5484d; }

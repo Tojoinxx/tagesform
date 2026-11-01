@@ -6,7 +6,7 @@ import { useRoute, nav } from './ui/router.js';
 import { Today } from './ui/today.jsx';
 import { Week } from './ui/week.jsx';
 import { Training } from './ui/training.jsx';
-import { Workout } from './ui/workout.jsx';
+import { Workout, PlanChangesSheet } from './ui/workout.jsx';
 import { Settings, applyTheme } from './ui/settings.jsx';
 import { Onboarding } from './ui/onboarding.jsx';
 import { Login } from './ui/login.jsx';
@@ -32,7 +32,7 @@ installViewportFix();
 blockPinchZoom();
 setS({ day: todayKey() });
 
-const SHEETS = { add: AddSheet, amount: AmountSheet, entry: EntrySheet, custom: CustomSheet, photo: PhotoSheet, label: LabelSheet, barcode: BarcodeSheet, suggest: SuggestSheet, exercise: ExerciseSheet, algo: AlgoSheet, pick: ExercisePicker, import: ImportSheet, wellness: WellnessSheet, rir: RirSheet, exopts: ExOptsSheet, break: BreakSheet, summary: SummarySheet, planlink: PlanLinkSheet, voice: VoiceSheet, activeconflict: ActiveConflictSheet, formcheck: FormCheckSheet, checkview: CheckViewSheet, checkcompare: CheckCompareSheet };
+const SHEETS = { add: AddSheet, amount: AmountSheet, entry: EntrySheet, custom: CustomSheet, photo: PhotoSheet, label: LabelSheet, barcode: BarcodeSheet, suggest: SuggestSheet, exercise: ExerciseSheet, algo: AlgoSheet, pick: ExercisePicker, import: ImportSheet, wellness: WellnessSheet, rir: RirSheet, exopts: ExOptsSheet, break: BreakSheet, summary: SummarySheet, planlink: PlanLinkSheet, voice: VoiceSheet, activeconflict: ActiveConflictSheet, planchanges: PlanChangesSheet, formcheck: FormCheckSheet, checkview: CheckViewSheet, checkcompare: CheckCompareSheet };
 
 function SheetHost() {
   const s = useS();

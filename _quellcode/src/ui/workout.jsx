@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { useS, S, saveActive, clearActive, patchDay, toast, getDay, openSheet } from '../lib/store.js';
+import { useS, S, saveActive, clearActive, patchDay, toast, getDay, openSheet, closeSheet, saveTraining } from '../lib/store.js';
+import { EXERCISES } from '../lib/exercises.js';
+import { Sheet } from './common.jsx';
 import { ExAnim } from './exui.jsx';
 import { guideOf } from '../lib/exguide.js';
-import { swapOptions, itemFor, prefsOf, warmupFor, platesFor, limitsOf, liveAdjust } from '../lib/training.js';
+import { swapOptions, itemFor, prefsOf, warmupFor, platesFor, limitsOf, liveAdjust, planIds } from '../lib/training.js';
 import { buildSummary } from './progress.jsx';
 import { uid, n1, num, vibrate, fmtShortDate } from '../lib/util.js';
 import { Check, Plus, Info, Repeat, X, Timer, Flag, Trash2, ExternalLink, Search, Flame } from 'lucide-preact';
@@ -36,6 +38,105 @@ function lastText(it) {
   return `${fmtShortDate(it.last.date)}: ${reps} ${it.unit}${sets[0].w ? (same ? ` · ${n1(sets[0].w)} kg` : ` · bis ${n1(Math.max(...sets.map((s) => s.w || 0)))} kg`) : ''}`;
 }
 
+// ---------- Ton am Pausenende ----------
+let actx = null;
+function unlockAudio() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!actx) actx = new AC();
+    if (actx.state === 'suspended') actx.resume();
+  } catch (e) {}
+}
+function beep() {
+  try {
+    if (!actx) return;
+    const t0 = actx.currentTime;
+    [0, 0.22].forEach((d, k) => {
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = 'sine';
+      o.frequency.value = k ? 1046 : 880;
+      g.gain.setValueAtTime(0.0001, t0 + d);
+      g.gain.exponentialRampToValueAtTime(0.35, t0 + d + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.18);
+      o.connect(g).connect(actx.destination);
+      o.start(t0 + d);
+      o.stop(t0 + d + 0.2);
+    });
+  } catch (e) {}
+}
+
+// ---------- Änderungen am Plan erkennen ----------
+/** Was wurde heute anders gemacht als geplant? (selbst getauscht, weggelassen, hinzugefügt, Satzzahl geändert) */
+export function planChanges(w) {
+  const out = [];
+  const plan = planIds(w.sessionId);
+  (w.items || []).forEach((it) => {
+    const done = (it.sets || []).filter((x) => x.done).length;
+    if (it.swappedFromId && it.swappedFromId !== it.exId && plan.includes(it.swappedFromId) && done > 0)
+      out.push({ id: 'swap:' + it.swappedFromId, kind: 'swap', from: it.swappedFromId, to: it.exId, text: `${EXERCISES[it.swappedFromId] ? EXERCISES[it.swappedFromId].name : it.swappedFrom} → ${it.name}`, on: true });
+    else if (it.added && done > 0 && !plan.includes(it.exId)) out.push({ id: 'add:' + it.exId, kind: 'add', to: it.exId, text: `${it.name} dazu`, on: true });
+    else if (!done && !it.added && plan.includes(it.swappedFromId || it.exId)) out.push({ id: 'skip:' + (it.swappedFromId || it.exId), kind: 'skip', from: it.swappedFromId || it.exId, text: `${it.name} weglassen`, on: false });
+    if (done > 0 && it.sets0 != null && it.sets.length !== it.sets0 && done === it.sets.length)
+      out.push({ id: 'sets:' + it.exId, kind: 'sets', ex: it.exId, n: done, text: `${it.name}: ${done} statt ${it.sets0} Sätze`, on: true });
+  });
+  return out;
+}
+
+/** Nach dem Training: Änderungen fürs nächste Mal übernehmen oder ignorieren */
+export function PlanChangesSheet({ sessionId, name, changes: ch0, summary }) {
+  const [ch, setCh] = useState(ch0);
+  const toggle = (id) => setCh((l) => l.map((c) => (c.id === id ? { ...c, on: !c.on } : c)));
+  const next = () => (closeSheet(), setTimeout(() => openSheet('summary', summary), 30));
+  const apply = () => {
+    const on = ch.filter((c) => c.on);
+    const tr = S.training || {};
+    let ids = planIds(sessionId);
+    const before = ids.join();
+    on.forEach((c) => {
+      if (c.kind === 'swap') ids = ids.includes(c.to) ? ids.filter((x) => x !== c.from) : ids.map((x) => (x === c.from ? c.to : x));
+      if (c.kind === 'skip') ids = ids.filter((x) => x !== c.from);
+      if (c.kind === 'add' && !ids.includes(c.to)) ids = [...ids, c.to];
+    });
+    const patch = {};
+    if (ids.join() !== before) patch.custom = { ...(tr.custom || {}), [sessionId]: ids };
+    const sets = on.filter((c) => c.kind === 'sets');
+    if (sets.length) {
+      const exOpts = { ...(tr.exOpts || {}) };
+      sets.forEach((c) => (exOpts[c.ex] = { ...(exOpts[c.ex] || {}), sets: c.n }));
+      patch.exOpts = exOpts;
+    }
+    if (Object.keys(patch).length) saveTraining(patch);
+    toast(on.length ? `${on.length} ${on.length === 1 ? 'Änderung' : 'Änderungen'} für „${name}“ übernommen` : 'Plan bleibt wie er war');
+    next();
+  };
+  const icon = { swap: '⇄', skip: '−', add: '+', sets: '#' };
+  return (
+    <Sheet title="Plan fürs nächste Mal anpassen?" onClose={next}>
+      <p class="small muted">Du hast heute bei „{name}“ etwas anders gemacht als geplant. Was davon soll ab dem nächsten Mal gelten?</p>
+      <ul class="pchg">
+        {ch.map((c) => (
+          <li>
+            <label class="check pchg__row">
+              <input type="checkbox" checked={c.on} onChange={() => toggle(c.id)} />
+              <span class={'pchg__ic pchg__ic--' + c.kind}>{icon[c.kind]}</span>
+              <span>{c.text}</span>
+            </label>
+          </li>
+        ))}
+      </ul>
+      <button class="btn btn--primary btn--block btn--lg" onClick={apply} disabled={!ch.some((c) => c.on)}>
+        <Check size={18} /> Ausgewählte übernehmen
+      </button>
+      <button class="btn btn--block" style={{ marginTop: '8px' }} onClick={() => (toast('Plan bleibt wie er war'), next())}>
+        Ignorieren – war nur heute
+      </button>
+      <p class="small muted" style={{ marginTop: '10px' }}>Später änderbar unter Training → Einheit ansehen & anpassen.</p>
+    </Sheet>
+  );
+}
+
 export function Workout() {
   const s = useS();
   const [w, setW] = useState(() => (S.active ? JSON.parse(JSON.stringify(S.active)) : null));
@@ -58,9 +159,41 @@ export function Workout() {
   useEffect(() => {
     if (rest && now >= rest.until) {
       vibrate([80, 60, 80]);
+      if (prefsOf().restSound) beep();
       setRest(null);
     }
   }, [now]);
+  // Bildschirm bleibt an, solange das Training offen ist (iOS gibt die Sperre beim App-Wechsel frei → neu anfordern)
+  useEffect(() => {
+    if (!prefsOf().keepAwake || !('wakeLock' in navigator)) return;
+    let lock = null;
+    let on = true;
+    const get = async () => {
+      try {
+        if (on && document.visibilityState === 'visible') lock = await navigator.wakeLock.request('screen');
+      } catch (e) {}
+    };
+    get();
+    const vis = () => document.visibilityState === 'visible' && get();
+    document.addEventListener('visibilitychange', vis);
+    return () => {
+      on = false;
+      document.removeEventListener('visibilitychange', vis);
+      try {
+        lock && lock.release();
+      } catch (e) {}
+    };
+  }, []);
+  // Ton erst nach einem Tipp möglich (iOS) → bei jeder Berührung im Training freischalten
+  useEffect(() => {
+    const unlock = () => unlockAudio();
+    document.addEventListener('touchend', unlock, { passive: true });
+    document.addEventListener('click', unlock);
+    return () => {
+      document.removeEventListener('touchend', unlock);
+      document.removeEventListener('click', unlock);
+    };
+  }, []);
 
   if (!w) return null;
 
@@ -138,12 +271,12 @@ export function Workout() {
   const addSet = (i) => {
     const it = w.items[i];
     const lastSet = it.sets[it.sets.length - 1] || { w: it.target.w ?? '' };
-    persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...x, sets: [...x.sets, { w: lastSet.w, r: '', done: false }] })) }, true);
+    persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...x, sets0: x.sets0 ?? x.sets.length, sets: [...x.sets, { w: lastSet.w, r: '', done: false }] })) }, true);
   };
   const removeSet = (i) => {
     const it = w.items[i];
     if (it.sets.length <= 1) return;
-    persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...x, sets: x.sets.slice(0, -1) })) }, true);
+    persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...x, sets0: x.sets0 ?? x.sets.length, sets: x.sets.slice(0, -1) })) }, true);
   };
   // Aufwärmsätze: Vorschlag, bis man sie anfasst – dann im Training gespeichert. Zählen nicht als Arbeitssätze.
   const warmOf = (it, i) => {
@@ -169,7 +302,7 @@ export function Workout() {
     const fresh = itemFor(exId);
     const old = w.items[i];
     fresh.sets = Array.from({ length: Math.max(fresh.sets.length, old.sets.length) }, (_, k) => fresh.sets[k] || { ...fresh.sets[0] });
-    persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...fresh, warm: undefined, swappedFrom: x.name, ss: old.ss, ssPos: old.ssPos })) }, true);
+    persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...fresh, warm: undefined, swappedFrom: x.swappedFrom || x.name, swappedFromId: x.swappedFromId || (x.added ? null : x.exId), added: x.added, ss: old.ss, ssPos: old.ssPos })) }, true);
     setSwapFor(null);
   };
 
@@ -209,9 +342,11 @@ export function Workout() {
       workouts: [...(d.workouts || []), record],
       training: [...(d.training || []), { id: uid(), type: 'Kraft', session: w.name, minutes, rpe: w.mode === 'light' ? 'locker' : 'mittel', workoutId: record.id, at: Date.now() }],
     }));
+    const changes = planChanges(w);
     clearActive();
     nav('/training');
-    openSheet('summary', summary);
+    if (changes.length) openSheet('planchanges', { sessionId: w.sessionId, name: w.name, changes, summary });
+    else openSheet('summary', summary);
   };
 
   return (
@@ -418,9 +553,9 @@ export function Workout() {
         class="btn btn--block"
         onClick={() =>
           openSheet('pick', {
-            title: 'Übung hinzufügen (nur heute)',
+            title: 'Übung hinzufügen',
             exclude: w.items.map((x) => x.exId),
-            onPick: (id) => persist({ ...w, items: [...w.items, itemFor(id)] }, true),
+            onPick: (id) => persist({ ...w, items: [...w.items, { ...itemFor(id), added: true }] }, true),
           })
         }
       >

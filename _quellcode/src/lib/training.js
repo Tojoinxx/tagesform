@@ -55,7 +55,7 @@ export const TRAIN_GOALS = [
 export const goalOf = (setup = setupOf()) => TRAIN_GOALS.find((g) => g.id === setup.goal) || TRAIN_GOALS[0];
 
 // ---------- Persönliche Trainings-Optionen ----------
-export const DEFAULT_PREFS = { restMain: 120, restOther: 75, cycle: true, wellness: true, rirPrompt: true, comeback: true, supersets: false, variety: false, warmup: true, autoAdjust: true };
+export const DEFAULT_PREFS = { restMain: 120, restOther: 75, cycle: true, wellness: true, rirPrompt: true, comeback: true, supersets: false, variety: false, warmup: true, autoAdjust: true, keepAwake: true, restSound: true };
 /** Gespeicherte Optionen haben Vorrang, sonst Standard des Trainingsziels (null = nicht gesetzt) */
 export function prefsOf() {
   const g = goalOf();
