@@ -46,9 +46,11 @@ export function Workout() {
   const [rirOpen, setRirOpen] = useState(null); // {i, j}
   const saveT = useRef();
 
+  // App frisch geöffnet: laufendes Training kommt evtl. erst kurz nach dem Start aus der Datenbank
   useEffect(() => {
-    if (!S.active && !w) nav('/training');
-  }, []);
+    if (!w && s.active) setW(JSON.parse(JSON.stringify(s.active)));
+    else if (!w && !s.active && s.activeLoaded) nav('/training');
+  }, [s.active, s.activeLoaded]);
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);

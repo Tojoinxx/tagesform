@@ -3323,3 +3323,33 @@ body, button, a, input, select, textarea, label, .card, .sheet, img, svg { touch
 .sets__warmlbl { color: var(--muted); text-align: center; }
 .setcheck--warm.setcheck--on { background: var(--kcal); border-color: var(--kcal); }
 .sets__skipwarm { display: block; margin: 2px 0 6px; color: var(--muted); }
+
+/* Laufendes Training – immer sichtbar */
+.livebar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--tabh) + env(safe-area-inset-bottom) + 10px);
+  max-width: 536px;
+  margin: 0 auto;
+  z-index: 21;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--accent);
+  color: #fff;
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+.livebar__dot { width: 10px; height: 10px; border-radius: 50%; background: #fff; flex: none; animation: livepulse 1.4s ease-in-out infinite; }
+@keyframes livepulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(0.8); } }
+.livebar__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.livebar__txt b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.livebar__txt small { opacity: 0.85; font-size: 12.5px; }
+.livebar__go { font-weight: 700; font-size: 14px; flex: none; }
+.main:has(+ .livebar) { padding-bottom: calc(var(--tabh) + env(safe-area-inset-bottom) + 90px); }
+.tab { position: relative; }
+.tab__live { position: absolute; top: 2px; left: calc(50% + 8px); width: 9px; height: 9px; border-radius: 50%; background: #e5484d; box-shadow: 0 0 0 2px var(--card); animation: livepulse 1.4s ease-in-out infinite; }

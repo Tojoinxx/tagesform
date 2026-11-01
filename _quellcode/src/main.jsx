@@ -1,5 +1,5 @@
 import { render } from 'preact';
-import { useEffect, useErrorBoundary } from 'preact/hooks';
+import { useEffect, useErrorBoundary, useState } from 'preact/hooks';
 import { useS, boot, setS, S, patchDay, openSheet, toast } from './lib/store.js';
 import { todayKey, lsGet, timeOfDayMeal } from './lib/util.js';
 import { useRoute, nav } from './ui/router.js';
@@ -14,7 +14,7 @@ import { Toast } from './ui/common.jsx';
 import { Logo } from './ui/logo.jsx';
 import { AddSheet, AmountSheet, EntrySheet, CustomSheet, PhotoSheet, LabelSheet, BarcodeSheet, VoiceSheet } from './ui/addfood.jsx';
 import { SuggestSheet } from './ui/suggest.jsx';
-import { ExerciseSheet, SessionPage, ExercisePicker } from './ui/exui.jsx';
+import { ExerciseSheet, SessionPage, ExercisePicker, ActiveConflictSheet } from './ui/exui.jsx';
 import { AlgoSheet, RirSheet } from './ui/algo.jsx';
 import { ImportSheet } from './ui/importsheet.jsx';
 import { WellnessSheet } from './ui/form.jsx';
@@ -32,7 +32,7 @@ installViewportFix();
 blockPinchZoom();
 setS({ day: todayKey() });
 
-const SHEETS = { add: AddSheet, amount: AmountSheet, entry: EntrySheet, custom: CustomSheet, photo: PhotoSheet, label: LabelSheet, barcode: BarcodeSheet, suggest: SuggestSheet, exercise: ExerciseSheet, algo: AlgoSheet, pick: ExercisePicker, import: ImportSheet, wellness: WellnessSheet, rir: RirSheet, exopts: ExOptsSheet, break: BreakSheet, summary: SummarySheet, planlink: PlanLinkSheet, voice: VoiceSheet, formcheck: FormCheckSheet, checkview: CheckViewSheet, checkcompare: CheckCompareSheet };
+const SHEETS = { add: AddSheet, amount: AmountSheet, entry: EntrySheet, custom: CustomSheet, photo: PhotoSheet, label: LabelSheet, barcode: BarcodeSheet, suggest: SuggestSheet, exercise: ExerciseSheet, algo: AlgoSheet, pick: ExercisePicker, import: ImportSheet, wellness: WellnessSheet, rir: RirSheet, exopts: ExOptsSheet, break: BreakSheet, summary: SummarySheet, planlink: PlanLinkSheet, voice: VoiceSheet, activeconflict: ActiveConflictSheet, formcheck: FormCheckSheet, checkview: CheckViewSheet, checkcompare: CheckCompareSheet };
 
 function SheetHost() {
   const s = useS();
@@ -105,6 +105,35 @@ function runAction(q) {
   history.replaceState(null, '', location.pathname + location.search + '#/');
 }
 
+/** Läuft ein Training? Immer sichtbar über der Navigationsleiste (außer im Training selbst) */
+function LiveBar({ path }) {
+  const s = useS();
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!s.active) return;
+    const t = setInterval(() => tick((x) => x + 1), 1000);
+    return () => clearInterval(t);
+  }, [!!s.active]);
+  if (!s.active || path === '/workout' || path === '/einheit') return null;
+  const a = s.active;
+  const sec = Math.max(0, Math.floor((Date.now() - a.startedAt) / 1000));
+  const done = (a.items || []).reduce((n, it) => n + (it.sets || []).filter((x) => x.done).length, 0);
+  const total = (a.items || []).reduce((n, it) => n + (it.sets || []).length, 0);
+  const tm = `${Math.floor(sec / 3600) ? Math.floor(sec / 3600) + ':' : ''}${String(Math.floor((sec % 3600) / 60)).padStart(Math.floor(sec / 3600) ? 2 : 1, '0')}:${String(sec % 60).padStart(2, '0')}`;
+  return (
+    <button class="livebar" onClick={() => nav('/workout')} aria-label={`${a.name} läuft – weiter trainieren`}>
+      <span class="livebar__dot" />
+      <span class="livebar__txt">
+        <b>{a.name} läuft</b>
+        <small class="tnum">
+          {tm} · {done}/{total} Sätze
+        </small>
+      </span>
+      <span class="livebar__go">Weiter →</span>
+    </button>
+  );
+}
+
 function Shell() {
   const r = useRoute();
   useEffect(() => {
@@ -115,6 +144,7 @@ function Shell() {
   return (
     <>
       <main class="main">{page}</main>
+      <LiveBar path={r.path} />
       <nav class="tabbar" aria-label="Navigation">
         {TABS.map(({ path, label, Icon }) => (
           <button
@@ -126,6 +156,7 @@ function Shell() {
             aria-current={r.path === path ? 'page' : undefined}
           >
             <Icon size={22} />
+            {path === '/training' && S.active && r.path !== '/workout' && <i class="tab__live" aria-label="Training läuft" />}
             <span>{label}</span>
           </button>
         ))}

@@ -12,6 +12,19 @@ import { Repeat, ChevronLeft, Play, CalendarDays, Clock, MapPin, TriangleAlert, 
 import { nav } from './router.js';
 
 export function startWorkout(sessionId, items, opts = {}) {
+  // Läuft schon ein Training? Nicht einfach überschreiben.
+  if (!opts.force) {
+    if (!S.activeLoaded) {
+      toast('Einen Moment – prüfe, ob schon ein Training läuft …');
+      setTimeout(() => startWorkout(sessionId, items, opts), 1200);
+      return;
+    }
+    if (S.active) {
+      if (S.active.sessionId === sessionId) return nav('/workout');
+      openSheet('activeconflict', { sessionId });
+      return;
+    }
+  }
   const f = getDay(todayKey()).form;
   // Vor dem Training: kurze Tagesform-Abfrage (einmal pro Tag)
   if (!opts.skipCheck && prefsOf().wellness && !(f && f.at)) {
@@ -23,6 +36,55 @@ export function startWorkout(sessionId, items, opts = {}) {
   if (s.comeback && s.comeback.restartCycle && s.comeback.step === 0) saveTraining({ setup: { ...setupOf(), cycleStart: todayKey() } });
   saveActive({ id: uid(), sessionId, name: s.name, focus: s.focus, startedAt: Date.now(), dayKey: todayKey(), items: items || s.items, mode: s.mode, modeLabel: s.modeLabel, notes: s.notes, cycle: s.cycle.n, deload: !!s.cycle.deload, comeback: s.comeback });
   nav('/workout');
+}
+
+/** Es läuft schon ein Training: weitermachen oder bewusst neu starten */
+export function ActiveConflictSheet({ sessionId }) {
+  const s = useS();
+  const a = s.active;
+  if (!a) return null;
+  const done = (a.items || []).reduce((n, it) => n + (it.sets || []).filter((x) => x.done).length, 0);
+  const t = new Date(a.startedAt);
+  const next = (sessionOf(sessionId) || {}).name || 'neues Training';
+  return (
+    <Sheet title="Training läuft schon">
+      <p>
+        <b>{a.name}</b> läuft seit {String(t.getHours()).padStart(2, '0')}:{String(t.getMinutes()).padStart(2, '0')} Uhr{done ? ` – ${done} ${done === 1 ? 'Satz' : 'Sätze'} erledigt` : ''}.
+      </p>
+      <button
+        class="btn btn--primary btn--block btn--lg"
+        onClick={() => {
+          closeSheet();
+          nav('/workout');
+        }}
+      >
+        Weiter trainieren
+      </button>
+      <button
+        class="btn btn--block"
+        style={{ marginTop: '10px' }}
+        onClick={() => {
+          closeSheet();
+          nav('/workout');
+          toast('Beende das laufende Training mit „Beenden“ – danach kannst du das nächste starten.');
+        }}
+      >
+        Erst beenden & speichern
+      </button>
+      <button
+        class="btn--link small center"
+        style={{ display: 'block', margin: '14px auto 0', color: '#e5484d' }}
+        onClick={() => {
+          if (!done || confirm(`Laufendes Training verwerfen? ${done} erledigte Sätze gehen verloren.`)) {
+            closeSheet();
+            startWorkout(sessionId, null, { force: true });
+          }
+        }}
+      >
+        Verwerfen und „{next}“ neu starten
+      </button>
+    </Sheet>
+  );
 }
 
 /** Bewegung als Animation: Start- und Endposition blenden ineinander */
@@ -461,9 +523,15 @@ export function SessionPage({ query }) {
         )}
       </p>
       <div class="startbar">
-        <button class="btn startbar__go" onClick={() => startWorkout(sessionId)}>
-          Starten <Play size={20} fill="currentColor" />
-        </button>
+        {S.active ? (
+          <button class="btn startbar__go" onClick={() => (S.active.sessionId === sessionId ? nav('/workout') : startWorkout(sessionId))}>
+            {S.active.sessionId === sessionId ? 'Weiter trainieren' : `${S.active.name} läuft`} <Play size={20} fill="currentColor" />
+          </button>
+        ) : (
+          <button class="btn startbar__go" onClick={() => startWorkout(sessionId)}>
+            Starten <Play size={20} fill="currentColor" />
+          </button>
+        )}
       </div>
     </div>
   );

@@ -118,7 +118,7 @@ function stopWatching() {
 function startWatching() {
   stopWatching();
   const b = backend;
-  setS({ profile: null, profileLoaded: false, ai: null, training: null, active: null, days: {}, foods: {}, weeks: {}, checks: {} });
+  setS({ profile: null, profileLoaded: false, ai: null, training: null, active: null, activeLoaded: false, days: {}, foods: {}, weeks: {}, checks: {} });
   const fallback = setTimeout(() => !S.profileLoaded && setS({ profileLoaded: true }), 7000);
   unsubs.push(() => clearTimeout(fallback));
   unsubs.push(
@@ -129,7 +129,16 @@ function startWatching() {
   );
   unsubs.push(b.watchDoc('tf_meta/ai', (data) => setS({ ai: data })));
   unsubs.push(b.watchDoc('tf_meta/training', (data) => setS({ training: data })));
-  unsubs.push(b.watchDoc('tf_meta/active', (data) => setS({ active: data && data.sessionId ? data : null })));
+  unsubs.push(
+    b.watchDoc('tf_meta/active', (data, meta) => {
+      // leerer Zwischenstand aus dem Gerätespeicher → auf den Server warten (sonst sieht ein laufendes Training kurz „weg“ aus)
+      if (!data && meta && meta.fromCache) return;
+      setS({ active: data && data.sessionId ? data : null, activeLoaded: true });
+    }),
+  );
+  // Fallback: offline o. Ä. – nach 5 s gilt der Stand als geladen
+  const actT = setTimeout(() => !S.activeLoaded && setS({ activeLoaded: true }), 5000);
+  unsubs.push(() => clearTimeout(actT));
   unsubs.push(
     b.watchCol('tf_foods', (list) => {
       const foods = {};
