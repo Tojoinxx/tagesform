@@ -1295,6 +1295,15 @@ export function BarcodeSheet({ dayKey, meal }) {
 }
 
 // =============== Per Sprache eintragen ===============
+/** Ausdrücklich genannte Mahlzeit erkennen – sonst null */
+export function mealFromText(t) {
+  const x = String(t || '').toLowerCase();
+  if (/fr(ü|ue)hst(ü|ue)ck|\bmorgens\b|heute morgen|zum kaffee am morgen/.test(x)) return 'fruehstueck';
+  if (/mittag|\blunch\b|kantine|mensa/.test(x)) return 'mittag';
+  if (/abendessen|\babends?\b|\bdinner\b|zum abend/.test(x)) return 'abend';
+  if (/\bsnack|zwischendurch|nachmittags|als nachtisch|zum nachtisch/.test(x)) return 'snacks';
+  return null;
+}
 const fmtSec = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
 
 export function VoiceSheet({ dayKey, meal: meal0, back, text: text0 = '' }) {
@@ -1325,7 +1334,10 @@ export function VoiceSheet({ dayKey, meal: meal0, back, text: text0 = '' }) {
     try {
       const r = await analyzeMealSpeech(input, o);
       if (r.transcript) setText(r.transcript);
-      if (r.meal && !mealTouched.current) setMeal(r.meal);
+      // Mahlzeit nur ändern, wenn sie wirklich gesagt/geschrieben wurde („zum Frühstück“, „mittags“ …).
+      // Die KI rät sonst gern „Snack“ – dann bleibt die Mahlzeit, über die du hinzugefügt hast.
+      const said = mealFromText(r.transcript || (input && input.text) || '');
+      if (said && !mealTouched.current) setMeal(said);
       if (!r.items.length) {
         setState({ status: 'error', error: r.transcript ? `Verstanden: „${r.transcript}“ – darin habe ich kein Essen gefunden. Versuch es nochmal oder korrigier den Text.` : 'Ich habe nichts verstanden. Sprich etwas näher am Handy und nochmal versuchen.' });
         return;
