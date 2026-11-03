@@ -2,6 +2,7 @@ import { useState, useEffect } from 'preact/hooks';
 import { useS, getDay, patchDay, toast, closeSheet, S } from '../lib/store.js';
 import { Sheet } from './common.jsx';
 import { startWorkout } from './exui.jsx';
+import { editWorkout } from './wedit.jsx';
 import { todayKey, addDays, WD_SHORT, parseKey, uid } from '../lib/util.js';
 import { Chip, Field } from './common.jsx';
 import { sportOf, isSportEntry, soreOf, buildSession, mgOf, MUSCLE_LABEL } from '../lib/training.js';
@@ -148,6 +149,11 @@ export function OtherTrainingCard({ preset }) {
               <span>
                 <b>{t.session || t.type}</b> · {t.minutes} Min{t.rpe ? ' · ' + t.rpe : ''}
               </span>
+              {t.workoutId && (getDay(k).workouts || []).some((w) => w.id === t.workoutId) && (
+                <button class="iconbtn" onClick={() => editWorkout(k, t.workoutId)} aria-label="Training bearbeiten">
+                  <Pencil size={16} />
+                </button>
+              )}
               <button
                 class="iconbtn"
                 onClick={() => patchDay(k, (d) => ({ training: (d.training || []).filter((x) => x.id !== t.id), workouts: t.workoutId ? (d.workouts || []).filter((w) => w.id !== t.workoutId) : d.workouts || [] }))}

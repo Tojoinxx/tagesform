@@ -3361,3 +3361,17 @@ body, button, a, input, select, textarea, label, .card, .sheet, img, svg { touch
 .pchg__row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); }
 .pchg__ic { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 13px; flex: none; background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
 .pchg__ic--skip { background: color-mix(in srgb, #e5484d 14%, transparent); color: #e5484d; }
+
+/* Training nachträglich bearbeiten */
+.wed__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.wed__head > div { display: flex; flex-direction: column; }
+.wed__min { display: flex; align-items: center; gap: 6px; }
+.wed__min .sets__in { width: 64px; }
+.wed__ex { margin-top: 10px; }
+.wed__exh { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.wed__exh h3 { margin: 0; font-size: 1rem; }
+.wed__rir { padding: 0 2px; text-align-last: center; appearance: none; -webkit-appearance: none; }
+.whist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.whist li + li { border-top: 1px solid var(--line); }
+.whist__row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 0; background: none; border: 0; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+.whist__main { display: flex; flex-direction: column; flex: 1; min-width: 0; }

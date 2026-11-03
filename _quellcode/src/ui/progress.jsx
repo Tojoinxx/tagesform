@@ -1,9 +1,9 @@
-import { useS, S, closeSheet, saveTraining, toast } from '../lib/store.js';
+import { useS, S, closeSheet, openSheet, saveTraining, toast } from '../lib/store.js';
 import { exHistory, progressStats, recommend, setupOf, sessionOf, buildSession, isAwaySession, e1rm } from '../lib/training.js';
 import { EXERCISES, SESSIONS } from '../lib/exercises.js';
 import { fmtShortDate, n1, n0, isoWeek, todayKey } from '../lib/util.js';
 import { Sheet } from './common.jsx';
-import { Trophy, TrendingUp, Timer, Layers, Dumbbell, ChevronRight, Play, Flame } from 'lucide-preact';
+import { Trophy, TrendingUp, Timer, Layers, Dumbbell, ChevronRight, Play, Flame, Pencil } from 'lucide-preact';
 import { nav } from './router.js';
 import { healthOn, sendWorkoutToHealth } from '../lib/health.js';
 import { estMinutes } from './exui.jsx';
@@ -84,7 +84,7 @@ export function ExHistory({ exId }) {
 }
 
 /** Nach dem Training: Rekorde, Vergleich zum letzten Mal, Kennzahlen */
-export function SummarySheet({ name, minutes, sets, volume, prs = [], cmp = [], rir, startedAt, finishedAt }) {
+export function SummarySheet({ name, minutes, sets, volume, prs = [], cmp = [], rir, startedAt, finishedAt, dayKey, id }) {
   return (
     <Sheet
       title="Training gespeichert"
@@ -93,6 +93,11 @@ export function SummarySheet({ name, minutes, sets, volume, prs = [], cmp = [], 
           {healthOn() && (
             <button class="btn" onClick={() => sendWorkoutToHealth({ name, minutes, startedAt, finishedAt })} aria-label="In Apple Health eintragen">
               ❤️ Health
+            </button>
+          )}
+          {dayKey && id && (
+            <button class="btn" onClick={() => (closeSheet(), setTimeout(() => openSheet('wedit', { dayKey, id }), 30))} aria-label="Training bearbeiten">
+              <Pencil size={18} />
             </button>
           )}
           <button class="btn btn--primary btn--grow btn--lg" onClick={closeSheet}>
@@ -194,6 +199,8 @@ export function buildSummary(w, record) {
   const volume = record.items.reduce((a, it) => a + it.sets.reduce((b, x) => b + (x.w || 0) * x.r, 0), 0);
   return {
     name: record.name,
+    dayKey: w.dayKey,
+    id: record.id,
     startedAt: record.startedAt,
     finishedAt: record.finishedAt,
     minutes: record.minutes,

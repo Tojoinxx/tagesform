@@ -4,6 +4,7 @@ import { EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, d
 import { TrainingOptionsCard } from './planeditor.jsx';
 import { BreakCard, SickPanel, CardioPanel, endBreak, breakEmoji } from './breaks.jsx';
 import { ProgressCard } from './progress.jsx';
+import { WorkoutHistoryCard } from './wedit.jsx';
 import { weekStart, addDays, isoWeek } from '../lib/util.js';
 import { SESSIONS, ROTATIONS, EXERCISES, SPLITS } from '../lib/exercises.js';
 import { todayKey, uid, n1, fmtShortDate } from '../lib/util.js';
@@ -655,6 +656,7 @@ export function Training() {
           <h4 class="sect sect--page">Alle Einheiten</h4>
           <PlanOverview setup={setup} onNew={() => (setFresh(true), setEditing(false), window.scrollTo(0, 0))} />
           <ProgressCard />
+          <WorkoutHistoryCard />
           <Last7Card />
         </>
       )}
