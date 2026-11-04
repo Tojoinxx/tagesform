@@ -5,6 +5,8 @@ import { Sheet } from './common.jsx';
 import { workoutLog, exOf } from '../lib/training.js';
 import { fmtDayTitle, fmtShortDate, num, n1 } from '../lib/util.js';
 import { Pencil, Plus, Trash2, X, History } from 'lucide-preact';
+import { ExAnim } from './exui.jsx';
+import { guideOf } from '../lib/exguide.js';
 
 const str = (v) => (v == null || v === '' ? '' : String(v).replace('.', ','));
 
@@ -99,7 +101,11 @@ export function WorkoutEditSheet({ dayKey, id, draft: start }) {
       {d.items.map((it, i) => (
         <section class="card wed__ex">
           <div class="wed__exh">
-            <h3>{it.name}</h3>
+            <ExAnim id={it.exId} size="xs" play={false} />
+            <div class="wed__ext">
+              <span class="excard__group">{guideOf(it.exId).group}</span>
+              <h3>{it.name}</h3>
+            </div>
             <button class="iconbtn" onClick={() => delItem(i)} aria-label={`${it.name} entfernen`}>
               <Trash2 size={17} />
             </button>

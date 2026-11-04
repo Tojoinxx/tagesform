@@ -3375,3 +3375,6 @@ body, button, a, input, select, textarea, label, .card, .sheet, img, svg { touch
 .whist li + li { border-top: 1px solid var(--line); }
 .whist__row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 0; background: none; border: 0; color: inherit; text-align: left; font: inherit; cursor: pointer; }
 .whist__main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.wed__exh { justify-content: flex-start; }
+.wed__exh .exanim { flex: none; }
+.wed__ext { flex: 1; min-width: 0; display: flex; flex-direction: column; }
