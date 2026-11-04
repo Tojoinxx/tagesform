@@ -3378,3 +3378,5 @@ body, button, a, input, select, textarea, label, .card, .sheet, img, svg { touch
 .wed__exh { justify-content: flex-start; }
 .wed__exh .exanim { flex: none; }
 .wed__ext { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+/* Übungsliste: Zeilen außerhalb des Bildschirms nicht layouten */
+.frow--pick { content-visibility: auto; contain-intrinsic-size: auto 66px; }

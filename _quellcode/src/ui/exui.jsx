@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { useS, S, openSheet, closeSheet, saveActive, saveTraining, toast } from '../lib/store.js';
 import { guideOf, imgOf } from '../lib/exguide.js';
 import { EXERCISES, SESSIONS } from '../lib/exercises.js';
@@ -272,46 +272,67 @@ const catOf = (id) => {
   return pri;
 };
 
+/** Suchindex einmal bauen (Name, Gruppe, Muskeln, Gerät, Aliase + Kategorie) statt bei jedem Tastendruck */
+let _pickIdx = null;
+let _pickSorted = [];
+const pickIndex = () => {
+  if (_pickIdx) return _pickIdx;
+  _pickIdx = {};
+  for (const e of Object.values(EXERCISES)) {
+    const g = guideOf(e.id);
+    _pickIdx[e.id] = { hay: norm(`${e.name} ${g.group} ${(g.muscles || []).join(' ')} ${e.equip} ${e.aliases || ''}`), cat: catOf(e.id), group: g.group };
+  }
+  // Reihenfolge einmal festlegen: nach Muskelgruppe, dann alphabetisch
+  const coll = new Intl.Collator('de');
+  const rank = (id) => CATS.findIndex((c) => c[0] === _pickIdx[id].cat);
+  _pickSorted = Object.values(EXERCISES).sort((a, b) => rank(a.id) - rank(b.id) || coll.compare(a.name, b.name));
+  return _pickIdx;
+};
+
+function PickRow({ e, onPick }) {
+  return (
+    <li class="frow frow--pick">
+      <button
+        class="frow__main pickrow"
+        onClick={() => {
+          onPick && onPick(e.id);
+          closeSheet();
+        }}
+      >
+        <ExAnim id={e.id} size="xs" play={false} />
+        <span class="frow__name">
+          {e.name}
+          <small class="muted">
+            {pickIndex()[e.id].group} · {e.equip}
+            {isExcluded(e.id) ? ' · ausgeschlossen' : ''}
+          </small>
+        </span>
+      </button>
+    </li>
+  );
+}
+
 /** Übung suchen & auswählen (ganze Bibliothek, Filter nach Muskelgruppe) */
 export function ExercisePicker({ title = 'Übung auswählen', exclude = [], suggest = [], onPick }) {
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('alle');
   const restricted = !!equipList();
   const [onlyAvail, setOnlyAvail] = useState(true);
-  const all = Object.values(EXERCISES).filter((e) => !exclude.includes(e.id) && (!restricted || !onlyAvail || isAvailable(e.id)));
+  const idx = pickIndex();
+  const all = _pickSorted.filter((e) => !exclude.includes(e.id) && (!restricted || !onlyAvail || isAvailable(e.id)));
   const qn = norm(q);
-  const match = (e) => {
-    if (cat !== 'alle' && catOf(e.id) !== cat) return false;
-    if (!qn) return true;
-    const g = guideOf(e.id);
-    const hay = norm(`${e.name} ${g.group} ${(g.muscles || []).join(' ')} ${e.equip} ${e.aliases || ''}`);
-    return qn.split(' ').every((t) => hay.includes(t));
-  };
-  const list = all.filter(match).sort((a, b) => CATS.findIndex((c) => c[0] === catOf(a.id)) - CATS.findIndex((c) => c[0] === catOf(b.id)) || a.name.localeCompare(b.name, 'de'));
+  const terms = qn.split(' ').filter(Boolean);
+  const match = (e) => (cat === 'alle' || idx[e.id].cat === cat) && terms.every((t) => idx[e.id].hay.includes(t));
+  const list = all.filter(match);
+  // Erst die ersten Treffer zeigen, den Rest einen Moment später – Tippen & Öffnen bleiben flüssig
+  const [shown, setShown] = useState(25);
+  useEffect(() => setShown(25), [qn, cat, onlyAvail]);
+  useEffect(() => {
+    if (shown >= list.length) return;
+    const t = setTimeout(() => setShown((n) => n + 30), 30);
+    return () => clearTimeout(t);
+  }, [shown, list.length]);
   const sugg = !qn && cat === 'alle' ? suggest.filter((id) => EXERCISES[id] && !exclude.includes(id) && (!restricted || !onlyAvail || isAvailable(id))).map((id) => EXERCISES[id]) : [];
-  const Row = ({ e }) => {
-    const g = guideOf(e.id);
-    return (
-      <li class="frow">
-        <button
-          class="frow__main pickrow"
-          onClick={() => {
-            onPick && onPick(e.id);
-            closeSheet();
-          }}
-        >
-          <ExAnim id={e.id} size="xs" play={false} />
-          <span class="frow__name">
-            {e.name}
-            <small class="muted">
-              {g.group} · {e.equip}
-              {isExcluded(e.id) ? ' · ausgeschlossen' : ''}
-            </small>
-          </span>
-        </button>
-      </li>
-    );
-  };
   return (
     <Sheet title={title} tall>
       <div class="search">
@@ -339,15 +360,15 @@ export function ExercisePicker({ title = 'Übung auswählen', exclude = [], sugg
           <h4 class="sect">Passende Alternativen</h4>
           <ul class="flist">
             {sugg.map((e) => (
-              <Row e={e} />
+              <PickRow key={'s' + e.id} e={e} onPick={onPick} />
             ))}
           </ul>
         </>
       )}
       <h4 class="sect">{qn || cat !== 'alle' ? `${list.length} Treffer` : `Alle Übungen (${list.length})`}</h4>
       <ul class="flist">
-        {list.map((e) => (
-          <Row e={e} />
+        {list.slice(0, shown).map((e) => (
+          <PickRow key={e.id} e={e} onPick={onPick} />
         ))}
       </ul>
       {!list.length && <p class="small muted center">Nichts gefunden – versuch einen anderen Begriff.</p>}
