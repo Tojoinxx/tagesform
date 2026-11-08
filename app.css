@@ -3428,3 +3428,4 @@ button.wchip { cursor: pointer; }
 :root[data-theme='dark'] .tint { opacity: .55; }
 .cta--prog .cta__icon { background: linear-gradient(135deg, #ff8a3d, #f2542d); }
 .stattabs { padding-top: 4px; }
+.wex__adj--info { background: color-mix(in srgb, var(--accent) 10%, var(--card)); color: var(--text); font-weight: 500; }

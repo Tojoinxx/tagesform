@@ -460,6 +460,20 @@ export function liveAdjust(it, set, setIndex) {
   return null;
 }
 
+/**
+ * Anderes Gewicht als geplant → passende Wiederholungen bei gleicher Anstrengung.
+ * Faustregel: Wdh. ändern sich etwa mit dem Quadrat des Gewichtsverhältnisses
+ * (60 → 62,5 kg: 10 → 9 Wdh.; 2 → 2,5 kg: 12 → 8 Wdh.). null = wie geplant.
+ */
+export function repsAt(it, w) {
+  if (!it || !it.target || it.unit !== 'Wdh.' || it.plyo) return null;
+  const tw = Number(it.target.w) || 0;
+  const tr = Number(it.target.reps) || 0;
+  const nw = Number(String(w ?? '').replace(',', '.')) || 0;
+  if (!tw || !tr || !(nw > 0) || Math.abs(nw - tw) < 1e-9) return null;
+  return Math.max(1, Math.min(Math.ceil(tr * 1.8), Math.round(tr * (tw / nw) ** 2)));
+}
+
 /** Scheiben pro Seite für die Langhantel (20-kg-Stange) */
 export function platesFor(w, bar = 20) {
   if (!w || w <= bar) return null;

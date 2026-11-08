@@ -4,7 +4,7 @@ import { EXERCISES } from '../lib/exercises.js';
 import { Sheet } from './common.jsx';
 import { ExAnim } from './exui.jsx';
 import { guideOf } from '../lib/exguide.js';
-import { swapOptions, itemFor, prefsOf, warmupFor, platesFor, limitsOf, liveAdjust, planIds } from '../lib/training.js';
+import { swapOptions, itemFor, prefsOf, warmupFor, platesFor, limitsOf, liveAdjust, planIds, repsAt } from '../lib/training.js';
 import { buildSummary } from './progress.jsx';
 import { uid, n1, num, vibrate, fmtShortDate } from '../lib/util.js';
 import { Check, Plus, Info, Repeat, X, Timer, Flag, Trash2, ExternalLink, Search, Flame } from 'lucide-preact';
@@ -213,11 +213,21 @@ export function Workout() {
     const next = { ...w, items: w.items.map((it, a) => (a !== i ? it : { ...it, sets: it.sets.map((st, b) => (b !== j ? st : { ...st, ...patch })) })) };
     persist(next, immediate);
   };
+  // Ziel-Wdh. für einen Satz: bei anderem Gewicht als geplant umgerechnet
+  const repsFor = (it, st) => (it.adjusted && Number(st.w) === Number(it.adjusted.to) ? null : repsAt(it, st.w)) ?? it.target.reps;
+  // Gewicht tippen: gleich in die folgenden offenen Sätze mit demselben Gewicht übernehmen
+  const upW = (i, j, val) => {
+    const it = w.items[i];
+    const same = (a, b) => String(a ?? '').replace(',', '.') === String(b ?? '').replace(',', '.');
+    const old = it.sets[j].w;
+    const next = { ...w, items: w.items.map((x, a) => (a !== i ? x : { ...x, sets: x.sets.map((y, b) => (b === j ? { ...y, w: val } : b > j && !y.done && (same(y.w, old) || y.w === '' || y.w == null) ? { ...y, w: val } : y)) })) };
+    persist(next, false);
+  };
   const toggleDone = (i, j) => {
     const it = w.items[i];
     const st = it.sets[j];
     if (st.done) return upSet(i, j, { done: false }, true);
-    const r = st.r === '' || st.r == null ? it.target.reps : num(st.r);
+    const r = st.r === '' || st.r == null ? repsFor(it, st) : num(st.r);
     const wt = st.w === '' || st.w == null ? it.target.w || 0 : num(st.w);
     // Gewicht in die folgenden, noch offenen Sätze übernehmen
     const next = {
@@ -250,7 +260,7 @@ export function Workout() {
     if (!prefsOf().autoAdjust) return base;
     const it = base.items[i];
     const st = it.sets[j];
-    const adj = liveAdjust(it, st, j);
+    const adj = liveAdjust({ ...it, target: { ...it.target, reps: repsFor(it, st) } }, st, j);
     if (!adj) return base;
     const open = it.sets.map((x, b) => b > j && !x.done && (x.w === '' || x.w == null || Number(x.w) === Number(st.w)));
     if (!open.some(Boolean)) return base;
@@ -447,6 +457,19 @@ export function Workout() {
                   Ziel {it.target.reps} Wdh. · aufhören, wenn noch <b>{it.target.rir}</b> {it.target.rir === 1 ? 'Wiederholung' : 'Wiederholungen'} gehen würden
                 </span>
               )}
+              {(() => {
+                const st = it.sets.find((x) => !x.done && repsAt(it, x.w) != null);
+                if (!st || (it.adjusted && Number(st.w) === Number(it.adjusted.to))) return null;
+                const r = repsAt(it, st.w);
+                const nw = Number(String(st.w).replace(',', '.'));
+                const [lo, hi] = it.repRange || [0, 99];
+                return (
+                  <span class="wex__adj wex__adj--info">
+                    Mit {String(nw).replace('.', ',')} kg statt {String(it.target.w).replace('.', ',')} kg: Ziel ~{r} Wdh. statt {it.target.reps} – gleiche Anstrengung.
+                    {r < lo ? ' Liegt unter deinem Bereich – passt heute trotzdem.' : r > hi ? ' Liegt über deinem Bereich – nächstes Mal wird es schwerer.' : ''}
+                  </span>
+                );
+              })()}
             </div>
             <div class="sets">
               <div class="sets__h small muted">
@@ -490,14 +513,14 @@ export function Workout() {
                     inputMode="decimal"
                     value={typeof st.w === 'number' ? String(st.w).replace('.', ',') : st.w ?? ''}
                     placeholder={it.target.w ? n1(it.target.w) : '–'}
-                    onInput={(e) => upSet(i, j, { w: e.currentTarget.value })}
+                    onInput={(e) => upW(i, j, e.currentTarget.value)}
                     aria-label={`Gewicht Satz ${j + 1}`}
                   />
                   <input
                     class="input sets__in"
                     inputMode="numeric"
                     value={st.r ?? ''}
-                    placeholder={String(it.target.reps)}
+                    placeholder={String(repsFor(it, st))}
                     onInput={(e) => upSet(i, j, { r: e.currentTarget.value })}
                     aria-label={`Wiederholungen Satz ${j + 1}`}
                   />
