@@ -1,11 +1,11 @@
 import { useState } from 'preact/hooks';
-import { useS, S, saveTraining, toast, closeSheet, openSheet } from '../lib/store.js';
-import { setupOf, rotationOf, sessionOf, planIds, prefsOf, DEFAULT_PREFS, exOf, lastFor, usesMyPlan, defaultReps, goalOf, excludedMap, splitsFor, substitute, isAvailable, isExcluded } from '../lib/training.js';
+import { useS, S, saveTraining, toast, closeSheet, openSheet, saveActive } from '../lib/store.js';
+import { setupOf, rotationOf, sessionOf, planIds, prefsOf, DEFAULT_PREFS, exOf, lastFor, usesMyPlan, defaultReps, goalOf, excludedMap, splitsFor, substitute, isAvailable, isExcluded, gridFrom, snapW } from '../lib/training.js';
 import { EXERCISES, SESSIONS, SPLITS } from '../lib/exercises.js';
 import { uid, todayKey, num, n1 } from '../lib/util.js';
 import { Sheet, Chip, Seg, Field, NumInput } from './common.jsx';
 import { ExAnim } from './exui.jsx';
-import { ChevronLeft, ArrowUp, ArrowDown, Trash2, Plus, Pencil, ChevronRight, Check, RotateCcw, Copy } from 'lucide-preact';
+import { ChevronLeft, ArrowUp, ArrowDown, Trash2, Plus, Pencil, ChevronRight, Check, RotateCcw, Copy, X } from 'lucide-preact';
 import { nav } from './router.js';
 
 const templates = () => {
@@ -234,18 +234,53 @@ export function ExOptsSheet({ exId }) {
   const [sets, setSets] = useState(o0.sets || 0);
   const [reps, setReps] = useState(cur.reps);
   const [inc, setInc] = useState(cur.inc);
+  // Verfügbare Gewichte: frei (Schrittweite), Bereiche (von–bis in Schritten) oder einzeln
+  const wc0 = o0.weights || null;
+  const [wmode, setWmode] = useState(wc0 ? wc0.mode : 'free');
+  const [ranges, setRanges] = useState(() => (wc0 && wc0.ranges ? wc0.ranges.map((g) => ({ from: n1(g.from), to: n1(g.to), step: n1(g.step) })) : [{ from: n1(cur.inc >= 2.5 ? 5 : cur.inc * 2 || 2), to: '100', step: n1(cur.inc || 2.5) }]));
+  const [list, setList] = useState(() => (wc0 && wc0.list ? [...wc0.list] : []));
+  const [addW, setAddW] = useState('');
+  const [allSame, setAllSame] = useState(false);
+  const wcfg = wmode === 'ranges' ? { mode: 'ranges', ranges: ranges.map((g) => ({ from: num(g.from), to: num(g.to), step: num(g.step) })) } : wmode === 'list' ? { mode: 'list', list } : null;
+  const grid = wcfg ? gridFrom(wcfg) : null;
+  const badRange = wmode === 'ranges' && wcfg.ranges.some((g) => !(g.step > 0) || !(g.to >= g.from));
   const last = lastFor(exId);
   const lastW = last ? Math.max(...last.sets.map((x) => x.w || 0)) : null;
   const [w, setW] = useState('');
   const save = () => {
+    if (badRange) return toast('Bitte jede Reihe prüfen: „bis“ muss größer als „von“ sein und der Schritt größer 0.');
+    if (wcfg && !grid) return toast('Bitte mindestens ein Gewicht angeben – oder „Frei“ wählen.');
     const tr = S.training || {};
     // Nur Abweichungen speichern – so passt sich der Rest weiter an dein Trainingsziel an
     const dr = defaultReps(exId);
     const sameReps = dr && reps[0] === dr[0] && reps[1] === dr[1];
-    const patch = { exOpts: { ...(tr.exOpts || {}), [exId]: sets || !sameReps || inc !== base.inc ? { sets: sets || null, reps: sameReps ? null : reps, inc: inc === base.inc ? null : inc } : null } };
+    const mine = sets || !sameReps || inc !== base.inc || wcfg ? { sets: sets || null, reps: sameReps ? null : reps, inc: inc === base.inc ? null : inc, weights: wcfg } : null;
+    const exOpts = { ...(tr.exOpts || {}), [exId]: mine };
+    // gleiche Gewichte für alle Übungen mit demselben Gerätetyp (z. B. alle Maschinen im Studio)
+    let others = 0;
+    if (allSame && wcfg)
+      for (const e of Object.values(EXERCISES))
+        if (e.id !== exId && e.equip === base.equip && e.inc > 0) {
+          exOpts[e.id] = { ...(exOpts[e.id] || {}), weights: wcfg };
+          others++;
+        }
+    const patch = { exOpts };
     if (w !== '' && num(w) >= 0) patch.baseline = { ...(tr.baseline || {}), [exId]: { w: num(w), date: todayKey(), at: Date.now(), src: 'manuell', force: true } };
     saveTraining(patch);
-    toast('Gespeichert');
+    // Läuft gerade ein Training: offene Sätze direkt auf verfügbare Gewichte runden
+    const a = S.active;
+    if (a && a.items && wcfg) {
+      const touched = (id) => id === exId || (allSame && EXERCISES[id] && EXERCISES[id].equip === base.equip);
+      let ch = false;
+      const items = a.items.map((it) => {
+        if (!touched(it.exId) || !it.inc) return it;
+        const fix = (w) => (w === '' || w == null || !(Number(w) > 0) ? w : snapW(it.exId, Number(w), it.inc));
+        ch = true;
+        return { ...it, target: it.target ? { ...it.target, w: fix(it.target.w) } : it.target, sets: it.sets.map((x) => (x.done ? x : { ...x, w: fix(x.w) })) };
+      });
+      if (ch) saveActive({ ...a, items });
+    }
+    toast(others ? `Gespeichert – auch für ${others} weitere Übungen (${base.equip})` : 'Gespeichert');
     closeSheet();
   };
   const reset = () => {
@@ -296,14 +331,105 @@ export function ExOptsSheet({ exId }) {
         </Field>
       )}
       {base.inc > 0 && (
-        <Field group label="Gewichtssteigerung" hint="Kleinster Schritt an deinem Gerät bzw. deinen Hanteln.">
-          <div class="chips chips--wrap">
-            {INC_PRESETS.map((v) => (
-              <Chip small active={inc === v} onClick={() => setInc(v)}>
-                +{String(v).replace('.', ',')} kg
-              </Chip>
-            ))}
-          </div>
+        <Field group label="Verfügbare Gewichte" hint="Die App schlägt nur Gewichte vor, die es an deinem Gerät bzw. bei deinen Hanteln wirklich gibt.">
+          <Seg
+            options={[
+              { id: 'free', label: 'Frei' },
+              { id: 'ranges', label: 'Bereiche' },
+              { id: 'list', label: 'Einzeln' },
+            ]}
+            value={wmode}
+            onChange={setWmode}
+          />
+          {wmode === 'free' && (
+            <>
+              <p class="small muted wav__lead">Schritt nach oben:</p>
+              <div class="chips chips--wrap">
+                {INC_PRESETS.map((v) => (
+                  <Chip small active={inc === v} onClick={() => setInc(v)}>
+                    +{String(v).replace('.', ',')} kg
+                  </Chip>
+                ))}
+              </div>
+            </>
+          )}
+          {wmode === 'ranges' && (
+            <div class="wav">
+              <div class="wav__h small muted">
+                <span>von</span>
+                <span>bis</span>
+                <span>Schritte</span>
+                <span />
+              </div>
+              {ranges.map((g, i) => {
+                const up = (k, v) => setRanges(ranges.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
+                return (
+                  <div class="wav__row" key={i}>
+                    <NumInput value={g.from} onChange={(v) => up('from', v)} suffix="kg" aria-label={`Reihe ${i + 1} von`} />
+                    <NumInput value={g.to} onChange={(v) => up('to', v)} suffix="kg" aria-label={`Reihe ${i + 1} bis`} />
+                    <NumInput value={g.step} onChange={(v) => up('step', v)} suffix="kg" aria-label={`Reihe ${i + 1} Schritte`} />
+                    <button class="iconbtn" onClick={() => setRanges(ranges.filter((_, j) => j !== i))} disabled={ranges.length < 2} aria-label={`Reihe ${i + 1} löschen`}>
+                      <Trash2 size={17} />
+                    </button>
+                  </div>
+                );
+              })}
+              <button
+                class="btn btn--block btn--sm"
+                onClick={() => {
+                  const l = ranges[ranges.length - 1];
+                  const to = num(l && l.to) || 0;
+                  const st = num(l && l.step) || 2.5;
+                  setRanges([...ranges, { from: n1(to + st), to: n1(to + st * 10), step: n1(st) }]);
+                }}
+              >
+                <Plus size={16} /> Reihe hinzufügen
+              </button>
+            </div>
+          )}
+          {wmode === 'list' && (
+            <div class="wav">
+              <div class="row">
+                <NumInput value={addW} onChange={setAddW} placeholder="z. B. 17,5" suffix="kg" aria-label="Gewicht hinzufügen" />
+                <button
+                  class="btn btn--sm"
+                  onClick={() => {
+                    const v = num(addW);
+                    if (!(v > 0)) return;
+                    setList([...new Set([...list, v])].sort((a, b) => a - b));
+                    setAddW('');
+                  }}
+                >
+                  <Plus size={16} /> Hinzufügen
+                </button>
+              </div>
+            </div>
+          )}
+          {grid && (
+            <>
+              <p class="small muted wav__lead">
+                Deine Gewichte ({grid.length}){wmode === 'list' ? ' – antippen zum Entfernen' : ''}:
+              </p>
+              <div class="wav__chips">
+                {grid.slice(0, 80).map((v) =>
+                  wmode === 'list' ? (
+                    <button class="wchip" onClick={() => setList(list.filter((x) => x !== v))} aria-label={`${n1(v)} kg entfernen`}>
+                      {n1(v)} <X size={12} />
+                    </button>
+                  ) : (
+                    <span class="wchip">{n1(v)}</span>
+                  ),
+                )}
+                {grid.length > 80 && <span class="small muted">… und {grid.length - 80} weitere</span>}
+              </div>
+            </>
+          )}
+          {badRange && <p class="small warn">Eine Reihe passt nicht: „bis“ muss größer als „von“ sein, Schritt größer 0.</p>}
+          {wcfg && /Maschine|Kabel|Kurzhantel/.test(base.equip) && (
+            <label class="check small">
+              <input type="checkbox" checked={allSame} onChange={(e) => setAllSame(e.currentTarget.checked)} /> Für alle Übungen mit „{base.equip}“ übernehmen
+            </label>
+          )}
         </Field>
       )}
       {S.active && <p class="small muted">Gilt ab dem nächsten Training.</p>}

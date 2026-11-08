@@ -3381,3 +3381,14 @@ body, button, a, input, select, textarea, label, .card, .sheet, img, svg { touch
 /* Übungsliste: Zeilen außerhalb des Bildschirms nicht layouten */
 .frow--pick { content-visibility: auto; contain-intrinsic-size: auto 66px; }
 .pick__inplan { margin: 10px 2px 0; padding: 8px 12px; border-radius: 12px; background: var(--card); color: var(--muted, #9aa3ad); }
+
+/* Verfügbare Gewichte (wie MCI) */
+.wav { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.wav__h, .wav__row { display: grid; grid-template-columns: 1fr 1fr 1fr 40px; gap: 8px; align-items: center; }
+.wav__h span { text-align: center; }
+.wav__row .numin .input { text-align: right; }
+.wav__lead { margin: 12px 0 6px; }
+.wav__chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 180px; overflow: auto; }
+.wchip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 999px; background: var(--card2, rgba(127,127,127,.14)); border: 1px solid var(--line); color: inherit; font: inherit; font-size: .85rem; font-variant-numeric: tabular-nums; }
+button.wchip { cursor: pointer; }
+.wav .row .numin { flex: 1; }

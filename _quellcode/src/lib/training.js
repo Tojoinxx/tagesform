@@ -423,7 +423,7 @@ export function warmupFor(it, idx = 0, items = []) {
   else return null;
   const out = [];
   for (const [pc, r] of ramp) {
-    const x = Math.max(bar, roundTo(w * pc, step));
+    const x = Math.max(bar, weightsOf(it.exId) ? snapW(it.exId, w * pc, step, 'near') : roundTo(w * pc, step));
     if (x > 0 && x < w && (!out.length || x > out[out.length - 1].w)) out.push({ w: x, r });
   }
   return out.length ? out : null;
@@ -447,12 +447,16 @@ export function liveAdjust(it, set, setIndex) {
   const short = tgtR && r && r <= tgtR - 2;
   const failed = rir === 0 && tgtRir >= 2;
   if (short || failed) {
-    const nw = Math.max(inc, Math.min(roundTo(w * 0.95, inc), w - inc));
-    if (nw >= w) return null;
+    // ca. 5 % leichter, mindestens eine Stufe
+    const nw = Math.max(snapW(it.exId, inc, inc, 'up'), Math.min(snapW(it.exId, w * 0.95, inc), stepW(it.exId, w, inc, -1)));
+    if (!(nw > 0) || nw >= w) return null;
     return { w: nw, dir: -1, why: short ? `Satz ${setIndex + 1}: nur ${r} statt ${tgtR} Wdh.` : `Satz ${setIndex + 1} ging bis zum Limit (RIR 0)` };
   }
   const easy = rir != null && rir >= 3 && tgtRir <= 1 && r >= tgtR && setIndex === 0;
-  if (easy) return { w: roundTo(w + inc, inc), dir: 1, why: `Satz 1 war leicht (RIR 3+)` };
+  if (easy) {
+    const nw = stepW(it.exId, w, inc, 1);
+    return nw > w ? { w: nw, dir: 1, why: `Satz 1 war leicht (RIR 3+)` } : null;
+  }
   return null;
 }
 
@@ -498,12 +502,61 @@ function lastForRaw(exId, before = null) {
   // übernommene Startwerte (z. B. aus MCI)
   const b = S.training && S.training.baseline && S.training.baseline[exId];
   const ex = EXERCISES[exId];
-  if (b && b.w != null && ex) return { date: b.date || null, imported: b.src || 'Import', sets: Array.from({ length: b.sets || 3 }, () => ({ w: b.w, r: b.r || ex.reps[0], done: true })) };
+  if (b && b.w != null && ex) return { date: b.date || todayKey(), imported: b.src || 'Import', sets: Array.from({ length: b.sets || 3 }, () => ({ w: b.w, r: b.r || ex.reps[0], done: true })) };
   return null;
 }
 
 const roundTo = (v, step) => (step > 0 ? Math.round(v / step) * step : v);
-const n1x = (v) => String(Math.round(v * 10) / 10).replace('.', ',');
+
+// ---------- Verfügbare Gewichte (wie bei MCI: Bereiche von–bis in Schritten oder einzelne Gewichte) ----------
+const r2 = (v) => Math.round(v * 100) / 100;
+/** Liste aus einer Einstellung { mode: 'ranges'|'list', ranges: [{from,to,step}], list: [..] } */
+export function gridFrom(cfg) {
+  if (!cfg) return null;
+  const out = new Set();
+  if (cfg.mode === 'list') (cfg.list || []).forEach((v) => Number(v) >= 0 && out.add(r2(Number(v))));
+  else
+    for (const g of cfg.ranges || []) {
+      const a = Number(g.from);
+      const b = Number(g.to);
+      const st = Number(g.step);
+      if (!(a >= 0) || !(b >= a) || !(st > 0)) continue;
+      for (let v = a, i = 0; v <= b + 1e-9 && i < 600; v = a + st * ++i) out.add(r2(v));
+    }
+  const L = [...out].sort((x, y) => x - y).slice(0, 800);
+  return L.length ? L : null;
+}
+/** Verfügbare Gewichte einer Übung oder null (= unbegrenzt, Schrittweite inc) */
+export function weightsOf(id) {
+  const o = S.training && S.training.exOpts && S.training.exOpts[id];
+  return o && o.weights ? gridFrom(o.weights) : null;
+}
+/** Gewicht auf ein verfügbares runden: near | down | up */
+export function snapW(id, v, inc, mode = 'near') {
+  const L = weightsOf(id);
+  if (!L) {
+    const st = inc || 0.5;
+    const f = mode === 'down' ? Math.floor : mode === 'up' ? Math.ceil : Math.round;
+    return r2(f(v / st - 1e-9 * (mode === 'up' ? 1 : -1)) * st);
+  }
+  if (mode === 'down') return [...L].reverse().find((x) => x <= v + 1e-9) ?? L[0];
+  if (mode === 'up') return L.find((x) => x >= v - 1e-9) ?? L[L.length - 1];
+  return L.reduce((b, x) => (Math.abs(x - v) < Math.abs(b - v) ? x : b), L[0]);
+}
+/** n Stufen hoch (n > 0) oder runter (n < 0) */
+export function stepW(id, w, inc, n = 1) {
+  const L = weightsOf(id);
+  if (!L) return r2(Math.max(0, roundTo(w + n * (inc || 0.5), inc || 0.5)));
+  const i = n > 0 ? L.findIndex((x) => x > w + 1e-9) : L.length - 1 - [...L].reverse().findIndex((x) => x < w - 1e-9);
+  if (n > 0) return i < 0 ? L[L.length - 1] : L[Math.min(L.length - 1, i + n - 1)];
+  return i >= L.length ? L[0] : L[Math.max(0, i + n + 1)];
+}
+/** leichter auf ca. v (auf ein verfügbares Gewicht gerundet, nie schwerer als w) */
+const lighter = (id, v, w, inc) => Math.min(w, snapW(id, v, inc, 'near'));
+const plusTxt = (a, b) => `+${n1x(b - a)} kg`;
+function n1x(v) {
+  return String(Math.round(v * 100) / 100).replace('.', ',');
+}
 
 /** Doppelte Progression: erst Wiederholungen hoch, dann Gewicht */
 export function progression(ex, last) {
@@ -523,7 +576,7 @@ export function progression(ex, last) {
   // Neuer Wiederholungsbereich (z. B. Ziel gewechselt): Gewicht über das geschätzte Maximum umrechnen
   if (ex.inc > 0 && w > 0 && (minR > hi + 2 || maxR < lo - 2)) {
     const best = Math.max(...last.sets.map((s) => e1rm(s.w || 0, s.r)));
-    const nw = Math.max(ex.inc, roundTo(best / (1 + (lo + 2) / 30), ex.inc || 0.5));
+    const nw = Math.max(snapW(ex.id, ex.inc, ex.inc, 'up'), snapW(ex.id, best / (1 + (lo + 2) / 30), ex.inc));
     return { w: nw, reps: lo, note: `Neuer Bereich ${lo}–${hi} Wdh.: Gewicht umgerechnet (${n1x(w)} kg × ${maxR} → ${n1x(nw)} kg × ${lo}). Mit Reserve starten.`, converted: true };
   }
   // RIR (Wdh. in Reserve), falls eingetragen: genauere Steuerung
@@ -544,9 +597,11 @@ export function progression(ex, last) {
     const step = ex.unit === 'Sek.' ? 5 : 1;
     return { w, reps: Math.min(hi, minR + step), note: `Letztes Mal ${minR} ${ex.unit} – heute ${Math.min(hi, minR + step)}.` };
   }
-  if (minR >= hi) return { w: roundTo(w + ex.inc, ex.inc || 0.5), reps: lo, note: `Alle Sätze mit ${hi} Wdh. geschafft → +${String(ex.inc).replace('.', ',')} kg 💪`, up: true };
-  if (tooEasy) return { w: roundTo(w + ex.inc, ex.inc || 0.5), reps: Math.max(lo, minR - 2), note: `Letztes Mal zu leicht (RIR Ø ${rirTxt} statt ${tgt}) → +${String(ex.inc).replace('.', ',')} kg 💪`, up: true };
-  if (maxR < lo) return { w: roundTo(w * 0.9, ex.inc || 0.5), reps: lo, note: 'Letztes Mal zu schwer – heute etwas leichter, saubere Technik.' };
+  const up = stepW(ex.id, w, ex.inc, 1);
+  if (up > w && minR >= hi) return { w: up, reps: lo, note: `Alle Sätze mit ${hi} Wdh. geschafft → ${plusTxt(w, up)} 💪`, up: true };
+  if (up > w && tooEasy) return { w: up, reps: Math.max(lo, minR - 2), note: `Letztes Mal zu leicht (RIR Ø ${rirTxt} statt ${tgt}) → ${plusTxt(w, up)} 💪`, up: true };
+  if (up <= w && (minR >= hi || tooEasy)) return { w, reps: hi, note: `Schwerstes verfügbares Gewicht erreicht – mehr Wdh., langsamer runter oder eine schwerere Variante.`, up: true };
+  if (maxR < lo) return { w: lighter(ex.id, w * 0.9, w, ex.inc), reps: lo, note: 'Letztes Mal zu schwer – heute etwas leichter, saubere Technik.' };
   if (zeros && tgt >= 1) return { w, reps: Math.max(lo, minR), note: `Letztes Mal bis zum Limit (RIR 0) – gleiches Ziel, diesmal mit Reserve.${failTip}` };
   return { w, reps: Math.min(hi, minR + 1), note: `Gleiches Gewicht, Ziel: ${Math.min(hi, minR + 1)} Wdh. pro Satz.${failTip}` };
 }
@@ -731,11 +786,11 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
         w = Math.max(...last.sets.map((s) => s.w || 0));
         reps = ex.reps[0];
       }
-      if (w) w = roundTo(w * cb.factor, ex.inc || 0.5);
+      if (w) w = snapW(ex.id, w * cb.factor, ex.inc);
       rir = Math.max(rir, cb.rir);
       note = `Wiedereinstieg ${cb.step + 1}/${cb.total}: ~${Math.round((1 - cb.factor) * 100)} % leichter${last ? ` als vor der Pause (${String(Math.max(...last.sets.map((s) => s.w || 0))).replace('.', ',')} kg)` : ''}.`;
     } else if (exGap >= 28 && w && !cw.deload) {
-      w = roundTo(w * 0.9, ex.inc || 0.5);
+      w = lighter(ex.id, w * 0.9, w, ex.inc);
       reps = ex.reps[0];
       note = `Länger nicht gemacht (${exGap} Tage) – heute ~10 % leichter zum Reinkommen.`;
     } else if (cw.deload) {
@@ -744,12 +799,12 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
         w = Math.max(...last.sets.map((s) => s.w || 0));
         reps = ex.reps[0];
       }
-      if (w) w = roundTo(w * 0.9, ex.inc || 0.5);
+      if (w) w = lighter(ex.id, w * 0.9, w, ex.inc);
       rir = 4;
       note = 'Deload-Woche: leichter und weniger Sätze – die Erholung macht dich nächste Woche stärker.';
     } else if (fm.mode === 'light') {
       sets = Math.max(2, sets - 1);
-      if (w) w = roundTo(w * 0.9, ex.inc || 0.5);
+      if (w) w = lighter(ex.id, w * 0.9, w, ex.inc);
       if (pr.up && last) {
         w = Math.max(...last.sets.map((s) => s.w || 0));
         reps = ex.reps[0];
@@ -763,14 +818,14 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
     const soreLv = soreMapF[priMg(ex.id)] || (soreMapF.nacken === 'stark' && /(^|[|,])nacken/.test(mgOf(ex.id)) ? 'stark' : undefined);
     if (soreLv === 'stark' && !cb && !cw.deload && !tpl.away) {
       sets = Math.max(2, sets - 1);
-      if (w && ex.inc) w = roundTo(w * 0.95, ex.inc || 0.5);
+      if (w && ex.inc) w = lighter(ex.id, w * 0.95, w, ex.inc);
       note = `Starker Muskelkater (${MUSCLE_LABEL[soreMapF[priMg(ex.id)] ? priMg(ex.id) : 'nacken']}): heute 1 Satz weniger und etwas leichter.`;
     }
     // Stagnation: 4 Einheiten ohne Fortschritt → Reset (−10 %) und neu hocharbeiten
     if (!cb && !cw.deload && fm.mode !== 'light' && !tpl.away && !ex.plyo && !pr.up && !(last && last.forced) && soreLv !== 'stark') {
       const st = stallInfo(ex.id);
       if (st && ex.inc > 0 && st.topW > 0) {
-        w = roundTo(st.topW * 0.9, ex.inc || 0.5);
+        w = lighter(ex.id, st.topW * 0.9, st.topW, ex.inc);
         reps = ex.reps[0];
         reset = true;
         note = `Seit 4 Einheiten kein Fortschritt → Reset: ~10 % leichter (${n1x(w)} kg) und in 2–3 Einheiten wieder vorbei. Oft hilft auch: mehr Schlaf, genug Essen – oder die Übung tauschen.`;
@@ -795,6 +850,8 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
     const harder = pr.up && !ex.inc && !tpl.away ? harderOf(ex.id, setup, ids) : null;
     if (harder) note = `Oberes Ziel erreicht 💪 Nächste Stufe: ${EXERCISES[harder].name} – oder diese Übung langsamer (3 Sek. runter) ausführen.`;
     if (adaptedFrom && adaptedFrom.keep) note = `Achtung ${adaptedFrom.why}: nur schmerzfrei, eher leichter.`;
+    // Nur Gewichte vorschlagen, die es an deinem Gerät wirklich gibt
+    if (w && ex.inc && weightsOf(ex.id)) w = snapW(ex.id, w, ex.inc);
     return {
       harder,
       exId: ex.id,
