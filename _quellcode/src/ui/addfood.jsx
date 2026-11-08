@@ -16,7 +16,7 @@ import {
 } from '../lib/store.js';
 import { MEALS, makeEntry, scale, mealLabel, fvFor } from '../lib/nutrition.js';
 import { BASE_FOODS } from '../lib/basefoods.js';
-import { norm, n0, num, uid, downscaleImage, vibrate, timeOfDayMeal } from '../lib/util.js';
+import { norm, n0, num, uid, downscaleImage, vibrate, timeOfDayMeal, editDist } from '../lib/util.js';
 import * as OFF from '../lib/off.js';
 import { hasAi, aiErrText } from '../lib/ai.js';
 import { analyzeMealPhoto, analyzeMealSpeech, readLabel, estimateFood } from '../lib/aitasks.js';
@@ -36,25 +36,6 @@ export function MealChips({ meal, setMeal }) {
       ))}
     </div>
   );
-}
-
-/** Levenshtein-Abstand mit Abbruch, wenn größer als max (Präfix-tolerant: Wortanfang reicht) */
-function editDist(a, b, max) {
-  if (Math.abs(a.length - b.length) > max + 2) return max + 1;
-  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
-  let best = prev[b.length];
-  for (let i = 1; i <= a.length; i++) {
-    const cur = [i];
-    let rowMin = i;
-    for (let j = 1; j <= b.length; j++) {
-      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-      rowMin = Math.min(rowMin, cur[j]);
-    }
-    best = Math.min(best, cur[b.length]);
-    if (rowMin > max) return best <= max ? best : max + 1;
-    prev = cur;
-  }
-  return best;
 }
 
 /** Suche in eigenen + Grundnahrungsmitteln */

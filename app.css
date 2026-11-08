@@ -3380,3 +3380,4 @@ body, button, a, input, select, textarea, label, .card, .sheet, img, svg { touch
 .wed__ext { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 /* Übungsliste: Zeilen außerhalb des Bildschirms nicht layouten */
 .frow--pick { content-visibility: auto; contain-intrinsic-size: auto 66px; }
+.pick__inplan { margin: 10px 2px 0; padding: 8px 12px; border-radius: 12px; background: var(--card); color: var(--muted, #9aa3ad); }

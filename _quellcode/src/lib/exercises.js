@@ -35,11 +35,11 @@ export const EXERCISES = Object.fromEntries(
     E('hammercurls', 'Hammercurls', { equip: 'Kurzhantel', reps: [10, 12], inc: 1, stress: ['Ellbogen'], alt: ['bizeps-kabel'], cue: 'Gewicht pro Hand. Daumen zeigen nach oben.' }),
     // ---- Beine ----
     E('kniebeuge', 'Kniebeuge (Langhantel)', { equip: 'Langhantel', reps: [5, 8], main: true, stress: ['Knie', 'Rücken unten', 'Hüfte'], alt: ['beinpresse', 'goblet'], cue: 'Brust raus, Knie in Richtung Zehen, mindestens parallel runter.' }),
-    E('beinpresse', 'Beinpresse', { equip: 'Maschine', reps: [8, 12], inc: 5, main: true, stress: ['Knie'], alt: ['hip-thrust', 'beinbeuger'], cue: 'Füße schulterbreit, unten nicht den Po vom Polster heben.' }),
+    E('beinpresse', 'Beinpresse sitzend (Maschine)', { equip: 'Maschine', reps: [8, 12], inc: 5, main: true, stress: ['Knie'], alt: ['hip-thrust', 'beinbeuger'], cue: 'Füße schulterbreit, unten nicht den Po vom Polster heben.' }),
     E('goblet', 'Goblet Squat (Kurzhantel)', { equip: 'Kurzhantel', reps: [8, 12], inc: 2, stress: ['Knie', 'Hüfte'], alt: ['beinpresse'], cue: 'Kurzhantel vor der Brust, aufrecht tief runter.' }),
     E('rdl', 'Rumänisches Kreuzheben', { equip: 'Langhantel', reps: [6, 10], main: true, stress: ['Rücken unten', 'Oberschenkel'], alt: ['kh-rdl', 'hip-thrust', 'beinbeuger'], cue: 'Hüfte nach hinten schieben, Stange nah am Bein, Rücken gerade.' }),
     E('hip-thrust', 'Hip Thrust', { equip: 'Langhantel', reps: [8, 12], stress: ['Hüfte'], alt: ['beinbeuger'], cue: 'Schultern auf der Bank, oben Po fest anspannen.' }),
-    E('beinbeuger', 'Beinbeuger (Maschine)', { equip: 'Maschine', reps: [10, 12], stress: ['Oberschenkel'], alt: ['hip-thrust'], cue: 'Langsam ablassen – schützt die hintere Oberschenkelmuskulatur.' }),
+    E('beinbeuger', 'Beinbeuger sitzend (Maschine)', { equip: 'Maschine', reps: [10, 12], stress: ['Oberschenkel'], alt: ['hip-thrust'], cue: 'Langsam ablassen – schützt die hintere Oberschenkelmuskulatur.' }),
     E('beinstrecker', 'Beinstrecker (Maschine)', { equip: 'Maschine', reps: [10, 15], stress: ['Knie'], alt: ['goblet'], cue: 'Oben kurz halten, kontrolliert runter.' }),
     E('split-squat', 'Bulgarian Split Squat', { equip: 'Kurzhantel', reps: [8, 10], inc: 2, stress: ['Knie', 'Hüfte'], alt: ['ausfallschritte', 'beinpresse'], cue: 'Gewicht pro Hand, Wdh. pro Bein. Hinterer Fuß auf der Bank.' }),
     E('ausfallschritte', 'Ausfallschritte gehend', { equip: 'Kurzhantel', reps: [8, 12], inc: 2, stress: ['Knie'], alt: ['beinpresse'], cue: 'Wdh. pro Bein, Oberkörper aufrecht.' }),
@@ -56,6 +56,45 @@ export const EXERCISES = Object.fromEntries(
 
 // Erweiterte Bibliothek zum Suchen & Anpassen
 for (const e of MORE) EXERCISES[e.id] = e;
+
+// Gerätenamen von Technogym (Selection, Pure, Kinesis …) + englische Namen – damit die Suche sie findet
+const TG = {
+  brustpresse: 'chest press wide chest press selection pure',
+  schulterpresse: 'shoulder press',
+  butterfly: 'pectoral pec fly peck deck',
+  'reverse-fly': 'rear delt reverse fly',
+  latzug: 'lat machine lat pulldown pulley vertical traction',
+  'latzug-eng': 'lat machine pulley vertical traction',
+  'latzug-untergriff': 'lat machine pulley',
+  'rudern-kabel': 'low row pulley',
+  'rudern-brust': 'low row pure row rowing',
+  'rudern-reardelt': 'upper back',
+  'high-row': 'high row upper back',
+  tbar: 't bar row',
+  'bizeps-maschine': 'arm curl biceps curl pure biceps',
+  'dips-maschine': 'seated dip dip assist',
+  'klimmzug-assist': 'chin dip assist chin assist',
+  bauchmaschine: 'abdominal crunch total abdominal',
+  'rotary-torso': 'rotary torso',
+  'seitheben-maschine': 'delts machine lateral raise',
+  beinpresse: 'leg press selection seated',
+  beinbeuger: 'leg curl seated leg curl',
+  'beinbeuger-liegend': 'prone leg curl bauchlage',
+  beinstrecker: 'leg extension sitzend',
+  hackenschmidt: 'hack squat pure',
+  abduktoren: 'abductor hip abduction sitzend',
+  adduktoren: 'adductor hip adduction sitzend',
+  wadenheben: 'rotary calf calf machine pure calf stehend',
+  'wadenheben-sitzend': 'seated calf pure',
+  'waden-beinpresse': 'calf press',
+  'smith-squat': 'smith multipresse',
+  'multipresse-bank': 'smith',
+  'kabel-cross': 'kinesis cable station',
+  'seitheben-kabel': 'kinesis cable',
+  facepull: 'cable',
+  hyperextension: '45 grad back extension',
+};
+for (const [id, a] of Object.entries(TG)) if (EXERCISES[id.trim()] && a) EXERCISES[id.trim()].aliases = `${EXERCISES[id.trim()].aliases || ''} ${a} technogym`.trim();
 
 /** Einheiten-Vorlagen. Reihenfolge = Priorität (kürzere Einheit schneidet hinten ab) */
 export const SESSIONS = {

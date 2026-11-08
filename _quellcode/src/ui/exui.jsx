@@ -6,7 +6,7 @@ import { buildSession, swapOptions, itemFor, setupOf, planIds, isCustom, mgOf, s
 import { ExHistory } from './progress.jsx';
 import { BodyMap, musclesOf } from './bodymap.jsx';
 import { getDay } from '../lib/store.js';
-import { todayKey, n1, uid, norm } from '../lib/util.js';
+import { todayKey, n1, uid, norm, fuzzyIn } from '../lib/util.js';
 import { Sheet, Chip } from './common.jsx';
 import { Repeat, ChevronLeft, Play, CalendarDays, Clock, MapPin, TriangleAlert, ExternalLink, Lightbulb, Check, Gauge, Search, Plus, X, ArrowUp, ArrowDown, SlidersHorizontal, Ban, RotateCcw } from 'lucide-preact';
 import { nav } from './router.js';
@@ -322,8 +322,20 @@ export function ExercisePicker({ title = 'Übung auswählen', exclude = [], sugg
   const all = _pickSorted.filter((e) => !exclude.includes(e.id) && (!restricted || !onlyAvail || isAvailable(e.id)));
   const qn = norm(q);
   const terms = qn.split(' ').filter(Boolean);
-  const match = (e) => (cat === 'alle' || idx[e.id].cat === cat) && terms.every((t) => idx[e.id].hay.includes(t));
-  const list = all.filter(match);
+  const inCat = (e) => cat === 'alle' || idx[e.id].cat === cat;
+  const has = (e, t) => idx[e.id].hay.includes(t);
+  // 1. alle Wörter genau  2. mit Tippfehlern („leiegnd“)  3. die meisten Wörter
+  let list = all.filter((e) => inCat(e) && terms.every((t) => has(e, t)));
+  let near = false;
+  if (!list.length && terms.length) {
+    list = all.filter((e) => inCat(e) && terms.every((t) => has(e, t) || fuzzyIn(idx[e.id].hay, t)));
+    if (!list.length) {
+      const sc = (e) => terms.filter((t) => has(e, t) || fuzzyIn(idx[e.id].hay, t)).length;
+      const best = Math.max(0, ...all.filter(inCat).map(sc));
+      list = best ? all.filter((e) => inCat(e) && sc(e) === best) : [];
+      near = list.length > 0;
+    }
+  }
   // Erst die ersten Treffer zeigen, den Rest einen Moment später – Tippen & Öffnen bleiben flüssig
   const [shown, setShown] = useState(25);
   useEffect(() => setShown(25), [qn, cat, onlyAvail]);
@@ -365,7 +377,12 @@ export function ExercisePicker({ title = 'Übung auswählen', exclude = [], sugg
           </ul>
         </>
       )}
-      <h4 class="sect">{qn || cat !== 'alle' ? `${list.length} Treffer` : `Alle Übungen (${list.length})`}</h4>
+      {terms.length > 0 &&
+        (() => {
+          const inPlan = exclude.filter((id) => EXERCISES[id] && terms.every((t) => idx[id].hay.includes(t) || fuzzyIn(idx[id].hay, t))).map((id) => EXERCISES[id].name);
+          return inPlan.length ? <p class="small pick__inplan">✓ Schon in dieser Einheit: {inPlan.join(', ')}</p> : null;
+        })()}
+      <h4 class="sect">{near ? `Nichts Genaues – ähnliche Übungen (${list.length})` : qn || cat !== 'alle' ? `${list.length} Treffer` : `Alle Übungen (${list.length})`}</h4>
       <ul class="flist">
         {list.slice(0, shown).map((e) => (
           <PickRow key={e.id} e={e} onPick={onPick} />

@@ -133,3 +133,29 @@ export const timeOfDayMeal = (d = new Date()) => {
   if (m >= 1050 && m < 1320) return 'abend';
   return 'snacks';
 };
+
+/** Levenshtein-Abstand mit Abbruch, wenn größer als max (Präfix-tolerant: Wortanfang reicht) */
+export function editDist(a, b, max) {
+  if (Math.abs(a.length - b.length) > max + 2) return max + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  let best = prev[b.length];
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let rowMin = i;
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      rowMin = Math.min(rowMin, cur[j]);
+    }
+    best = Math.min(best, cur[b.length]);
+    if (rowMin > max) return best <= max ? best : max + 1;
+    prev = cur;
+  }
+  return best;
+}
+
+/** Tippfehler-tolerant: steckt t (ab 4 Buchstaben, 1–2 Fehler) am Anfang eines Wortes in h? */
+export function fuzzyIn(h, t) {
+  if (t.length < 4) return false;
+  const max = t.length >= 7 ? 2 : 1;
+  return h.split(/[^a-z0-9]+/).some((w) => w.length >= t.length - max && editDist(w.slice(0, t.length + max), t, max) <= max);
+}
