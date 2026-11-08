@@ -3,14 +3,12 @@ import { useS, S, saveTraining, saveActive, toast, patchDay, openSheet, getDay }
 import { EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName, SPORTS, sportOf, cycleWeek, weekSetup, gameDayForWeek, sessionOf, rotationOf, usesMyPlan, SPORT_PROFILE, TRAIN_GOALS, EQUIP_CATS, EQUIP_PRESETS, FOCUS, LIMIT_AREAS, splitsFor, recommendSplit, fatigueState, goalOf } from '../lib/training.js';
 import { TrainingOptionsCard } from './planeditor.jsx';
 import { BreakCard, SickPanel, CardioPanel, endBreak, breakEmoji } from './breaks.jsx';
-import { ProgressCard, StrengthCharts } from './progress.jsx';
-import { WorkoutHistoryCard } from './wedit.jsx';
 import { weekStart, addDays, isoWeek } from '../lib/util.js';
 import { SESSIONS, ROTATIONS, EXERCISES, SPLITS } from '../lib/exercises.js';
 import { todayKey, uid, n1, fmtShortDate } from '../lib/util.js';
 import { Chip, Seg, Field } from './common.jsx';
-import { OtherTrainingCard, Last7Card, ENERGY } from './form.jsx';
-import { Dumbbell, Play, Check, Settings2, ChevronRight, Pencil, Sparkles, TriangleAlert, Info, Download } from 'lucide-preact';
+import { OtherTrainingCard, ENERGY } from './form.jsx';
+import { Dumbbell, Play, Check, Settings2, ChevronRight, Pencil, Sparkles, TriangleAlert, Info, Download, TrendingUp } from 'lucide-preact';
 import { nav } from './router.js';
 
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
@@ -655,10 +653,16 @@ export function Training() {
           <OtherTrainingCard />
           <h4 class="sect sect--page">Alle Einheiten</h4>
           <PlanOverview setup={setup} onNew={() => (setFresh(true), setEditing(false), window.scrollTo(0, 0))} />
-          <ProgressCard />
-          <StrengthCharts />
-          <WorkoutHistoryCard />
-          <Last7Card />
+          <button class="card cta cta--prog" onClick={() => nav('/woche?tab=training')}>
+            <span class="cta__icon">
+              <TrendingUp size={22} />
+            </span>
+            <span class="cta__text">
+              <b>Fortschritt & Verlauf</b>
+              <span>Kraftverlauf je Übung, Rekorde, letzte Trainings bearbeiten</span>
+            </span>
+            <ChevronRight size={20} class="muted" />
+          </button>
         </>
       )}
     </div>

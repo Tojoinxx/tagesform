@@ -4,7 +4,6 @@ import { useS, boot, setS, S, patchDay, openSheet, toast } from './lib/store.js'
 import { todayKey, lsGet, timeOfDayMeal } from './lib/util.js';
 import { useRoute, nav } from './ui/router.js';
 import { Today } from './ui/today.jsx';
-import { Week } from './ui/week.jsx';
 import { Training } from './ui/training.jsx';
 import { Workout, PlanChangesSheet } from './ui/workout.jsx';
 import { Settings, applyTheme } from './ui/settings.jsx';
@@ -22,6 +21,7 @@ import { PlanEditor, ExOptsSheet } from './ui/planeditor.jsx';
 import { BreakSheet } from './ui/breaks.jsx';
 import { SummarySheet } from './ui/progress.jsx';
 import { WorkoutEditSheet } from './ui/wedit.jsx';
+import { Stats } from './ui/stats.jsx';
 import { importFromHealth } from './lib/health.js';
 import { installViewportFix, blockPinchZoom } from './lib/viewport.js';
 import { PlanLinkSheet, planFromQuery } from './ui/planlink.jsx';
@@ -44,7 +44,7 @@ function SheetHost() {
 
 const TABS = [
   { path: '/', label: 'Heute', Icon: House },
-  { path: '/woche', label: 'Woche', Icon: ChartColumn },
+  { path: '/woche', label: 'Statistik', Icon: ChartColumn },
   { path: '/training', label: 'Training', Icon: Dumbbell },
   { path: '/einstellungen', label: 'Einstellungen', Icon: SettingsIcon },
 ];
@@ -141,10 +141,10 @@ function Shell() {
     if (r.query.do) runAction(r.query);
   }, [r.query.do, r.query.ml, r.query.mahlzeit, r.query.gewicht, r.query.schritte, r.query.aktiv, r.query.schlaf, r.query.x, r.query.split, r.query.lauf]);
   const page =
-    r.path === '/woche' ? <Week query={r.query} key={r.query.last || 'w'} /> : r.path === '/training' || r.path === '/tagesform' ? <Training /> : r.path === '/workout' ? <Workout /> : r.path === '/einheit' ? <SessionPage query={r.query} key={r.query.s} /> : r.path === '/plan' ? <PlanEditor /> : r.path === '/einstellungen' ? <Settings query={r.query} /> : <Today />;
+    r.path === '/woche' ? <Stats query={r.query} /> : r.path === '/training' || r.path === '/tagesform' ? <Training /> : r.path === '/workout' ? <Workout /> : r.path === '/einheit' ? <SessionPage query={r.query} key={r.query.s} /> : r.path === '/plan' ? <PlanEditor /> : r.path === '/einstellungen' ? <Settings query={r.query} /> : <Today />;
   return (
     <>
-      <div class={'tint tint--' + (r.path === '/woche' ? 'woche' : r.path === '/training' || r.path === '/einheit' || r.path === '/plan' ? 'training' : r.path === '/einstellungen' || r.path === '/workout' ? 'none' : 'heute')} aria-hidden="true" />
+      <div class={'tint tint--' + (r.path === '/woche' ? (r.query.tab === 'training' ? 'training' : 'woche') : r.path === '/training' || r.path === '/einheit' || r.path === '/plan' ? 'training' : r.path === '/einstellungen' || r.path === '/workout' ? 'none' : 'heute')} aria-hidden="true" />
       <main class="main">{page}</main>
       <LiveBar path={r.path} />
       <nav class="tabbar" aria-label="Navigation">

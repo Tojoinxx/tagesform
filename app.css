@@ -3426,3 +3426,5 @@ button.wchip { cursor: pointer; }
 @media (prefers-color-scheme: light) { .tint { opacity: .28; } }
 :root[data-theme="light"] .tint { opacity: .28; }
 :root[data-theme='dark'] .tint { opacity: .55; }
+.cta--prog .cta__icon { background: linear-gradient(135deg, #ff8a3d, #f2542d); }
+.stattabs { padding-top: 4px; }
