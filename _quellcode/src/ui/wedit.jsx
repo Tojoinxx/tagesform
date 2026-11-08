@@ -13,7 +13,7 @@ const str = (v) => (v == null || v === '' ? '' : String(v).replace('.', ','));
 /** Satzwerte als Text fürs Bearbeiten (Komma statt Punkt) */
 const toDraft = (w) => ({
   minutes: String(w.minutes || ''),
-  items: (w.items || []).map((it) => ({ ...it, sets: it.sets.map((s) => ({ w: str(s.w), r: str(s.r), rir: s.rir ?? null })) })),
+  items: (w.items || []).map((it) => ({ ...it, sets: it.sets.map((s) => ({ w: str(s.w), r: str(s.r), rir: s.rir ?? null, ...(s.type ? { type: s.type } : {}) })) })),
 });
 
 export function editWorkout(dayKey, id) {
@@ -50,7 +50,7 @@ export function WorkoutEditSheet({ dayKey, id, draft: start }) {
   };
 
   const clean = d.items
-    .map((it) => ({ ...it, sets: it.sets.map((s) => ({ w: num(s.w), r: num(s.r), rir: s.rir ?? null, done: true })).filter((s) => s.r > 0) }))
+    .map((it) => ({ ...it, sets: it.sets.map((s) => ({ w: num(s.w), r: num(s.r), rir: s.rir ?? null, done: true, ...(s.type ? { type: s.type } : {}) })).filter((s) => s.r > 0) }))
     .filter((it) => it.sets.length);
   const minutes = Math.max(1, Math.round(num(d.minutes)) || orig.minutes || 1);
 
@@ -120,7 +120,7 @@ export function WorkoutEditSheet({ dayKey, id, draft: start }) {
             </div>
             {it.sets.map((s, j) => (
               <div class="sets__row" key={j}>
-                <span class="sets__n tnum">{j + 1}</span>
+                <span class={'sets__n tnum' + (s.type ? ' sets__type--' + s.type : '')}>{s.type === 'drop' ? 'D' : s.type === 'fail' ? 'V' : j + 1}</span>
                 <input class="input sets__in" inputMode="decimal" value={s.w} placeholder="–" onInput={(e) => upSet(i, j, { w: e.currentTarget.value })} aria-label={`${it.name} Gewicht Satz ${j + 1}`} />
                 <input class="input sets__in" inputMode="numeric" value={s.r} placeholder="0" onInput={(e) => upSet(i, j, { r: e.currentTarget.value })} aria-label={`${it.name} Wiederholungen Satz ${j + 1}`} />
                 {it.unit !== 'Sek.' ? (

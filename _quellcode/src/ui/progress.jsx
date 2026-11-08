@@ -1,5 +1,5 @@
 import { useS, S, closeSheet, openSheet, saveTraining, toast } from '../lib/store.js';
-import { exHistory, progressStats, recommend, setupOf, sessionOf, buildSession, isAwaySession, e1rm, workoutLog, priMg, MUSCLE_LABEL } from '../lib/training.js';
+import { exHistory, progressStats, recommend, setupOf, sessionOf, buildSession, isAwaySession, e1rm, workoutLog, priMg, MUSCLE_LABEL, strengthLevel } from '../lib/training.js';
 import { LineChart, dateLbl } from './charts.jsx';
 import { useState } from 'preact/hooks';
 import { EXERCISES, SESSIONS } from '../lib/exercises.js';
@@ -67,6 +67,27 @@ export function ExHistory({ exId }) {
           <p class="small muted">{weighted ? 'Geschätztes Maximum (1 Wdh.) aus deinem besten Satz – steigt, wenn du stärker wirst.' : `Beste Leistung pro Einheit (${ex.unit}).`}</p>
         </>
       )}
+      {(() => {
+        const sl = strengthLevel(exId);
+        if (!sl) return null;
+        return (
+          <div class="slevel">
+            <div class="slevel__top">
+              <span class="small muted">Kraftniveau</span>
+              <b>{sl.level}</b>
+              <span class="small muted tnum">{String(Math.round(sl.ratio * 100) / 100).replace('.', ',')}× Körpergewicht</span>
+            </div>
+            <div class="slevel__bar" aria-hidden="true">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <span class={i <= sl.idx ? 'on' : i === sl.idx + 1 ? 'part' : ''} style={i === sl.idx + 1 ? { '--p': Math.round(sl.pctToNext * 100) + '%' } : null} />
+              ))}
+            </div>
+            <p class="small muted">
+              Geschätztes Maximum ~{n1(sl.e1)} kg (letzte 8 Wochen).{sl.next ? ` Bis „${sl.next}“: noch ~${n1(sl.needKg)} kg beim Maximum.` : ' Höchste Stufe 🏆'} Richtwerte für Freizeitsportler, keine Wertung.
+            </p>
+          </div>
+        );
+      })()}
       <p class="small">
         <Trophy size={14} /> Bestleistung: <b>{bestSet.w ? `${kg(bestSet.w)} × ${bestSet.r}` : `${bestSet.r} ${ex.unit}`}</b> <span class="muted">({fmtShortDate(best.date)})</span>
       </p>
@@ -86,7 +107,7 @@ export function ExHistory({ exId }) {
 }
 
 /** Nach dem Training: Rekorde, Vergleich zum letzten Mal, Kennzahlen */
-export function SummarySheet({ name, minutes, sets, volume, prs = [], cmp = [], rir, startedAt, finishedAt, dayKey, id }) {
+export function SummarySheet({ name, minutes, sets, volume, prs = [], cmp = [], rir, startedAt, finishedAt, dayKey, id, fb = [] }) {
   return (
     <Sheet
       title="Training gespeichert"
@@ -140,6 +161,21 @@ export function SummarySheet({ name, minutes, sets, volume, prs = [], cmp = [], 
               </span>
             </div>
           ))}
+        </section>
+      )}
+      {fb.length > 0 && (
+        <section class="card sum__fb">
+          <h3 class="h3row">Aus deinem Feedback</h3>
+          <ul>
+            {fb.map((f) => (
+              <li>
+                {f.d > 0 ? '↑' : f.d < 0 ? '↓' : '•'} <b>{f.label}</b>:{' '}
+                {f.d > 0 ? 'war locker – nächstes Mal 1 Satz mehr pro Übung' : f.d < 0 ? 'war viel – nächstes Mal 1 Satz weniger pro Übung' : 'Sätze bleiben gleich'}
+                {f.v ? <small class="muted"> (gesamt {f.v > 0 ? '+' : ''}{f.v})</small> : null}
+                {f.joint && <small class="warn"> · Gelenkschmerz bei {f.joint}: tausch die Übung nächstes Mal (↻ im Training)</small>}
+              </li>
+            ))}
+          </ul>
         </section>
       )}
       {cmp.length > 0 && (
@@ -325,7 +361,13 @@ export function StrengthCharts() {
               <div class="strength__head">
                 <span class="strength__t">
                   <b>{e.name}</b>
-                  <small class="muted">Letzte {e.pts.length} Trainings · Arbeitsgewicht</small>
+                  <small class="muted">
+                    Letzte {e.pts.length} Trainings · Arbeitsgewicht
+                    {(() => {
+                      const sl = strengthLevel(e.exId);
+                      return sl ? <span class="slevel__tag"> · {sl.level}</span> : null;
+                    })()}
+                  </small>
                 </span>
                 <span class={'strength__d tnum ' + (d > 0 ? 'up' : d < 0 ? 'down' : 'muted')}>
                   {d > 0 ? '+' : d < 0 ? '−' : '±'}

@@ -8,7 +8,7 @@ import { BodyMap, musclesOf } from './bodymap.jsx';
 import { getDay } from '../lib/store.js';
 import { todayKey, n1, uid, norm, fuzzyIn } from '../lib/util.js';
 import { Sheet, Chip } from './common.jsx';
-import { Repeat, ChevronLeft, Play, CalendarDays, Clock, MapPin, TriangleAlert, ExternalLink, Lightbulb, Check, Gauge, Search, Plus, X, ArrowUp, ArrowDown, SlidersHorizontal, Ban, RotateCcw } from 'lucide-preact';
+import { Repeat, ChevronLeft, Play, CalendarDays, Clock, MapPin, TriangleAlert, ExternalLink, Lightbulb, Check, Gauge, Search, Plus, X, ArrowUp, ArrowDown, SlidersHorizontal, Ban, RotateCcw, StickyNote } from 'lucide-preact';
 import { nav } from './router.js';
 
 export function startWorkout(sessionId, items, opts = {}) {
@@ -136,6 +136,45 @@ export function ExCard({ it, onSwap, highlight, compact }) {
 }
 
 /** Detailansicht einer Übung */
+/** Eigene Notiz pro Übung (z. B. „Sitz Stufe 4, Polster Loch 3“) – wird im Training angezeigt */
+export function ExNote({ exId, compact }) {
+  useS();
+  const cur = (S.training && S.training.exNotes && S.training.exNotes[exId]) || '';
+  const [edit, setEdit] = useState(false);
+  const [v, setV] = useState(cur);
+  const save = () => {
+    const t = v.trim().slice(0, 300);
+    saveTraining({ exNotes: { ...((S.training && S.training.exNotes) || {}), [exId]: t || null } });
+    setEdit(false);
+  };
+  if (edit)
+    return (
+      <div class="exnote exnote--edit">
+        <textarea class="input" rows={2} value={v} maxLength={300} placeholder="z. B. Sitz Stufe 4, Rückenpolster Loch 3, Griff breit" onInput={(e) => setV(e.currentTarget.value)} aria-label="Notiz zur Übung" autoFocus />
+        <div class="row">
+          <button class="btn btn--sm" onClick={() => (setV(cur), setEdit(false))}>
+            Abbrechen
+          </button>
+          <button class="btn btn--sm btn--primary" onClick={save}>
+            Notiz speichern
+          </button>
+        </div>
+      </div>
+    );
+  if (!cur)
+    return (
+      <button class={'btn--link small exnote__add' + (compact ? ' exnote__add--c' : '')} onClick={() => (setV(''), setEdit(true))}>
+        <StickyNote size={14} /> Notiz{compact ? '' : ' (z. B. Geräte-Einstellung)'}
+      </button>
+    );
+  return (
+    <button class="exnote" onClick={() => (setV(cur), setEdit(true))} aria-label={`Notiz: ${cur} – bearbeiten`}>
+      <StickyNote size={15} />
+      <span>{cur}</span>
+    </button>
+  );
+}
+
 export function ExerciseSheet({ exId, item }) {
   useS();
   const ex = EXERCISES[exId];
@@ -180,6 +219,7 @@ export function ExerciseSheet({ exId, item }) {
           </button>
         </div>
         {!isAvailable(exId) && <p class="small muted">Hinweis: Passt nicht zu deiner Ausstattung ({equipLabel()}).</p>}
+        <ExNote exId={exId} />
       </div>
       {(() => {
         const mm = musclesOf([exId], mgOf);

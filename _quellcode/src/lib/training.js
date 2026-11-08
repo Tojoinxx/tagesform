@@ -1,5 +1,5 @@
 // Trainingsplan-Logik: Wochenrhythmus um den Vereinssport, 5-Wochen-Zyklus, Anpassung an Tagesform & Schmerzen, Progression
-import { S, getDay } from './store.js';
+import { S, getDay, saveTraining } from './store.js';
 import { EXERCISES, SESSIONS, ROTATIONS, SPLITS, KG_SPLITS } from './exercises.js';
 import { addDays, parseKey, todayKey, weekStart, WD_SHORT, WD_LONG, dateKey } from './util.js';
 
@@ -55,7 +55,7 @@ export const TRAIN_GOALS = [
 export const goalOf = (setup = setupOf()) => TRAIN_GOALS.find((g) => g.id === setup.goal) || TRAIN_GOALS[0];
 
 // ---------- Persönliche Trainings-Optionen ----------
-export const DEFAULT_PREFS = { restMain: 120, restOther: 75, cycle: true, wellness: true, rirPrompt: true, comeback: true, supersets: false, variety: false, warmup: true, autoAdjust: true, keepAwake: true, restSound: true };
+export const DEFAULT_PREFS = { rpFeedback: true, restMain: 120, restOther: 75, cycle: true, wellness: true, rirPrompt: true, comeback: true, supersets: false, variety: false, warmup: true, autoAdjust: true, keepAwake: true, restSound: true };
 /** Gespeicherte Optionen haben Vorrang, sonst Standard des Trainingsziels (null = nicht gesetzt) */
 export function prefsOf() {
   const g = goalOf();
@@ -584,7 +584,8 @@ export function progression(ex, last) {
   if (last.forced) return { w: last.sets[0].w, reps: lo, note: `Dein festgelegtes Gewicht – starte mit ${lo} ${ex.unit}, die App steigert ab hier.` };
   const ws = last.sets.map((s) => s.w || 0);
   const w = Math.max(...ws);
-  const top = last.sets.filter((s) => (s.w || 0) === w);
+  const top0 = last.sets.filter((s) => (s.w || 0) === w);
+  const top = top0.filter((s) => s.type !== 'drop').length ? top0.filter((s) => s.type !== 'drop') : top0;
   const minR = Math.min(...top.map((s) => s.r));
   const maxR = Math.max(...top.map((s) => s.r));
   // Neuer Wiederholungsbereich (z. B. Ziel gewechselt): Gewicht über das geschätzte Maximum umrechnen
@@ -594,7 +595,7 @@ export function progression(ex, last) {
     return { w: nw, reps: lo, note: `Neuer Bereich ${lo}–${hi} Wdh.: Gewicht umgerechnet (${n1x(w)} kg × ${maxR} → ${n1x(nw)} kg × ${lo}). Mit Reserve starten.`, converted: true };
   }
   // RIR (Wdh. in Reserve), falls eingetragen: genauere Steuerung
-  const rated = top.filter((x) => x.rir != null && x.rir !== '');
+  const rated = top.filter((x) => x.rir != null && x.rir !== '' && x.type !== 'fail'); // gewollte Versagenssätze zählen nicht als „zu schwer“
   const tgt = last.targetRir ?? 2;
   const avgRir = rated.length >= Math.ceil(top.length / 2) ? rated.reduce((a, x) => a + Number(x.rir), 0) / rated.length : null;
   const zeros = rated.filter((x) => Number(x.rir) === 0).length;
@@ -784,6 +785,9 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
       sets = Math.min(5, sets + 1);
       focusBonus++;
     }
+    // Feedback der letzten Trainings (Pump, Belastung, Gelenke, Muskelkater): ±Sätze für diesen Muskel
+    const fbAdj = ex.plyo ? 0 : mgAdjOf(priMg(ex.id), cw);
+    if (fbAdj) sets = Math.max(1, Math.min(6, sets + fbAdj));
     let w = pr.w;
     let reps = pr.reps;
     let note = last && last.imported && !pr.up && !pr.converted ? `Startwert aus ${last.imported}: ${String(pr.w).replace('.', ',')} kg – versuch ${reps} saubere Wdh.` : pr.note;
@@ -1329,4 +1333,185 @@ export function parseImport(text) {
   Object.values(d.sessions || {}).forEach((ss) => ss.ex.forEach(([id]) => !EXERCISES[id] && unknown.push(id)));
   if (unknown.length) throw new Error('Unbekannte Übungen: ' + unknown.join(', ') + ' – App bitte erst aktualisieren.');
   return d;
+}
+
+// ---------- Volumen & Erholung je Muskel (Statistik) ----------
+/** Zielbereich harte Sätze pro Woche je Muskelgruppe (Muskelaufbau; bei anderen Zielen etwas weniger) */
+export function volTarget(mg, setup = setupOf()) {
+  const base = { brust: [10, 20], ruecken: [10, 20], schulter: [8, 18], quad: [10, 20], beinbeuger: [6, 14], po: [6, 16], bizeps: [6, 14], trizeps: [6, 14], waden: [6, 12], adduktoren: [4, 10], rumpf: [6, 14] }[mg] || [6, 14];
+  const g = goalOf(setup).id;
+  // Vereinssport belastet die Beine zusätzlich – dort reicht weniger
+  const legs = ['quad', 'beinbeuger', 'po', 'waden', 'adduktoren'].includes(mg) && hasSport(setup) ? 0.7 : 1;
+  const f = (g === 'muskel' ? 1 : g === 'kraft' ? 0.8 : 0.7) * legs;
+  return [Math.max(2, Math.round(base[0] * f)), Math.max(4, Math.round(base[1] * f))];
+}
+
+/** Erledigte harte Sätze je Muskelgruppe in einer Woche (primär 1, Hilfsmuskel ½) */
+export function setsPerMuscle(ws = weekStart(todayKey())) {
+  const we = addDays(ws, 6);
+  const vol = Object.fromEntries(Object.keys(MUSCLE_LABEL).filter((k) => k !== 'nacken').map((k) => [k, 0]));
+  for (const w of workoutLog()) {
+    if (w.date < ws || w.date > we) continue;
+    for (const it of w.items || []) {
+      const n = (it.sets || []).filter((x) => x.done !== false && x.r > 0).length;
+      if (!n) continue;
+      const [pri, sec] = mgOf(it.exId).split('|');
+      (pri || '').split(',').filter((m) => m in vol).forEach((m) => (vol[m] += n));
+      (sec || '').split(',').filter((m) => m in vol).forEach((m) => (vol[m] += n / 2));
+    }
+  }
+  return vol;
+}
+
+/**
+ * Erholung je Muskelgruppe in % (wie Fitbod): jeder harte Satz = 10 Ermüdungspunkte,
+ * die über ~4 Tage linear abklingen (kleine Muskeln 3 Tage). Starker Muskelkater heute deckelt bei 40 %, leichter bei 70 %.
+ */
+export function recoveryMap(now = Date.now()) {
+  const groups = Object.keys(MUSCLE_LABEL);
+  const fat = Object.fromEntries(groups.map((g) => [g, 0]));
+  const small = ['bizeps', 'trizeps', 'waden', 'rumpf', 'nacken', 'adduktoren'];
+  for (const w of workoutLog()) {
+    const t = w.finishedAt && w.finishedAt > 1e11 ? w.finishedAt : parseKey(w.date).getTime() + 18 * 3600e3;
+    const h = (now - t) / 3600e3;
+    if (h > 120) break; // Log ist neueste zuerst
+    if (h < 0) continue;
+    for (const it of w.items || []) {
+      const n = (it.sets || []).filter((x) => x.done !== false && x.r > 0).length;
+      if (!n) continue;
+      const [pri, sec] = mgOf(it.exId).split('|');
+      const add = (m, k) => {
+        if (!(m in fat)) return;
+        const T = small.includes(m) ? 72 : 96;
+        fat[m] += n * k * 10 * Math.max(0, 1 - h / T);
+      };
+      (pri || '').split(',').forEach((m) => add(m, 1));
+      (sec || '').split(',').forEach((m) => add(m, 0.5));
+    }
+  }
+  const sore = soreOf(getDay(todayKey()).form);
+  return Object.fromEntries(
+    groups.map((g) => {
+      let r = Math.round(Math.max(0, 100 - fat[g]));
+      if (sore[g] === 'stark') r = Math.min(r, 40);
+      else if (sore[g] === 'leicht') r = Math.min(r, 70);
+      return [g, r];
+    }),
+  );
+}
+
+/**
+ * Serie: Wochen in Folge, in denen dein Wochenziel (Gym-Einheiten) erreicht wurde.
+ * Die laufende Woche zählt mit, sobald das Ziel erreicht ist, bricht die Serie aber nicht.
+ * Wochen mit Krank/Urlaub (überwiegend) werden übersprungen.
+ */
+export function weekStreak(k = todayKey()) {
+  const setup = setupOf();
+  const goal = Math.max(1, Number(setup.perWeek) || 3);
+  const log = workoutLog();
+  const count = (ws) => {
+    const we = addDays(ws, 6);
+    return log.filter((w) => w.date >= ws && w.date <= we && (w.items || []).length).length;
+  };
+  const paused = (ws) => [0, 1, 2, 3, 4, 5, 6].filter((i) => breakOn(addDays(ws, i))).length >= 4;
+  const cur = weekStart(k);
+  const nowN = count(cur);
+  let n = nowN >= goal ? 1 : 0;
+  let ws = addDays(cur, -7);
+  for (let i = 0; i < 104; i++, ws = addDays(ws, -7)) {
+    if (paused(ws)) continue;
+    if (count(ws) >= goal) n++;
+    else break;
+  }
+  return { weeks: n, goal, thisWeek: nowN };
+}
+
+// ---------- Kraftniveau (Richtwerte wie Strength Level / ExRx: geschätztes 1RM ÷ Körpergewicht) ----------
+const LEVELS = ['Anfänger', 'Einsteiger', 'Fortgeschritten', 'Sehr fortgeschritten', 'Elite'];
+const STD = {
+  bankdruecken: { m: [0.5, 0.75, 1.0, 1.5, 2.0], w: [0.25, 0.5, 0.75, 1.0, 1.5] },
+  kniebeuge: { m: [0.75, 1.25, 1.5, 2.25, 2.75], w: [0.5, 0.75, 1.25, 1.5, 2.0] },
+  kreuzheben: { m: [1.0, 1.5, 2.0, 2.5, 3.0], w: [0.5, 1.0, 1.25, 1.75, 2.5] },
+  'military-press': { m: [0.35, 0.55, 0.75, 1.0, 1.25], w: [0.2, 0.35, 0.5, 0.75, 1.0] },
+  'military-sitzend': { m: [0.35, 0.55, 0.75, 1.0, 1.25], w: [0.2, 0.35, 0.5, 0.75, 1.0] },
+  langhantelrudern: { m: [0.5, 0.75, 1.0, 1.5, 1.75], w: [0.25, 0.4, 0.65, 0.9, 1.2] },
+  'hip-thrust': { m: [0.75, 1.25, 1.75, 2.5, 3.25], w: [0.5, 1.0, 1.5, 2.25, 3.0] },
+  frontkniebeuge: { m: [0.6, 1.0, 1.25, 1.75, 2.25], w: [0.4, 0.6, 1.0, 1.25, 1.6] },
+};
+/** Körpergewicht: letzte Wiegung (bis 30 Tage), sonst Profil */
+export function bodyWeightNow(k = todayKey()) {
+  for (let i = 0; i < 30; i++) {
+    const d = S.days[addDays(k, -i)];
+    if (d && d.weight > 0) return d.weight;
+  }
+  return Number(S.profile && S.profile.weightKg) || null;
+}
+/** { level, idx, ratio, e1, next, needKg } oder null, wenn es keine Richtwerte gibt */
+export function strengthLevel(exId) {
+  const st = STD[exId];
+  const bw = bodyWeightNow();
+  if (!st || !bw) return null;
+  const since = addDays(todayKey(), -56);
+  let e1 = 0;
+  for (const w of workoutLog()) {
+    if (w.date < since) break;
+    const it = (w.items || []).find((x) => x.exId === exId);
+    if (!it) continue;
+    for (const s of it.sets || []) if (s.w > 0 && s.r > 0 && s.r <= 12 && s.done !== false) e1 = Math.max(e1, e1rm(s.w, s.r));
+  }
+  if (!e1) return null;
+  const t = st[S.profile && S.profile.sex === 'w' ? 'w' : 'm'];
+  const ratio = e1 / bw;
+  let idx = -1;
+  t.forEach((v, i) => ratio >= v && (idx = i));
+  const ni = Math.min(t.length - 1, idx + 1);
+  return { level: idx < 0 ? 'Unter Anfänger' : LEVELS[idx], idx, ratio, e1, next: idx < t.length - 1 ? LEVELS[ni] : null, needKg: idx < t.length - 1 ? Math.max(0, t[ni] * bw - e1) : 0, pctToNext: idx < t.length - 1 ? Math.max(0, Math.min(1, (ratio - (t[idx] || 0)) / (t[ni] - (t[idx] || 0)))) : 1 };
+}
+
+// ---------- Feedback nach der Übung (wie RP Hypertrophy): Sätze pro Muskel anpassen ----------
+// training.mgAdj = { mg: { v: -1..+2, c: Zyklus-Nr. } } – gilt nur im laufenden Zyklus, nicht in der Deload-Woche
+export function mgAdjOf(mg, cw = cycleWeek()) {
+  const a = S.training && S.training.mgAdj && S.training.mgAdj[mg];
+  if (!a || !a.v || cw.index === 4 || cw.early) return 0;
+  return a.c === cw.c ? a.v : 0;
+}
+/**
+ * fb = { pump: 'wenig'|'gut'|'stark', work: 'leicht'|'passt'|'viel', joint: 'gut'|'zwickt'|'schmerz' }
+ * sore = Muskelkater-Stufe des Muskels von heute ('leicht'|'stark'|undefined)
+ * → +1 (mehr Sätze), 0, -1 (weniger)
+ */
+export function fbDelta(fb, sore) {
+  if (!fb) return 0;
+  let s = 0;
+  if (fb.work === 'leicht') s += 1;
+  if (fb.work === 'viel') s -= 1.5;
+  if (fb.pump === 'wenig') s += 0.5;
+  if (fb.pump === 'stark') s -= 0.25;
+  if (fb.joint === 'schmerz') s -= 1;
+  if (sore === 'stark') s -= 1;
+  else if (!sore) s += 0.5;
+  return s >= 1 ? 1 : s <= -1 ? -1 : 0;
+}
+/** Nach dem Training: Feedback aller Muskeln verrechnen. Rückgabe: Liste der Änderungen für die Zusammenfassung */
+export function applyFeedback(items, sore = {}) {
+  const cw = cycleWeek();
+  if (cw.index === 4 || cw.early) return [];
+  const cur = { ...((S.training && S.training.mgAdj) || {}) };
+  const out = [];
+  const seen = new Set();
+  for (const it of items) {
+    if (!it.fb || !it.fb.done) continue;
+    const mg = priMg(it.exId);
+    if (!mg || seen.has(mg)) continue;
+    seen.add(mg);
+    const d = fbDelta(it.fb, sore[mg]);
+    const old = mgAdjOf(mg, cw);
+    const v = Math.max(-1, Math.min(2, old + d));
+    if (v !== old) {
+      cur[mg] = { v, c: cw.c };
+      out.push({ mg, label: MUSCLE_LABEL[mg], v, d, joint: it.fb.joint === 'schmerz' ? it.name : null });
+    } else if (it.fb.joint === 'schmerz') out.push({ mg, label: MUSCLE_LABEL[mg], v, d: 0, joint: it.name });
+  }
+  if (out.some((o) => o.d)) saveTraining({ mgAdj: cur });
+  return out;
 }

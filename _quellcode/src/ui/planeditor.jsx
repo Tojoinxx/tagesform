@@ -476,6 +476,7 @@ export function TrainingOptionsCard() {
       <Toggle k="rirPrompt" label="RIR nach jedem Satz abfragen" hint="Aus = du kannst RIR trotzdem über das Batterie-Symbol eintragen." />
       <Toggle k="keepAwake" label="Bildschirm im Training anlassen" hint="Das iPhone geht während des Trainings nicht in den Standby." />
       <Toggle k="restSound" label="Ton am Ende der Pause" hint="Kurzer Doppelton (zusätzlich zur Vibration), solange die App offen ist." />
+      <Toggle k="rpFeedback" label="Kurz-Feedback nach jeder Übung" hint="Pump, Belastung, Gelenke – 3 Tipps. Daraus passt die App die Sätze pro Muskel an (wie RP Hypertrophy): mehr, wenn es locker war, weniger, wenn es zu viel war." />
       <Toggle k="autoAdjust" label="Sätze live anpassen" hint="War ein Satz viel zu schwer (Limit erreicht oder 2+ Wdh. zu wenig), werden die restlichen Sätze leichter – war der erste viel zu leicht, schwerer." />
       <Toggle k="comeback" label="Wiedereinstieg nach Pausen" hint="Nach 10+ Tagen ohne Training erst leichter starten." />
       {ex.length > 0 && (

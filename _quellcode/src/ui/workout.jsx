@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { useS, S, saveActive, clearActive, patchDay, toast, getDay, openSheet, closeSheet, saveTraining } from '../lib/store.js';
 import { EXERCISES } from '../lib/exercises.js';
 import { Sheet } from './common.jsx';
-import { ExAnim } from './exui.jsx';
+import { ExAnim, ExNote } from './exui.jsx';
 import { guideOf } from '../lib/exguide.js';
-import { swapOptions, itemFor, prefsOf, warmupFor, platesFor, limitsOf, liveAdjust, planIds, repsAt } from '../lib/training.js';
+import { swapOptions, itemFor, prefsOf, warmupFor, platesFor, limitsOf, liveAdjust, planIds, repsAt, priMg, MUSCLE_LABEL, applyFeedback, soreOf } from '../lib/training.js';
 import { buildSummary } from './progress.jsx';
 import { uid, n1, num, vibrate, fmtShortDate } from '../lib/util.js';
 import { Check, Plus, Info, Repeat, X, Timer, Flag, Trash2, ExternalLink, Search, Flame } from 'lucide-preact';
@@ -69,6 +69,46 @@ function beep() {
 
 // ---------- Änderungen am Plan erkennen ----------
 /** Was wurde heute anders gemacht als geplant? (selbst getauscht, weggelassen, hinzugefügt, Satzzahl geändert) */
+const FB_Q = [
+  { k: 'pump', q: 'Pump im Muskel', o: [['wenig', 'wenig'], ['gut', 'gut'], ['stark', 'stark']] },
+  { k: 'work', q: 'Belastung insgesamt', o: [['leicht', 'zu leicht'], ['passt', 'passt'], ['viel', 'zu viel']] },
+  { k: 'joint', q: 'Gelenke', o: [['gut', 'gut'], ['zwickt', 'zwickt'], ['schmerz', 'Schmerz']] },
+];
+/** Kurz-Feedback nach der letzten Übung eines Muskels (wie RP Hypertrophy) */
+function FbCard({ it, onSet }) {
+  const fb = it.fb || {};
+  const mg = MUSCLE_LABEL[priMg(it.exId)] || 'Muskel';
+  const set = (k, v) => {
+    const n = { ...fb, [k]: v };
+    onSet({ ...n, done: FB_Q.every((x) => n[x.k]) });
+  };
+  return (
+    <div class="fbcard">
+      <div class="fbcard__h">
+        <b>Kurz-Feedback {mg}</b>
+        <button class="btn--link small muted" onClick={() => onSet({ ...fb, done: true, skipped: true })}>
+          überspringen
+        </button>
+      </div>
+      {FB_Q.map((x) => (
+        <div class="fbcard__q">
+          <span class="small">{x.q}</span>
+          <div class="fbcard__o">
+            {x.o.map(([v, l]) => (
+              <button class={'chip chip--sm' + (fb[x.k] === v ? ' chip--on' : '')} onClick={() => set(x.k, v)}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+      <p class="small muted">Daraus passt die App die Sätze für {mg} beim nächsten Mal an.</p>
+    </div>
+  );
+}
+
+const TYPE_LABEL = { '': 'normaler Satz', drop: 'Dropsatz', fail: 'bis zum Versagen' };
+
 export function planChanges(w) {
   const out = [];
   const plan = planIds(w.sessionId);
@@ -213,6 +253,28 @@ export function Workout() {
     const next = { ...w, items: w.items.map((it, a) => (a !== i ? it : { ...it, sets: it.sets.map((st, b) => (b !== j ? st : { ...st, ...patch })) })) };
     persist(next, immediate);
   };
+  // Feedback fragen: nach der letzten Übung eines Muskels in dieser Einheit, sobald alle Sätze erledigt sind
+  const askFb = (it, i) => {
+    if (prefsOf().rpFeedback === false || it.unit !== 'Wdh.' || it.plyo || (it.fb && it.fb.done) || w.deload) return false;
+    if (!it.sets.length || !it.sets.every((x) => x.done)) return false;
+    const mg = priMg(it.exId);
+    return !w.items.some((x, a) => a > i && priMg(x.exId) === mg);
+  };
+  // Satzart: normal → Dropsatz → bis zum Versagen → normal
+  const cycleType = (i, j) => {
+    const cur = w.items[i].sets[j].type || '';
+    const nt = cur === '' ? 'drop' : cur === 'drop' ? 'fail' : '';
+    const it = w.items[i];
+    // Dropsatz: ca. 20–25 % leichter als der Satz davor vorschlagen
+    const prev = it.sets[j - 1];
+    const pw = prev ? num(prev.w) || it.target.w || 0 : 0;
+    const patch = { type: nt || null };
+    if (nt === 'drop' && pw && !it.sets[j].done) patch.w = Math.max(0, Math.round((pw * 0.75) / (it.inc || 2.5)) * (it.inc || 2.5));
+    if (nt === 'fail') patch.rir = 0;
+    if (nt === '' && it.sets[j].rir === 0 && cur === 'fail') patch.rir = null;
+    upSet(i, j, patch, true);
+    toast(nt === 'drop' ? 'Dropsatz: direkt ohne Pause mit weniger Gewicht weiter' : nt === 'fail' ? 'Satz bis zum Versagen (RIR 0)' : 'Normaler Satz');
+  };
   // Ziel-Wdh. für einen Satz: bei anderem Gewicht als geplant umgerechnet
   const repsFor = (it, st) => (it.adjusted && Number(st.w) === Number(it.adjusted.to) ? null : repsAt(it, st.w)) ?? it.target.reps;
   // Gewicht tippen: gleich in die folgenden offenen Sätze mit demselben Gewicht übernehmen
@@ -251,6 +313,11 @@ export function Workout() {
       return scrollToEx(pi);
     }
     const secs = it.plyo ? Math.max(90, pf.restOther) : it.main ? pf.restMain : pf.restOther;
+    // Nächster Satz ist ein Dropsatz → keine Pause
+    if (it.sets[j + 1] && it.sets[j + 1].type === 'drop' && !it.sets[j + 1].done) {
+      setRest(null, next2);
+      return;
+    }
     const allDone = next.items[i].sets.every((x) => x.done);
     if (!(allDone && i === w.items.length - 1)) setRest({ until: Date.now() + secs * 1000, total: secs }, next2);
     if (pi >= 0 && it.ssPos === 2 && next.items[pi].sets.some((x) => !x.done)) scrollToEx(pi);
@@ -260,6 +327,7 @@ export function Workout() {
     if (!prefsOf().autoAdjust) return base;
     const it = base.items[i];
     const st = it.sets[j];
+    if (st.type) return base; // Drop-/Versagenssätze sind gewollt härter bzw. leichter
     const adj = liveAdjust({ ...it, target: { ...it.target, reps: repsFor(it, st) } }, st, j);
     if (!adj) return base;
     const open = it.sets.map((x, b) => b > j && !x.done && (x.w === '' || x.w == null || Number(x.w) === Number(st.w)));
@@ -343,11 +411,14 @@ export function Workout() {
       comeback: w.comeback || null,
       cycle: w.cycle || null,
       items: w.items
-        .map((it) => ({ exId: it.exId, name: it.name, unit: it.unit, targetRir: it.target ? it.target.rir ?? null : null, ...(it.reset ? { reset: true } : {}), sets: it.sets.filter((x) => x.done).map((x) => ({ w: num(x.w), r: num(x.r), rir: x.rir ?? null, done: true })) }))
+        .map((it) => ({ exId: it.exId, name: it.name, unit: it.unit, targetRir: it.target ? it.target.rir ?? null : null, ...(it.reset ? { reset: true } : {}), ...(it.fb && it.fb.done && !it.fb.skipped ? { fb: it.fb } : {}), sets: it.sets.filter((x) => x.done).map((x) => ({ w: num(x.w), r: num(x.r), rir: x.rir ?? null, done: true, ...(x.type ? { type: x.type } : {}) })) }))
         .filter((it) => it.sets.length),
     };
     // Rekorde & Vergleich vor dem Speichern berechnen (sonst zählt das heutige Training schon mit)
     const summary = buildSummary(w, record);
+    // Feedback verrechnen → Sätze pro Muskel fürs nächste Mal
+    const fbCh = applyFeedback(record.items, soreOf(getDay(w.dayKey).form));
+    if (fbCh.length) summary.fb = fbCh;
     patchDay(w.dayKey, (d) => ({
       workouts: [...(d.workouts || []), record],
       training: [...(d.training || []), { id: uid(), type: 'Kraft', session: w.name, minutes, rpe: w.mode === 'light' ? 'locker' : 'mittel', workoutId: record.id, at: Date.now() }],
@@ -437,6 +508,7 @@ export function Workout() {
                 </button>
               </div>
             )}
+            <ExNote exId={it.exId} compact />
             <div class="wex__info small">
               {lastText(it) ? <span class="muted">Letztes Mal {lastText(it)}</span> : null}
               {it.note && <span class="wex__note">{it.note}</span>}
@@ -507,7 +579,9 @@ export function Workout() {
               {it.sets.map((st, j) => (
                 <>
                 <div class={'sets__row' + (st.done ? ' sets__row--done' : '')}>
-                  <span class="sets__n tnum">{j + 1}</span>
+                  <button class={'sets__n sets__type tnum' + (st.type ? ' sets__type--' + st.type : '')} onClick={() => cycleType(i, j)} aria-label={`Satz ${j + 1}: ${TYPE_LABEL[st.type || '']} – Satzart ändern`}>
+                    {st.type === 'drop' ? 'D' : st.type === 'fail' ? 'V' : j + 1}
+                  </button>
                   <input
                     class="input sets__in"
                     inputMode="decimal"
@@ -567,7 +641,9 @@ export function Workout() {
                   – Satz
                 </button>
               )}
+              {i === 0 && !it.sets.some((x) => x.type) && <span class="small muted sets__typehint">Satznummer antippen → Dropsatz / bis zum Versagen</span>}
             </div>
+            {askFb(it, i) && <FbCard it={it} onSet={(fb) => persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...x, fb })) }, true)} />}
           </section>
         );
       })}

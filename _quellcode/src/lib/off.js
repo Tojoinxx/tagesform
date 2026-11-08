@@ -35,6 +35,8 @@ export function mapProduct(p) {
       f: num(n.fat_100g),
       fiber: num(n.fiber_100g),
       sugar: num(n.sugars_100g),
+      ...(n['saturated-fat_100g'] != null && n['saturated-fat_100g'] !== '' ? { satFat: num(n['saturated-fat_100g']) } : {}),
+      ...(n.salt_100g != null && n.salt_100g !== '' ? { salt: num(n.salt_100g) } : n.sodium_100g != null && n.sodium_100g !== '' ? { salt: Math.round(num(n.sodium_100g) * 2.5 * 100) / 100 } : {}),
     },
     portions,
     fv,

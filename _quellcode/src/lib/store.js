@@ -290,11 +290,26 @@ export function rememberFood(food, grams) {
     uses: (prev.uses || 0) + (grams ? 1 : 0),
     lastUsed: grams ? Date.now() : prev.lastUsed || Date.now(),
     lastGrams: grams ? Math.round(grams) : prev.lastGrams || null,
+    fav: !!prev.fav,
   };
   setS({ foods: { ...S.foods, [id]: { ...doc, id } } });
   backend.set('tf_foods/' + id, doc);
   return { ...doc, id };
 }
+
+/** Favorit an/aus (⭐ oben in der Liste beim Hinzufügen) */
+export function toggleFav(food, grams) {
+  const f = rememberFood(food, 0);
+  const fav = !f.fav;
+  const lg = f.lastGrams || (grams ? Math.round(grams) : null) || (f.portions && f.portions[0] ? f.portions[0].g : 100);
+  setS({ foods: { ...S.foods, [f.id]: { ...f, fav, lastGrams: lg } } });
+  backend.set('tf_foods/' + f.id, { fav, lastGrams: lg });
+  return fav;
+}
+export const favFoods = () =>
+  Object.values(S.foods)
+    .filter((f) => f.fav)
+    .sort((a, b) => (b.uses || 0) - (a.uses || 0));
 
 export function saveMyPortion(food, label, g) {
   const f = rememberFood(food, 0);

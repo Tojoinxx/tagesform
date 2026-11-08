@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import { useS, S, saveTraining, saveActive, toast, patchDay, openSheet, getDay } from '../lib/store.js';
-import { EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName, SPORTS, sportOf, cycleWeek, weekSetup, gameDayForWeek, sessionOf, rotationOf, usesMyPlan, SPORT_PROFILE, TRAIN_GOALS, EQUIP_CATS, EQUIP_PRESETS, FOCUS, LIMIT_AREAS, splitsFor, recommendSplit, fatigueState, goalOf } from '../lib/training.js';
+import { weekStreak, EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName, SPORTS, sportOf, cycleWeek, weekSetup, gameDayForWeek, sessionOf, rotationOf, usesMyPlan, SPORT_PROFILE, TRAIN_GOALS, EQUIP_CATS, EQUIP_PRESETS, FOCUS, LIMIT_AREAS, splitsFor, recommendSplit, fatigueState, goalOf } from '../lib/training.js';
 import { TrainingOptionsCard } from './planeditor.jsx';
 import { BreakCard, SickPanel, CardioPanel, endBreak, breakEmoji } from './breaks.jsx';
 import { weekStart, addDays, isoWeek } from '../lib/util.js';
@@ -603,6 +603,15 @@ export function Training() {
       <header class="pagehead">
         <h1>Training</h1>
         <div class="row">
+          {hasSetup &&
+            (() => {
+              const st = weekStreak();
+              return st.weeks > 0 ? (
+                <button class="streak streak--on" onClick={() => nav('/woche?tab=training')} aria-label={`${st.weeks} Wochen in Folge Wochenziel erreicht`}>
+                  🔥 <b class="tnum">{st.weeks}</b>
+                </button>
+              ) : null;
+            })()}
           <button class="iconbtn" onClick={() => openSheet('algo')} aria-label="So funktioniert der Trainingsplan">
             <Info size={21} />
           </button>

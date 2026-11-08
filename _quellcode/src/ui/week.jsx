@@ -7,6 +7,7 @@ import { addDays, fmtShortDate, n0, n1, todayKey, weekStart, num } from '../lib/
 import { Spinner, NumInput } from './common.jsx';
 import { useAiJob, AiProgress } from './aiprogress.jsx';
 import { LineChart, dateLbl } from './charts.jsx';
+import { weightTrend } from '../lib/body.js';
 import { FormCheckCard } from './formcheck.jsx';
 import { ChevronLeft, ChevronRight, PenLine, Flame, Beef, Droplet, Apple, GlassWater, Wheat, Candy, HeartPulse, Sparkles, Check, Scale, RefreshCw } from 'lucide-preact';
 import { nav } from './router.js';
@@ -183,25 +184,25 @@ export function Week({ query }) {
           </div>
         </div>
         {(() => {
-          // Gewichtsverlauf: die letzten 7 Messungen bis Ende dieser Woche
+          // Gewichtsverlauf: Trend (geglättet) + Waage, die letzten 7 Messungen bis Ende dieser Woche
           const end = addDays(start, 6);
-          const pts = Object.keys(S.days)
-            .filter((k) => k <= end && S.days[k] && S.days[k].weight > 0)
-            .sort()
-            .slice(-7)
-            .map((k) => ({ k, v: S.days[k].weight }));
+          const pts = weightTrend(120, end).slice(-7);
           if (pts.length < 2) return null;
-          const d = pts[pts.length - 1].v - pts[0].v;
+          const d = pts[pts.length - 1].t - pts[0].t;
           return (
             <div class="weight__chart">
               <p class="small muted">
-                Letzte {pts.length} Messungen ·{' '}
+                Trend {n1(pts[pts.length - 1].t)} kg ·{' '}
                 <b class="tnum">
                   {d > 0 ? '+' : d < 0 ? '−' : '±'}
                   {n1(Math.abs(d))} kg
-                </b>
+                </b>{' '}
+                über {pts.length} Messungen ·{' '}
+                <button class="btn--link small" onClick={() => nav('/woche?tab=koerper')}>
+                  Mehr im Bereich Körper →
+                </button>
               </p>
-              <LineChart values={pts.map((p) => p.v)} labels={pts.map((p) => dateLbl(p.k))} fmt={n1} h={140} />
+              <LineChart values={pts.map((p) => p.t)} raw={pts.map((p) => p.w)} labels={pts.map((p) => dateLbl(p.k))} fmt={n1} h={140} />
             </div>
           );
         })()}

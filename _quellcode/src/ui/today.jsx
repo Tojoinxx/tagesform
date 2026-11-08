@@ -1,4 +1,6 @@
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
+import { maybeUpdateTdee } from '../lib/body.js';
+import { saveProfile, toast } from '../lib/store.js';
 import { useS, getDay, patchDay, openSheet, setS } from '../lib/store.js';
 import { daySums, mealSums, MEALS, targetsOf } from '../lib/nutrition.js';
 import { addDays, fmtDayTitle, fmtShortDate, liters, n0, todayKey, parseKey, n1, isoWeek, weekStart, WD_SHORT } from '../lib/util.js';
@@ -90,8 +92,50 @@ function DishRow({ dish, entries, dayKey }) {
   );
 }
 
+/** Ballaststoffe (Ziel), Zucker, gesättigte Fette, Salz (Obergrenzen) – wie MCI */
+function MicroRow({ sum, t }) {
+  const items = [
+    { k: 'fiber', label: 'Ballaststoffe', v: sum.fiber, max: t.fiber || 30, min: true },
+    { k: 'sugar', label: 'Zucker', v: sum.sugar, max: t.sugar || 50 },
+    { k: 'satFat', label: 'Ges. Fette', v: sum.satFat, max: t.satFat || 22, known: sum.knownSat },
+    { k: 'salt', label: 'Salz', v: sum.salt, max: t.salt || 6, known: sum.knownSalt },
+  ];
+  const partial = sum.count && (sum.knownSat < sum.count || sum.knownSalt < sum.count);
+  return (
+    <div class="micro">
+      {items.map((m) => {
+        const over = !m.min && m.v > m.max;
+        const pct = Math.min(100, (m.v / m.max) * 100);
+        const none = m.known === 0;
+        return (
+          <div class={'micro__i' + (over ? ' micro__i--over' : '') + (m.min && m.v >= m.max ? ' micro__i--ok' : '')}>
+            <span class="micro__l">{m.label}</span>
+            <span class="micro__v tnum">
+              {none ? '–' : m.k === 'salt' ? n1(m.v) : n0(m.v)}
+              <small> / {m.min ? '' : 'max '}{m.k === 'salt' ? n1(m.max) : n0(m.max)} g</small>
+            </span>
+            <span class="micro__bar">
+              <span style={{ width: (none ? 0 : pct) + '%' }} />
+            </span>
+          </div>
+        );
+      })}
+      {partial ? <p class="micro__note small muted">Salz & ges. Fette nur, wo das Produkt die Werte liefert (Barcode, Etikett, KI).</p> : null}
+    </div>
+  );
+}
+
 export function Today() {
   const s = useS();
+  // Gelernter Verbrauch: einmal pro Woche aktualisieren (wenn eingeschaltet)
+  useEffect(() => {
+    if (!s.profile || !s.profile.tdeeAuto) return;
+    const t0 = setTimeout(() => {
+      const r = maybeUpdateTdee(saveProfile);
+      if (r && r.prev && Math.abs(r.kcal - r.prev) >= 50) toast(`Dein Verbrauch wurde neu berechnet: ~${r.kcal.toLocaleString('de-DE')} kcal (vorher ${r.prev.toLocaleString('de-DE')})`);
+    }, 2500);
+    return () => clearTimeout(t0);
+  }, [s.profile && s.profile.tdeeAuto]);
   const k = s.day;
   const day = getDay(k);
   const t = targetsOf(s.profile);
@@ -142,6 +186,7 @@ export function Today() {
           <Bar label="Kohlenhydrate" value={sum.c} max={t.c} color="var(--c)" />
           <Bar label="Fett" value={sum.f} max={t.f} color="var(--f)" />
         </div>
+        {sum.count > 0 && <MicroRow sum={sum} t={t} />}
         {(healthOn() || day.health) && (
           <div class="healthrow">
             <span class="small muted">

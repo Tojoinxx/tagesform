@@ -49,7 +49,9 @@ export function calcTargets(p) {
   const act = ACTIVITY.find((a) => a.id === p.activity) || ACTIVITY[1];
   const days = Math.max(0, Math.min(7, num(p.trainingDays)));
   const pal = act.pal + days * 0.035;
-  const tdee = bmr(p) * pal;
+  // Gelernter Verbrauch (aus Gewichtstrend & Gegessenem) hat Vorrang vor der Formel, wenn eingeschaltet
+  const learned = p.tdeeAuto && p.tdeeLearned && p.tdeeLearned.kcal > 1000 ? p.tdeeLearned.kcal : null;
+  const tdee = learned || bmr(p) * pal;
   let factor = 1;
   if (p.goal === 'abnehmen') factor = p.pace === 'normal' ? 0.82 : 0.9;
   if (p.goal === 'aufbauen') factor = p.pace === 'normal' ? 1.1 : 1.05;
@@ -60,7 +62,7 @@ export function calcTargets(p) {
   const fat = Math.round(Math.max(w * 0.8, (kcal * 0.28) / 9));
   const carbs = Math.max(50, Math.round((kcal - prot * 4 - fat * 9) / 4));
   const water = Math.max(2000, Math.round((w * 35 + (days >= 3 ? 500 : 250)) / 250) * 250);
-  return { kcal, p: prot, c: carbs, f: fat, water, fiber: 30, fv: 5, tdee: Math.round(tdee) };
+  return { kcal, p: prot, c: carbs, f: fat, water, fiber: 30, fv: 5, tdee: Math.round(tdee), tdeeSrc: learned ? 'gelernt' : 'formel', sugar: Math.round((kcal * 0.1) / 4), salt: 6, satFat: Math.round((kcal * 0.1) / 9) };
 }
 
 export const targetsOf = (profile) => {
@@ -82,6 +84,8 @@ export function scale(per100, grams) {
     f: r1(num(per100.f) * k),
     fiber: r1(num(per100.fiber) * k),
     sugar: r1(num(per100.sugar) * k),
+    ...(per100.satFat != null ? { satFat: r1(num(per100.satFat) * k) } : {}),
+    ...(per100.salt != null ? { salt: Math.round(num(per100.salt) * k * 100) / 100 } : {}),
   };
 }
 
@@ -109,7 +113,7 @@ export function makeEntry({ food, grams, meal, source, id }) {
 }
 
 export function daySums(day) {
-  const s = { kcal: 0, p: 0, c: 0, f: 0, fiber: 0, sugar: 0, fv: 0, count: 0 };
+  const s = { kcal: 0, p: 0, c: 0, f: 0, fiber: 0, sugar: 0, satFat: 0, salt: 0, fv: 0, count: 0, knownSat: 0, knownSalt: 0 };
   const entries = (day && day.entries) || [];
   for (const e of entries) {
     s.kcal += num(e.kcal);
@@ -118,6 +122,8 @@ export function daySums(day) {
     s.f += num(e.f);
     s.fiber += num(e.fiber);
     s.sugar += num(e.sugar);
+    if (e.satFat != null) (s.satFat += num(e.satFat)), s.knownSat++;
+    if (e.salt != null) (s.salt += num(e.salt)), s.knownSalt++;
     s.fv += num(e.fv);
     s.count++;
   }

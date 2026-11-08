@@ -12,6 +12,8 @@ const per100Of = (o) => ({
   f: num(o && o.f),
   fiber: num(o && o.fiber),
   sugar: num(o && o.sugar),
+  ...(o && o.satFat != null && o.satFat !== '' ? { satFat: num(o.satFat) } : {}),
+  ...(o && o.salt != null && o.salt !== '' ? { salt: num(o.salt) } : {}),
 });
 
 const prefsText = () => {
@@ -35,7 +37,7 @@ export async function analyzeMealPhoto(image, note, opts = {}) {
 - confidence: "hoch", "mittel" oder "niedrig".
 ${note ? 'Hinweis des Nutzers zum Essen: ' + note : ''}
 Antworte NUR mit JSON in genau diesem Format:
-{"title":"kurzer Name der Mahlzeit","items":[{"name":"Reis, gekocht","grams":180,"per100":{"kcal":130,"p":2.7,"c":28,"f":0.3,"fiber":0.4,"sugar":0.1},"fruitVeg":false,"confidence":"mittel"}],"hint":"Kurzer Tipp, falls etwas unsicher ist (z. B. Menge Öl), sonst leer"}`;
+{"title":"kurzer Name der Mahlzeit","items":[{"name":"Reis, gekocht","grams":180,"per100":{"kcal":130,"p":2.7,"c":28,"f":0.3,"fiber":0.4,"sugar":0.1,"satFat":0.1,"salt":0},"fruitVeg":false,"confidence":"mittel"}],"hint":"Kurzer Tipp, falls etwas unsicher ist (z. B. Menge Öl), sonst leer"}`;
   const j = await askJson(prompt, { image, temperature: 0.2, ...opts });
   const items = (j.items || [])
     .map((it) => ({
@@ -62,7 +64,7 @@ ${audio ? '- Schreib zuerst wörtlich auf, was gesagt wurde (transcript).\n' : '
 - meal: falls eine Mahlzeit genannt wird ("zum Frühstück", "mittags", "als Snack"): "fruehstueck", "mittag", "abend" oder "snacks", sonst leer.
 ${text ? 'Text: "' + String(text).slice(0, 1500) + '"' : ''}
 Antworte NUR mit JSON in genau diesem Format:
-{"transcript":"${audio ? 'was gesagt wurde' : ''}","title":"kurzer Name der Mahlzeit","meal":"","items":[{"name":"Vollkornbrot","grams":100,"per100":{"kcal":220,"p":7,"c":40,"f":1.5,"fiber":7,"sugar":3},"fruitVeg":false,"confidence":"hoch"}],"hint":"Kurzer Hinweis, falls etwas unklar war, sonst leer"}`;
+{"transcript":"${audio ? 'was gesagt wurde' : ''}","title":"kurzer Name der Mahlzeit","meal":"","items":[{"name":"Vollkornbrot","grams":100,"per100":{"kcal":220,"p":7,"c":40,"f":1.5,"fiber":7,"sugar":3,"satFat":0.3,"salt":1.1},"fruitVeg":false,"confidence":"hoch"}],"hint":"Kurzer Hinweis, falls etwas unklar war, sonst leer"}`;
   const j = await askJson(prompt, { image: audio, temperature: 0.2, ...opts });
   const items = (j.items || [])
     .map((it) => ({
@@ -99,7 +101,7 @@ Gib die wahrscheinlichste Bedeutung als EIN Lebensmittel/Gericht/Produkt zurück
 - confidence: "hoch" (bekanntes Produkt mit festen Werten), "mittel" oder "niedrig" (sehr unterschiedlich je nach Zubereitung)
 - alternatives: bis zu 2 andere mögliche Bedeutungen als kurze Namen (z. B. bei mehrdeutigen Begriffen), sonst leer
 Antworte NUR mit JSON:
-{"name":"Name auf Deutsch","brand":"Marke oder leer","unit":"g","per100":{"kcal":0,"p":0,"c":0,"f":0,"fiber":0,"sugar":0},"portions":[{"label":"1 Stück","g":100}],"fruitVeg":false,"confidence":"mittel","alternatives":[]}`;
+{"name":"Name auf Deutsch","brand":"Marke oder leer","unit":"g","per100":{"kcal":0,"p":0,"c":0,"f":0,"fiber":0,"sugar":0,"satFat":0,"salt":0},"portions":[{"label":"1 Stück","g":100}],"fruitVeg":false,"confidence":"mittel","alternatives":[]}`;
   const j = await askJson(prompt, { temperature: 0.2, ...opts });
   const per100 = per100Of(j.per100);
   if (!(per100.kcal > 0 || per100.p + per100.c + per100.f > 0)) throw Object.assign(new Error('keine Werte'), { friendly: 'Dazu konnte die KI keine Werte schätzen.' });
@@ -131,7 +133,7 @@ export async function readLabel(image, opts = {}) {
 Gib die Werte PRO 100 g bzw. 100 ml an. Steht nur ein Wert pro Portion da, rechne auf 100 g um.
 Energie in kcal (nicht kJ). Wenn der Produktname oder die Marke sichtbar ist, gib sie an.
 Antworte NUR mit JSON:
-{"name":"Produktname oder leer","brand":"Marke oder leer","unit":"g oder ml","per100":{"kcal":0,"p":0,"c":0,"f":0,"fiber":0,"sugar":0},"servingG":0,"packageG":0,"readable":true}`;
+{"name":"Produktname oder leer","brand":"Marke oder leer","unit":"g oder ml","per100":{"kcal":0,"p":0,"c":0,"f":0,"fiber":0,"sugar":0,"satFat":0,"salt":0},"servingG":0,"packageG":0,"readable":true}`;
   const j = await askJson(prompt, { image, temperature: 0, ...opts });
   return {
     name: j.name || '',
@@ -188,7 +190,7 @@ ${exclude.length ? '- Bitte NICHT nochmal vorschlagen: ' + exclude.join(', ') : 
 Mach genau 3 unterschiedliche Vorschläge, die gut zu den offenen Werten passen (wenn kaum noch Kalorien offen sind: leichte Optionen; wenn viel Eiweiß fehlt: eiweißreich).
 Jeder Vorschlag besteht aus 1–4 Zutaten mit Grammangabe und Nährwerten pro 100 g.
 Antworte NUR mit JSON:
-{"suggestions":[{"title":"Rührei mit Paprika und Brot","why":"kurze Begründung (max. 15 Wörter)","minutes":10,"items":[{"name":"Rührei","grams":130,"per100":{"kcal":170,"p":11,"c":1.5,"f":13,"fiber":0,"sugar":1},"fruitVeg":false}]}]}`;
+{"suggestions":[{"title":"Rührei mit Paprika und Brot","why":"kurze Begründung (max. 15 Wörter)","minutes":10,"items":[{"name":"Rührei","grams":130,"per100":{"kcal":170,"p":11,"c":1.5,"f":13,"fiber":0,"sugar":1,"satFat":4,"salt":0.8},"fruitVeg":false}]}]}`;
   const j = await askJson(prompt, { temperature: 0.8, ...opts });
   return (j.suggestions || []).slice(0, 3).map((sg) => {
     const items = (sg.items || []).map((it) => ({

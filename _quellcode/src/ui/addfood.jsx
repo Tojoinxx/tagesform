@@ -13,17 +13,19 @@ import {
   recentFoods,
   getDay,
   deleteFood,
+  toggleFav,
+  favFoods,
 } from '../lib/store.js';
 import { MEALS, makeEntry, scale, mealLabel, fvFor } from '../lib/nutrition.js';
 import { BASE_FOODS } from '../lib/basefoods.js';
-import { norm, n0, num, uid, downscaleImage, vibrate, timeOfDayMeal, editDist } from '../lib/util.js';
+import { norm, n0, num, uid, downscaleImage, vibrate, timeOfDayMeal, editDist, addDays } from '../lib/util.js';
 import * as OFF from '../lib/off.js';
 import { hasAi, aiErrText } from '../lib/ai.js';
 import { analyzeMealPhoto, analyzeMealSpeech, readLabel, estimateFood } from '../lib/aitasks.js';
 import { canRecord, startRecording, micErrText } from '../lib/voice.js';
 import { useAiJob, AiProgress } from './aiprogress.jsx';
 import { Sheet, Chip, Stepper, Spinner, Macros, Field, NumInput, Seg } from './common.jsx';
-import { Camera, ScanBarcode, ScanText, Keyboard, Search, Plus, Star, Trash2, Globe, Check, Sparkles, Info, RefreshCw, Mic, Square, X, ChevronDown } from 'lucide-preact';
+import { Camera, ScanBarcode, ScanText, Keyboard, Search, Plus, Star, Trash2, Globe, Check, Sparkles, Info, RefreshCw, Mic, Square, X, ChevronDown, Copy } from 'lucide-preact';
 import { nav } from './router.js';
 
 export function MealChips({ meal, setMeal }) {
@@ -90,10 +92,15 @@ const withSaved = (food) => {
   return saved ? { ...food, ...saved, per100: saved.per100 || food.per100, portions: food.portions && food.portions.length ? food.portions : saved.portions } : food;
 };
 
-function FoodRow({ food, onPick, onQuick }) {
+function FoodRow({ food, onPick, onQuick, star }) {
   const v = food.per100;
   return (
     <li class="frow">
+      {star && (
+        <button class={'frow__star' + (food.fav ? ' on' : '')} onClick={() => toast(toggleFav(food) ? `⭐ ${food.name} ist jetzt Favorit` : `${food.name} kein Favorit mehr`)} aria-label={food.fav ? `${food.name}: Favorit entfernen` : `${food.name} als Favorit merken`}>
+          <Star size={17} />
+        </button>
+      )}
       <button class="frow__main" onClick={() => onPick(food)}>
         <span class="frow__name">
           {food.name}
@@ -137,6 +144,51 @@ function PhotoButton({ icon, label, onFile, capture }) {
   );
 }
 
+// =============== Mahlzeit kopieren ===============
+/** Dieselbe Mahlzeit von den letzten Tagen mit einem Tipp übernehmen (wie MacroFactor) */
+function CopyMeal({ dayKey, meal }) {
+  const opts = [];
+  for (let i = 1; i <= 7 && opts.length < 3; i++) {
+    const k = addDays(dayKey, -i);
+    const es = ((S.days[k] && S.days[k].entries) || []).filter((e) => e.meal === meal);
+    if (es.length) opts.push({ k, i, es, kcal: es.reduce((a, e) => a + (Number(e.kcal) || 0), 0) });
+  }
+  if (!opts.length) return null;
+  const copy = (o) => {
+    const gid = {};
+    addEntries(
+      dayKey,
+      o.es.map(({ id, at, ...e }) => {
+        // zusammengehörige Gerichte (KI-Mahlzeiten) bleiben zusammen
+        const dish = e.dish ? { ...e.dish, id: gid[e.dish.id] || (gid[e.dish.id] = uid()) } : undefined;
+        return { ...e, ...(dish ? { dish } : {}), at: Date.now() };
+      }),
+    );
+    vibrate();
+    toast(`${o.es.length} ${o.es.length === 1 ? 'Eintrag' : 'Einträge'} übernommen (${n0(o.kcal)} kcal)`);
+    closeSheet();
+  };
+  const name = (i) => (i === 1 ? 'Gestern' : i === 2 ? 'Vorgestern' : `Vor ${i} Tagen`);
+  return (
+    <>
+      <h4 class="sect">{mealLabel(meal)} übernehmen</h4>
+      <div class="copymeal">
+        {opts.map((o) => (
+          <button class="copymeal__b" onClick={() => copy(o)}>
+            <b>
+              <Copy size={14} /> {name(o.i)}
+            </b>
+            <small class="muted">
+              {o.es.slice(0, 2).map((e) => e.name).join(', ')}
+              {o.es.length > 2 ? ` +${o.es.length - 2}` : ''} · {n0(o.kcal)} kcal
+            </small>
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
 // =============== Hinzufügen ===============
 export function AddSheet({ dayKey, meal: meal0, q: q0 = '' }) {
   useS();
@@ -145,6 +197,7 @@ export function AddSheet({ dayKey, meal: meal0, q: q0 = '' }) {
   const [off, setOff] = useState({ status: 'idle', list: [], q: '' });
   const local = useMemo(() => localSearch(q), [q, S.foods]);
   const recents = recentFoods(25);
+  const favs = favFoods();
   const back = { name: 'add', props: { dayKey, meal, q } };
 
   const pick = (food) => openSheet('amount', { dayKey, meal, food: withSaved(food), back });
@@ -232,12 +285,23 @@ export function AddSheet({ dayKey, meal: meal0, q: q0 = '' }) {
 
       {!q.trim() && (
         <>
+          <CopyMeal dayKey={dayKey} meal={meal} />
+          {favs.length > 0 && (
+            <>
+              <h4 class="sect">⭐ Favoriten</h4>
+              <ul class="flist">
+                {favs.map((f) => (
+                  <FoodRow food={f} onPick={pick} onQuick={quick} star />
+                ))}
+              </ul>
+            </>
+          )}
           {recents.length > 0 ? (
             <>
               <h4 class="sect">Zuletzt gegessen</h4>
               <ul class="flist">
-                {recents.map((f) => (
-                  <FoodRow food={f} onPick={pick} onQuick={quick} />
+                {recents.filter((f) => !f.fav).map((f) => (
+                  <FoodRow food={f} onPick={pick} onQuick={quick} star />
                 ))}
               </ul>
             </>
@@ -648,6 +712,8 @@ export function CustomSheet({ dayKey, meal: meal0, barcode, prefill = {}, back, 
     f: p100.f ?? '',
     fiber: p100.fiber ?? '',
     sugar: p100.sugar ?? '',
+    satFat: p100.satFat ?? '',
+    salt: p100.salt ?? '',
     serving: prefill.servingG || '',
     unit: prefill.unit || 'g',
     fv: false,
@@ -673,7 +739,7 @@ export function CustomSheet({ dayKey, meal: meal0, barcode, prefill = {}, back, 
         name: f.name.trim(),
         brand: f.brand.trim(),
         barcode: barcode || null,
-        per100: { kcal: Math.round(num(f.kcal)), p: num(f.p), c: num(f.c), f: num(f.f), fiber: num(f.fiber), sugar: num(f.sugar) },
+        per100: { kcal: Math.round(num(f.kcal)), p: num(f.p), c: num(f.c), f: num(f.f), fiber: num(f.fiber), sugar: num(f.sugar), ...(String(f.satFat) !== '' ? { satFat: num(f.satFat) } : {}), ...(String(f.salt) !== '' ? { salt: num(f.salt) } : {}) },
         portions,
         unit: f.unit,
         fv: f.fv,
@@ -755,6 +821,12 @@ export function CustomSheet({ dayKey, meal: meal0, barcode, prefill = {}, back, 
             <Field label="davon Zucker">
               <NumInput value={f.sugar} onChange={up('sugar')} suffix="g" placeholder="0" />
             </Field>
+            <Field label="davon gesättigte Fettsäuren">
+              <NumInput value={f.satFat} onChange={up('satFat')} suffix="g" placeholder="–" />
+            </Field>
+            <Field label="Salz">
+              <NumInput value={f.salt} onChange={up('salt')} suffix="g" placeholder="–" />
+            </Field>
             <Field label="Portionsgröße (optional)">
               <NumInput value={f.serving} onChange={up('serving')} suffix={f.unit} placeholder="z. B. 150" />
             </Field>
@@ -785,6 +857,8 @@ const NUTR = [
   ['f', 'Fett', 'g'],
   ['fiber', 'Ballaststoffe', 'g'],
   ['sugar', 'davon Zucker', 'g'],
+  ['satFat', 'ges. Fettsäuren', 'g'],
+  ['salt', 'Salz', 'g'],
 ];
 const r1n = (v) => Math.round(v * 10) / 10;
 

@@ -93,7 +93,7 @@ function Hair({ female, back }) {
  * sex: 'm' | 'w'; primary/secondary: Muskelgruppen hervorheben; sore: { gruppe: 'leicht'|'stark' };
  * pulse: Gruppen, die blinken; onTap(gruppe) macht die Muskeln antippbar
  */
-export function BodyMap({ sex = 'm', primary = [], secondary = [], sore = {}, pulse = [], onTap, size = 'md', labels = true }) {
+export function BodyMap({ sex = 'm', primary = [], secondary = [], sore = {}, pulse = [], onTap, size = 'md', labels = true, fills = null }) {
   const female = sex === 'w';
   const clsOf = (mg) => {
     let c = 'bm__m';
@@ -106,7 +106,7 @@ export function BodyMap({ sex = 'm', primary = [], secondary = [], sore = {}, pu
     return c;
   };
   const shape = (mg, pts, key) => [1, -1].map((side) => (
-    <path key={key + side} d={smooth(pts.map(tx(female, side)))} class={clsOf(mg)} onClick={onTap ? () => onTap(mg) : undefined}>
+    <path key={key + side} d={smooth(pts.map(tx(female, side)))} class={clsOf(mg)} style={fills && fills[mg] ? { fill: fills[mg] } : null} onClick={onTap ? () => onTap(mg) : undefined}>
       <title>{MUSCLE_LABEL[mg]}</title>
     </path>
   ));
@@ -124,7 +124,7 @@ export function BodyMap({ sex = 'm', primary = [], secondary = [], sore = {}, pu
               const w = 10.5 * k;
               const x = side > 0 ? CX + 1.2 : CX - 1.2 - w;
               return (
-                <rect key={'a' + i + side} x={x} y={y0} width={w} height={y1 - y0 - 1.5} rx={3.5} class={clsOf('rumpf')} onClick={onTap ? () => onTap('rumpf') : undefined}>
+                <rect key={'a' + i + side} x={x} y={y0} width={w} height={y1 - y0 - 1.5} rx={3.5} class={clsOf('rumpf')} style={fills && fills.rumpf ? { fill: fills.rumpf } : null} onClick={onTap ? () => onTap('rumpf') : undefined}>
                   <title>{MUSCLE_LABEL.rumpf}</title>
                 </rect>
               );
