@@ -144,6 +144,7 @@ function Shell() {
     r.path === '/woche' ? <Week query={r.query} key={r.query.last || 'w'} /> : r.path === '/training' || r.path === '/tagesform' ? <Training /> : r.path === '/workout' ? <Workout /> : r.path === '/einheit' ? <SessionPage query={r.query} key={r.query.s} /> : r.path === '/plan' ? <PlanEditor /> : r.path === '/einstellungen' ? <Settings query={r.query} /> : <Today />;
   return (
     <>
+      <div class={'tint tint--' + (r.path === '/woche' ? 'woche' : r.path === '/training' || r.path === '/einheit' || r.path === '/plan' ? 'training' : r.path === '/einstellungen' || r.path === '/workout' ? 'none' : 'heute')} aria-hidden="true" />
       <main class="main">{page}</main>
       <LiveBar path={r.path} />
       <nav class="tabbar" aria-label="Navigation">

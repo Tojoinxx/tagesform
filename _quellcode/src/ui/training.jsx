@@ -3,7 +3,7 @@ import { useS, S, saveTraining, saveActive, toast, patchDay, openSheet, getDay }
 import { EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName, SPORTS, sportOf, cycleWeek, weekSetup, gameDayForWeek, sessionOf, rotationOf, usesMyPlan, SPORT_PROFILE, TRAIN_GOALS, EQUIP_CATS, EQUIP_PRESETS, FOCUS, LIMIT_AREAS, splitsFor, recommendSplit, fatigueState, goalOf } from '../lib/training.js';
 import { TrainingOptionsCard } from './planeditor.jsx';
 import { BreakCard, SickPanel, CardioPanel, endBreak, breakEmoji } from './breaks.jsx';
-import { ProgressCard } from './progress.jsx';
+import { ProgressCard, StrengthCharts } from './progress.jsx';
 import { WorkoutHistoryCard } from './wedit.jsx';
 import { weekStart, addDays, isoWeek } from '../lib/util.js';
 import { SESSIONS, ROTATIONS, EXERCISES, SPLITS } from '../lib/exercises.js';
@@ -656,6 +656,7 @@ export function Training() {
           <h4 class="sect sect--page">Alle Einheiten</h4>
           <PlanOverview setup={setup} onNew={() => (setFresh(true), setEditing(false), window.scrollTo(0, 0))} />
           <ProgressCard />
+          <StrengthCharts />
           <WorkoutHistoryCard />
           <Last7Card />
         </>

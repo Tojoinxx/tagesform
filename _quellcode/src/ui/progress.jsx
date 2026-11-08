@@ -1,9 +1,11 @@
 import { useS, S, closeSheet, openSheet, saveTraining, toast } from '../lib/store.js';
-import { exHistory, progressStats, recommend, setupOf, sessionOf, buildSession, isAwaySession, e1rm } from '../lib/training.js';
+import { exHistory, progressStats, recommend, setupOf, sessionOf, buildSession, isAwaySession, e1rm, workoutLog, priMg, MUSCLE_LABEL } from '../lib/training.js';
+import { LineChart, dateLbl } from './charts.jsx';
+import { useState } from 'preact/hooks';
 import { EXERCISES, SESSIONS } from '../lib/exercises.js';
 import { fmtShortDate, n1, n0, isoWeek, todayKey } from '../lib/util.js';
 import { Sheet } from './common.jsx';
-import { Trophy, TrendingUp, Timer, Layers, Dumbbell, ChevronRight, Play, Flame, Pencil } from 'lucide-preact';
+import { Trophy, TrendingUp, Timer, Layers, Dumbbell, ChevronRight, Play, Flame, Pencil, ChevronDown } from 'lucide-preact';
 import { nav } from './router.js';
 import { healthOn, sendWorkoutToHealth } from '../lib/health.js';
 import { estMinutes } from './exui.jsx';
@@ -254,27 +256,92 @@ export function ProgressCard() {
           </div>
         ))}
       </div>
-      {st.trend.length > 0 && (
-        <>
-          <h4 class="sect">Kraft (letzte 8 Wochen)</h4>
-          <ul class="trendlist">
-            {st.trend.map((t) => (
-              <li>
-                <span>{t.name}</span>
-                <span class="tnum muted">
-                  ~{n0(t.first)} → ~{n0(t.last)} kg
-                </span>
-                <b class={'tnum ' + (t.pct > 0.5 ? 'up' : t.pct < -0.5 ? 'down' : '')}>{t.pct > 0 ? '+' : ''}{n1(t.pct)} %</b>
-              </li>
-            ))}
-          </ul>
-          <p class="small muted">Geschätztes Maximum für 1 Wiederholung, berechnet aus deinen Sätzen.</p>
-        </>
-      )}
       {st.prs.length > 0 && (
         <p class="small">
           <Trophy size={14} /> Zuletzt: <b>{st.prs[st.prs.length - 1].name}</b> ({fmtShortDate(st.prs[st.prs.length - 1].date)})
         </p>
+      )}
+    </section>
+  );
+}
+
+const kgx = (v) => String(Math.round(v * 100) / 100).replace('.', ',');
+
+/** Arbeitsgewicht je Übung über die letzten Trainings (wie MCI: eine Karte pro Übung, nach Muskelgruppe) */
+function strengthSeries(k = todayKey()) {
+  const from = addDaysK(k, -90);
+  const by = {};
+  for (const w of workoutLog()) {
+    if (w.date < from) continue;
+    for (const it of w.items || []) {
+      const ex = EXERCISES[it.exId];
+      const sets = (it.sets || []).filter((x) => (x.done !== false) && x.r > 0 && x.w > 0);
+      if (!ex || !sets.length) continue;
+      const e = by[it.exId] || (by[it.exId] = { exId: it.exId, name: ex.name, mg: priMg(it.exId), pts: [] });
+      if (e.pts.length < 7) e.pts.push({ date: w.date, w: Math.max(...sets.map((x) => x.w)) });
+    }
+  }
+  return Object.values(by)
+    .filter((e) => e.pts.length >= 2)
+    .map((e) => ({ ...e, pts: e.pts.reverse(), last: e.pts[0].date }));
+}
+const addDaysK = (k, n) => {
+  const d = new Date(k + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+export function StrengthCharts() {
+  useS();
+  const [mg, setMg] = useState('alle');
+  const [all, setAll] = useState(false);
+  const list = strengthSeries();
+  if (!list.length) return null;
+  const order = Object.keys(MUSCLE_LABEL);
+  const groups = order.filter((g) => list.some((e) => e.mg === g));
+  const shown = list
+    .filter((e) => mg === 'alle' || e.mg === mg)
+    .sort((a, b) => order.indexOf(a.mg) - order.indexOf(b.mg) || (b.last > a.last ? 1 : -1));
+  const vis = all ? shown : shown.slice(0, 4);
+  let lastMg = null;
+  return (
+    <section class="strength">
+      <h4 class="sect sect--page">Kraftverlauf</h4>
+      <div class="chips chips--scroll">
+        {['alle', ...groups].map((g) => (
+          <button class={'chip chip--sm' + (mg === g ? ' chip--on' : '')} onClick={() => (setMg(g), setAll(false))}>
+            {g === 'alle' ? 'Alle' : MUSCLE_LABEL[g]}
+          </button>
+        ))}
+      </div>
+      {vis.map((e) => {
+        const head = e.mg !== lastMg && mg === 'alle';
+        lastMg = e.mg;
+        const d = e.pts[e.pts.length - 1].w - e.pts[0].w;
+        return (
+          <>
+            {head && <h5 class="strength__mg">{MUSCLE_LABEL[e.mg]}</h5>}
+            <button class="card strength__card" onClick={() => openSheet('exercise', { exId: e.exId })} aria-label={`${e.name} – Verlauf ansehen`}>
+              <div class="strength__head">
+                <span class="strength__t">
+                  <b>{e.name}</b>
+                  <small class="muted">Letzte {e.pts.length} Trainings · Arbeitsgewicht</small>
+                </span>
+                <span class={'strength__d tnum ' + (d > 0 ? 'up' : d < 0 ? 'down' : 'muted')}>
+                  {d > 0 ? '+' : d < 0 ? '−' : '±'}
+                  {kgx(Math.abs(d))} kg
+                </span>
+                <ChevronRight size={18} class="muted" />
+              </div>
+              <LineChart values={e.pts.map((p) => p.w)} labels={e.pts.map((p) => dateLbl(p.date))} fmt={kgx} tone={d < 0 ? 'down' : 'up'} ariaLabel={`${e.name}: ${e.pts.map((p) => kgx(p.w)).join(', ')} kg`} />
+            </button>
+          </>
+        );
+      })}
+      {shown.length > 4 && (
+        <button class="btn btn--block btn--sm" onClick={() => setAll(!all)}>
+          {all ? 'Weniger anzeigen' : `Alle ${shown.length} Übungen anzeigen`} <ChevronDown size={16} style={all ? { transform: 'rotate(180deg)' } : null} />
+        </button>
       )}
     </section>
   );

@@ -134,7 +134,7 @@ export const LIMIT_AREAS = ['Schulter', 'Ellbogen', 'Handgelenk', 'Nacken', 'Rü
 export const focusOf = (setup = setupOf()) => FOCUS.filter((f) => (setup.focus || []).includes(f.id));
 export const focusMgs = (setup = setupOf()) => focusOf(setup).flatMap((f) => f.mg);
 export const limitsOf = (setup = setupOf()) => (setup.limits || []).filter((a) => LIMIT_AREAS.includes(a));
-const priMg = (id) => mgOf(id).split('|')[0].split(',')[0];
+export const priMg = (id) => mgOf(id).split('|')[0].split(',')[0];
 
 /** Ersatzübung: gleiche Muskelgruppe, verfügbar, nicht ausgeschlossen, schont die genannten Bereiche */
 export function substitute(id, setup = setupOf(), { taken = [], avoid = [] } = {}) {

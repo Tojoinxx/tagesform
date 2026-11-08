@@ -3392,3 +3392,37 @@ body, button, a, input, select, textarea, label, .card, .sheet, img, svg { touch
 .wchip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 999px; background: var(--card2, rgba(127,127,127,.14)); border: 1px solid var(--line); color: inherit; font: inherit; font-size: .85rem; font-variant-numeric: tabular-nums; }
 button.wchip { cursor: pointer; }
 .wav .row .numin { flex: 1; }
+
+/* Liniendiagramm (MCI-Stil) */
+.lchart { width: 100%; height: auto; display: block; overflow: visible; --lc: var(--accent); }
+.lchart--up { --lc: var(--accent); }
+.lchart--down { --lc: #f2994a; }
+.lchart__area { fill: color-mix(in srgb, var(--lc) 10%, transparent); stroke: none; }
+.lchart__line { fill: none; stroke: var(--lc); stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
+.lchart__dot { fill: var(--card, #161b22); stroke: var(--lc); stroke-width: 2.4; }
+.lchart__val { fill: var(--lc); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.lchart__lbl { fill: var(--muted, #8b949e); font-size: 11.5px; }
+
+/* Kraftverlauf-Karten */
+.strength { display: flex; flex-direction: column; gap: 10px; }
+.strength .sect--page { margin-bottom: 0; }
+.strength__mg { margin: 8px 4px 0; font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.strength__card { display: block; width: 100%; text-align: left; color: inherit; font: inherit; cursor: pointer; padding: 14px 14px 6px; }
+.strength__head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.strength__t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.strength__t b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.strength__d { font-weight: 700; font-size: .95rem; }
+.strength__d.up { color: var(--accent); }
+.strength__d.down { color: #f2994a; }
+.weight__chart { margin-top: 10px; }
+
+/* Farbiger Schein oben je Bereich (wie MCI) – dezent, scrollt mit */
+.tint { position: absolute; top: 0; left: 0; right: 0; height: 340px; pointer-events: none; z-index: 0; opacity: .55; transition: background .4s; }
+.tint--heute { background: radial-gradient(120% 90% at 20% 0%, color-mix(in srgb, var(--accent) 38%, transparent), transparent 70%); }
+.tint--woche { background: radial-gradient(120% 90% at 20% 0%, rgba(124, 92, 255, .42), transparent 70%); }
+.tint--training { background: radial-gradient(120% 90% at 20% 0%, rgba(255, 128, 64, .40), transparent 70%); }
+.tint--none { display: none; }
+.main { position: relative; z-index: 1; }
+@media (prefers-color-scheme: light) { .tint { opacity: .28; } }
+:root[data-theme="light"] .tint { opacity: .28; }
+:root[data-theme='dark'] .tint { opacity: .55; }

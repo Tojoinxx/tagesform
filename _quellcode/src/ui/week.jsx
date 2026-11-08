@@ -6,6 +6,7 @@ import { weekSummaryAi } from '../lib/aitasks.js';
 import { addDays, fmtShortDate, n0, n1, todayKey, weekStart, num } from '../lib/util.js';
 import { Spinner, NumInput } from './common.jsx';
 import { useAiJob, AiProgress } from './aiprogress.jsx';
+import { LineChart, dateLbl } from './charts.jsx';
 import { FormCheckCard } from './formcheck.jsx';
 import { ChevronLeft, ChevronRight, PenLine, Flame, Beef, Droplet, Apple, GlassWater, Wheat, Candy, HeartPulse, Sparkles, Check, Scale, RefreshCw } from 'lucide-preact';
 import { nav } from './router.js';
@@ -181,6 +182,29 @@ export function Week({ query }) {
             )}
           </div>
         </div>
+        {(() => {
+          // Gewichtsverlauf: die letzten 7 Messungen bis Ende dieser Woche
+          const end = addDays(start, 6);
+          const pts = Object.keys(S.days)
+            .filter((k) => k <= end && S.days[k] && S.days[k].weight > 0)
+            .sort()
+            .slice(-7)
+            .map((k) => ({ k, v: S.days[k].weight }));
+          if (pts.length < 2) return null;
+          const d = pts[pts.length - 1].v - pts[0].v;
+          return (
+            <div class="weight__chart">
+              <p class="small muted">
+                Letzte {pts.length} Messungen ·{' '}
+                <b class="tnum">
+                  {d > 0 ? '+' : d < 0 ? '−' : '±'}
+                  {n1(Math.abs(d))} kg
+                </b>
+              </p>
+              <LineChart values={pts.map((p) => p.v)} labels={pts.map((p) => dateLbl(p.k))} fmt={n1} h={140} />
+            </div>
+          );
+        })()}
         {isCurrent && (
           <form
             class="row"
