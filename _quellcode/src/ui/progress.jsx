@@ -60,6 +60,9 @@ export function ExHistory({ exId }) {
     <section class="card exhist">
       <h3 class="h3row">
         <TrendingUp size={17} /> Dein Verlauf
+        <button class="btn--link small exhist__fix" onClick={() => openSheet('wfix', { exId })}>
+          Gewichte korrigieren
+        </button>
       </h3>
       {vals.length >= 2 && (
         <>

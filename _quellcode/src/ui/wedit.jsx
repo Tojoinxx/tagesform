@@ -1,8 +1,9 @@
 // Abgeschlossene Trainings nachträglich bearbeiten: Gewichte, Wdh., RIR, Sätze, Übungen, Dauer
 import { useState } from 'preact/hooks';
-import { useS, getDay, patchDay, toast, openSheet, closeSheet } from '../lib/store.js';
+import { useS, S, getDay, patchDay, toast, openSheet, closeSheet, saveTraining, saveActive } from '../lib/store.js';
 import { Sheet } from './common.jsx';
 import { workoutLog, exOf } from '../lib/training.js';
+import { NumInput } from './common.jsx';
 import { fmtDayTitle, fmtShortDate, num, n1 } from '../lib/util.js';
 import { Pencil, Plus, Trash2, X, History } from 'lucide-preact';
 import { ExAnim } from './exui.jsx';
@@ -186,5 +187,121 @@ export function WorkoutHistoryCard() {
         })}
       </ul>
     </section>
+  );
+}
+
+/**
+ * Gewichte einer Übung im Verlauf korrigieren – z. B. Stange vergessen (nur Scheiben gezählt → +20 kg).
+ * Wirkt auf ausgewählte Trainings, den Startwert und ein laufendes Training.
+ */
+export function WeightFixSheet({ exId }) {
+  useS();
+  const ex = exOf(exId);
+  const bar = /Langhantel/.test(ex.equip || '');
+  const [delta, setDelta] = useState(bar ? '20' : '');
+  const list = workoutLog().filter((w) => (w.items || []).some((it) => it.exId === exId && (it.sets || []).length));
+  const [sel, setSel] = useState(() => Object.fromEntries(list.map((w) => [w.date + '|' + w.id, true])));
+  const base = S.training && S.training.baseline && S.training.baseline[exId];
+  const [fixBase, setFixBase] = useState(!!(base && base.w != null));
+  const act = S.active && S.active.items && S.active.items.find((it) => it.exId === exId);
+  const [fixAct, setFixAct] = useState(!!act);
+  const d = num(delta);
+  const n = Object.values(sel).filter(Boolean).length;
+  const add = (w) => Math.max(0, Math.round(((Number(w) || 0) + d) * 100) / 100);
+  const apply = () => {
+    if (!d) return toast('Bitte angeben, um wie viel kg korrigiert werden soll');
+    if (!n && !fixBase && !fixAct) return toast('Nichts ausgewählt');
+    for (const w of list) {
+      if (!sel[w.date + '|' + w.id]) continue;
+      patchDay(w.date, (day) => ({
+        workouts: (day.workouts || []).map((x) => (x.id !== w.id ? x : { ...x, edited: Date.now(), items: x.items.map((it) => (it.exId !== exId ? it : { ...it, sets: it.sets.map((s) => ({ ...s, w: add(s.w) })) })) })),
+      }));
+    }
+    if (fixBase && base) saveTraining({ baseline: { ...S.training.baseline, [exId]: { ...base, w: add(base.w) } } });
+    if (fixAct && act) {
+      const a = S.active;
+      saveActive({
+        ...a,
+        items: a.items.map((it) => {
+          if (it.exId !== exId) return it;
+          const f = (w) => (w === '' || w == null ? w : add(String(w).replace(',', '.')));
+          return { ...it, target: it.target ? { ...it.target, w: add(it.target.w) } : it.target, sets: it.sets.map((s) => ({ ...s, w: f(s.w) })) };
+        }),
+      });
+    }
+    closeSheet();
+    toast(`${ex.name}: ${n} ${n === 1 ? 'Training' : 'Trainings'} um ${d > 0 ? '+' : ''}${n1(d)} kg korrigiert ✓`);
+  };
+  return (
+    <Sheet
+      title="Gewichte korrigieren"
+      tall
+      footer={
+        <button class="btn btn--primary btn--block btn--lg" onClick={apply} disabled={!d}>
+          {d ? `${d > 0 ? '+' : ''}${n1(d)} kg bei ${n} ${n === 1 ? 'Training' : 'Trainings'} übernehmen` : 'Korrektur eingeben'}
+        </button>
+      }
+    >
+      <p>
+        <b>{ex.name}</b>
+      </p>
+      {bar && (
+        <p class="small">
+          Die App rechnet bei Langhantel-Übungen immer mit dem <b>Gesamtgewicht inkl. Stange (20 kg)</b>. Wenn du nur die Scheiben gezählt hast (z. B. 35 statt 55 kg), korrigiere hier mit <b>+20 kg</b>.
+        </p>
+      )}
+      <label class="field">
+        <span class="small muted">Jeden Satz ändern um</span>
+        <div class="row">
+          {bar && (
+            <button class={'chip chip--sm' + (d === 20 ? ' chip--on' : '')} onClick={() => setDelta('20')}>
+              +20 kg (Stange)
+            </button>
+          )}
+          <NumInput value={delta} onChange={setDelta} suffix="kg" placeholder="z. B. 20 oder -10" aria-label="Korrektur in kg" />
+        </div>
+      </label>
+      <h4 class="sect">Welche Trainings?</h4>
+      <div class="row small">
+        <button class="btn--link small" onClick={() => setSel(Object.fromEntries(list.map((w) => [w.date + '|' + w.id, true])))}>
+          alle
+        </button>
+        <button class="btn--link small" onClick={() => setSel({})}>
+          keine
+        </button>
+      </div>
+      <ul class="wfix">
+        {list.map((w) => {
+          const key = w.date + '|' + w.id;
+          const it = w.items.find((x) => x.exId === exId);
+          const ws = [...new Set(it.sets.map((s) => Number(s.w) || 0))];
+          return (
+            <li>
+              <label class="wfix__row">
+                <input type="checkbox" checked={!!sel[key]} onChange={(e) => setSel({ ...sel, [key]: e.currentTarget.checked })} />
+                <span class="wfix__main">
+                  <b>{fmtDayTitle(w.date)}</b>
+                  <small class="muted">
+                    {it.sets.length} Sätze · {ws.map((x) => n1(x)).join(' / ')} kg
+                    {sel[key] && d ? <span class="wfix__to"> → {ws.map((x) => n1(add(x))).join(' / ')} kg</span> : null}
+                  </small>
+                </span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+      {base && base.w != null && (
+        <label class="check small">
+          <input type="checkbox" checked={fixBase} onChange={(e) => setFixBase(e.currentTarget.checked)} /> Auch den Startwert aus dem Import korrigieren ({n1(base.w)} → {n1(add(base.w))} kg)
+        </label>
+      )}
+      {act && (
+        <label class="check small">
+          <input type="checkbox" checked={fixAct} onChange={(e) => setFixAct(e.currentTarget.checked)} /> Auch im laufenden Training anpassen
+        </label>
+      )}
+      <p class="small muted">Danach richten sich Vorschläge, Rekorde, Kraftverlauf und Kraftniveau nach den korrigierten Werten.</p>
+    </Sheet>
   );
 }

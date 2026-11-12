@@ -3544,3 +3544,14 @@ button.streak { border: 0; font: inherit; font-size: 14px; cursor: pointer; }
 }
 .tab { border-radius: 18px; padding: 6px 0 5px; transition: background 0.2s, color 0.2s; }
 .tab--on { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+
+/* Gewichte korrigieren / Stange */
+.exhist__fix { margin-left: auto; font-weight: 500; }
+.wfix { list-style: none; margin: 6px 0 12px; padding: 0; }
+.wfix li + li { border-top: 1px solid var(--line); }
+.wfix__row { display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; }
+.wfix__row input { width: 20px; height: 20px; accent-color: var(--accent); }
+.wfix__main { display: flex; flex-direction: column; }
+.wfix__to { color: var(--accent); font-weight: 600; }
+.wex__bar { color: var(--muted); }
+.wex__bar b { color: var(--text); font-weight: 600; }

@@ -513,8 +513,19 @@ export function Workout() {
               {lastText(it) ? <span class="muted">Letztes Mal {lastText(it)}</span> : null}
               {it.note && <span class="wex__note">{it.note}</span>}
               {(() => {
-                const pl = /Langhantel/.test(it.equip || '') && it.target && it.target.w ? platesFor(it.target.w) : null;
-                return pl && pl.length ? <span class="muted">Scheiben pro Seite: {pl.map((x) => String(x).replace('.', ',')).join(' + ')} kg (20-kg-Stange)</span> : null;
+                if (!/Langhantel/.test(it.equip || '')) return null;
+                const pl = it.target && it.target.w ? platesFor(it.target.w) : null;
+                return (
+                  <span class="wex__bar">
+                    🏋️ Gewicht = <b>gesamt inkl. 20-kg-Stange</b>
+                    {pl && pl.length ? (
+                      <>
+                        {' '}
+                        · {String(it.target.w).replace('.', ',')} kg = Stange + je Seite {pl.map((x) => String(x).replace('.', ',')).join(' + ')} kg
+                      </>
+                    ) : null}
+                  </span>
+                );
               })()}
               {it.adjusted && it.sets.some((x, b) => b > it.adjusted.after && !x.done) && (
                 <span class={'wex__adj' + (it.adjusted.dir > 0 ? ' wex__adj--up' : '')}>
@@ -546,7 +557,7 @@ export function Workout() {
             <div class="sets">
               <div class="sets__h small muted">
                 <span>Satz</span>
-                <span>kg</span>
+                <span>{/Langhantel/.test(it.equip || '') ? 'kg ges.' : 'kg'}</span>
                 <span>{it.unit}</span>
                 {it.unit !== 'Sek.' ? (
                   <button class="sets__rirh" onClick={() => openSheet('rir')} aria-label="Was ist RIR?">
