@@ -1025,8 +1025,24 @@ export const weekSetup = (setup, k = todayKey()) => {
       brk[d] = b.type;
     }
   }
-  return { ...setup, gameDay: sportOf(setup).games ? gameDayForWeek(setup, ws) : null, blocked, breakDays: brk };
+  // Abgesagtes Vereinstraining (einzelne Tage): der Tag zählt dann wie ein freier Tag
+  const off = (S.training && S.training.sportOff) || {};
+  const offDays = [];
+  for (let i = 0; i < 7; i++) if (off[addDays(ws, i)]) offDays.push(parseKey(addDays(ws, i)).getDay());
+  const handballDays = offDays.length ? (setup.handballDays || []).filter((d) => !offDays.includes(d)) : setup.handballDays;
+  return { ...setup, handballDays, sportOffDays: offDays, gameDay: sportOf(setup).games ? gameDayForWeek(setup, ws) : null, blocked, breakDays: brk };
 };
+/** Vereinstraining an einem Tag absagen / wieder ansetzen */
+export const sportOffOn = (k = todayKey()) => !!(S.training && S.training.sportOff && S.training.sportOff[k]);
+export function setSportOff(k, on) {
+  const cut = addDays(todayKey(), -21);
+  const cur = Object.fromEntries(Object.entries((S.training && S.training.sportOff) || {}).filter(([d, v]) => v && d >= cut));
+  if (on) cur[k] = true;
+  else delete cur[k];
+  saveTraining({ sportOff: cur });
+}
+/** Wäre an dem Tag laut Wochenplan Vereinstraining (ohne Absagen)? */
+export const sportPlannedOn = (k, setup = setupOf()) => hasSport(setup) && (setup.handballDays || []).includes(parseKey(k).getDay());
 
 /** Empfohlene Gym-Tage: bewertet alle Kombinationen und nimmt die beste
  *  (keine Beine vor Handball/Spiel, max. 2 Gym-Tage unter der Woche, Wochenende nutzen, Pausen dazwischen) */

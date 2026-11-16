@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import { useS, S, saveTraining, saveActive, toast, patchDay, openSheet, getDay } from '../lib/store.js';
-import { weekStreak, EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName, SPORTS, sportOf, cycleWeek, weekSetup, gameDayForWeek, sessionOf, rotationOf, usesMyPlan, SPORT_PROFILE, TRAIN_GOALS, EQUIP_CATS, EQUIP_PRESETS, FOCUS, LIMIT_AREAS, splitsFor, recommendSplit, fatigueState, goalOf } from '../lib/training.js';
+import { weekStreak, setSportOff, sportOffOn, sportPlannedOn, EXPERIENCE, setupOf, defaultSetup, recommend, buildSession, weekPlan, dayShort, dayName, SPORTS, sportOf, cycleWeek, weekSetup, gameDayForWeek, sessionOf, rotationOf, usesMyPlan, SPORT_PROFILE, TRAIN_GOALS, EQUIP_CATS, EQUIP_PRESETS, FOCUS, LIMIT_AREAS, splitsFor, recommendSplit, fatigueState, goalOf } from '../lib/training.js';
 import { TrainingOptionsCard } from './planeditor.jsx';
 import { BreakCard, SickPanel, CardioPanel, endBreak, breakEmoji } from './breaks.jsx';
 import { weekStart, addDays, isoWeek } from '../lib/util.js';
@@ -441,6 +441,9 @@ function TodayCard({ setup }) {
                 Heute {sportOf(setup).name} {sportOf(setup).emoji}
               </h2>
               <p class="muted small">Kein Gym nötig – trag das Training danach unten ein.</p>
+              <button class="btn btn--sm sportoff" onClick={() => (setSportOff(todayKey(), true), toast(`${sportOf(setup).name} heute abgesagt – der Plan rechnet neu`))}>
+                Fällt heute aus / ich gehe nicht
+              </button>
             </>
           ) : rec.status === 'done' && !pick ? (
             <>
@@ -529,6 +532,30 @@ function TodayCard({ setup }) {
           {sessionOf(rec.sessionId).name} trotzdem machen
         </button>
       )}
+      {sportOffOn(todayKey()) && (
+        <p class="small muted">
+          {sportOf(setup).name} heute abgesagt – der Tag zählt als frei.{' '}
+          <button class="btn--link small" onClick={() => setSportOff(todayKey(), false)}>
+            Ich gehe doch
+          </button>
+        </p>
+      )}
+      {(() => {
+        const tm = addDays(todayKey(), 1);
+        if (!sportPlannedOn(tm)) return null;
+        return sportOffOn(tm) ? (
+          <p class="small muted">
+            Morgen kein {sportOf(setup).name} (abgesagt) – Beine sind heute möglich.{' '}
+            <button class="btn--link small" onClick={() => setSportOff(tm, false)}>
+              Findet doch statt
+            </button>
+          </p>
+        ) : (
+          <button class="btn--link small" onClick={() => (setSportOff(tm, true), toast('Morgen abgesagt – der Plan rechnet neu'))}>
+            Morgen fällt {sportOf(setup).name} aus?
+          </button>
+        );
+      })()}
       {!showPlan && (rec.status === 'handball' || rec.status === 'pregame') && (
         <button class="btn--link small" onClick={() => setPick(rec.sessionId)}>
           Trotzdem ins Gym ({sessionOf(rec.sessionId).name})
