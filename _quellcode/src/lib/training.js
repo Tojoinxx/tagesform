@@ -162,7 +162,7 @@ export const CYCLE = [
   { label: 'Aufbau', rir: 2, extra: 0, text: '2 Wdh. Reserve' },
   { label: 'Mehr Volumen', rir: 2, extra: 1, text: '+1 Satz bei Hauptübungen' },
   { label: 'Intensiv', rir: 1, extra: 1, text: 'bis 1 Wdh. vor dem Versagen' },
-  { label: 'Deload', rir: 4, extra: 0, deload: true, text: 'halbe Sätze, ~10 % leichter – Erholung' },
+  { label: 'Deload', rir: 4, extra: 0, deload: true, text: 'halbe Sätze, weit weg vom Limit – Erholung' },
 ];
 export function cycleWeek(k = todayKey()) {
   const tr = S.training || {};
@@ -177,20 +177,26 @@ export function cycleWeek(k = todayKey()) {
   const i = ((weeks % CYCLE.length) + CYCLE.length) % CYCLE.length;
   return { ...CYCLE[i], index: i, n: i + 1, c: Math.max(0, Math.floor(weeks / CYCLE.length)) };
 }
-/** Anzahl Kalenderwochen in [ws0, ws1) mit mindestens einem echten Gym-Training (ohne Lauf/Urlaubs-Ersatz) */
+/**
+ * Anzahl Kalenderwochen in [ws0, ws1), die als „Trainingswoche“ zählen: mindestens die Hälfte der geplanten
+ * Gym-Einheiten (bei 3 geplanten also 2; ohne Lauf/Urlaubs-Ersatz). Eine Woche mit nur einer Einheit erhält
+ * Kraft und Muskeln (Bickel 2011, Spiering 2021), baut aber kaum Ermüdung auf – sie schiebt den Zyklus
+ * deshalb nicht Richtung „Intensiv“ und Deload weiter.
+ */
 let _gwDays = null;
-let _gwSet = null;
+let _gwCnt = null;
 function gymWeeksBetween(ws0, ws1) {
   if (S.days !== _gwDays) {
     _gwDays = S.days;
-    _gwSet = new Set();
+    _gwCnt = {};
     Object.keys(S.days || {}).forEach((dk) => {
-      const ws = ((S.days[dk] && S.days[dk].workouts) || []).filter((w) => w && !/^(LAUF|URL)/.test(w.sessionId || ''));
-      if (ws.length) _gwSet.add(weekStart(dk));
+      const n = ((S.days[dk] && S.days[dk].workouts) || []).filter((w) => w && !/^(LAUF|URL)/.test(w.sessionId || '')).length;
+      if (n) _gwCnt[weekStart(dk)] = (_gwCnt[weekStart(dk)] || 0) + n;
     });
   }
+  const need = Math.max(1, Math.ceil((Number(setupOf().perWeek) || 3) / 2));
   let n = 0;
-  _gwSet.forEach((w) => w >= ws0 && w < ws1 && n++);
+  for (const w in _gwCnt) if (w >= ws0 && w < ws1 && _gwCnt[w] >= need) n++;
   return n;
 }
 
@@ -349,7 +355,7 @@ export function exHistory(exId, limit = 40) {
     const it = (w.items || []).find((i) => i.exId === exId);
     const sets = it && (it.sets || []).filter((x) => x.done && x.r > 0);
     if (!sets || !sets.length) continue;
-    const topW = Math.max(...sets.map((x) => x.w || 0));
+    const topW = workW(sets);
     const top = sets.filter((x) => (x.w || 0) === topW);
     out.push({
       date: w.date,
@@ -444,7 +450,10 @@ export function liveAdjust(it, set, setIndex) {
   const tgtRir = it.target.rir ?? 2;
   const r = Number(set.r) || 0;
   const rir = set.rir === '' || set.rir == null ? null : Number(set.rir);
-  const short = tgtR && r && r <= tgtR - 2;
+  // Spätere Sätze verlieren durch Ermüdung normal 1–2 Wdh. – dort nur eingreifen, wenn es unter den Bereich fällt
+  const lo = (it.repRange && it.repRange[0]) || 0;
+  const hi = (it.repRange && it.repRange[1]) || 99;
+  const short = tgtR && r && r <= tgtR - 2 && (setIndex === 0 || r < lo);
   const failed = rir === 0 && tgtRir >= 2;
   if (short || failed) {
     // ca. 5 % leichter, mindestens eine Stufe
@@ -452,10 +461,11 @@ export function liveAdjust(it, set, setIndex) {
     if (!(nw > 0) || nw >= w) return null;
     return { w: nw, dir: -1, why: short ? `Satz ${setIndex + 1}: nur ${r} statt ${tgtR} Wdh.` : `Satz ${setIndex + 1} ging bis zum Limit (RIR 0)` };
   }
-  const easy = rir != null && rir >= 3 && tgtRir <= 1 && r >= tgtR && setIndex === 0;
+  // klar zu leicht (nur 1. Satz): RIR 3+ und entweder hartes Ziel (RIR ≤ 1) oder deutlich mehr Wdh. als geplant
+  const easy = rir != null && rir >= 3 && setIndex === 0 && r >= tgtR && (tgtRir <= 1 || (tgtRir <= 2 && (r >= tgtR + 2 || r > hi)));
   if (easy) {
     const nw = stepW(it.exId, w, inc, 1);
-    return nw > w ? { w: nw, dir: 1, why: `Satz 1 war leicht (RIR 3+)` } : null;
+    return nw > w && (nw - w) / w <= 0.15 ? { w: nw, dir: 1, why: `Satz 1 war leicht (RIR 3+${r >= tgtR + 2 ? `, ${r} statt ${tgtR} Wdh.` : ''})` } : null;
   }
   return null;
 }
@@ -572,6 +582,20 @@ function n1x(v) {
   return String(Math.round(v * 100) / 100).replace('.', ',');
 }
 
+/**
+ * Arbeitsgewicht einer Einheit: das Gewicht, mit dem die meisten Sätze gemacht wurden (bei Gleichstand das schwerere).
+ * Dropsätze zählen nicht. So verfälscht ein einzelner zu schwerer erster Satz (danach live leichter gemacht) nichts.
+ */
+export function workW(sets) {
+  const main = sets.filter((s) => s.type !== 'drop');
+  const list = main.length ? main : sets;
+  const cnt = {};
+  list.forEach((s) => (cnt[s.w || 0] = (cnt[s.w || 0] || 0) + 1));
+  return Object.keys(cnt)
+    .map(Number)
+    .sort((a, b) => cnt[b] - cnt[a] || b - a)[0] || 0;
+}
+
 /** Doppelte Progression: erst Wiederholungen hoch, dann Gewicht */
 export function progression(ex, last) {
   const [lo, hi] = ex.reps;
@@ -582,8 +606,7 @@ export function progression(ex, last) {
       note: ex.plyo ? 'Erstes Mal: locker reinkommen, Technik und weiche Landung zuerst.' : !ex.inc ? (ex.unit === 'Sek.' ? `Erstes Mal: so lange sauber halten, wie es geht (Ziel ${lo}–${hi} Sek.).` : `Erstes Mal: so viele saubere Wdh., dass noch 2 gehen würden (Ziel ${lo}–${hi}).`) : 'Erstes Mal: Gewicht wählen, bei dem noch 2 Wdh. im Tank wären.',
     };
   if (last.forced) return { w: last.sets[0].w, reps: lo, note: `Dein festgelegtes Gewicht – starte mit ${lo} ${ex.unit}, die App steigert ab hier.` };
-  const ws = last.sets.map((s) => s.w || 0);
-  const w = Math.max(...ws);
+  const w = workW(last.sets);
   const top0 = last.sets.filter((s) => (s.w || 0) === w);
   const top = top0.filter((s) => s.type !== 'drop').length ? top0.filter((s) => s.type !== 'drop') : top0;
   const minR = Math.min(...top.map((s) => s.r));
@@ -592,7 +615,8 @@ export function progression(ex, last) {
   if (ex.inc > 0 && w > 0 && (minR > hi + 2 || maxR < lo - 2)) {
     const best = Math.max(...last.sets.map((s) => e1rm(s.w || 0, s.r)));
     const nw = Math.max(snapW(ex.id, ex.inc, ex.inc, 'up'), snapW(ex.id, best / (1 + (lo + 2) / 30), ex.inc));
-    return { w: nw, reps: lo, note: `Neuer Bereich ${lo}–${hi} Wdh.: Gewicht umgerechnet (${n1x(w)} kg × ${maxR} → ${n1x(nw)} kg × ${lo}). Mit Reserve starten.`, converted: true };
+    const note = maxR < lo - 2 ? `Letztes Mal deutlich zu schwer (${n1x(w)} kg × ${maxR}) – passend zu ${lo}–${hi} Wdh. umgerechnet: ${n1x(nw)} kg. Mit Reserve starten.` : `Neuer Bereich ${lo}–${hi} Wdh.: Gewicht umgerechnet (${n1x(w)} kg × ${maxR} → ${n1x(nw)} kg × ${lo}). Mit Reserve starten.`;
+    return { w: nw, reps: lo, note, converted: true };
   }
   // RIR (Wdh. in Reserve), falls eingetragen: genauere Steuerung
   const rated = top.filter((x) => x.rir != null && x.rir !== '' && x.type !== 'fail'); // gewollte Versagenssätze zählen nicht als „zu schwer“
@@ -613,10 +637,22 @@ export function progression(ex, last) {
     return { w, reps: Math.min(hi, minR + step), note: `Letztes Mal ${minR} ${ex.unit} – heute ${Math.min(hi, minR + step)}.` };
   }
   const up = stepW(ex.id, w, ex.inc, 1);
-  if (up > w && minR >= hi) return { w: up, reps: lo, note: `Alle Sätze mit ${hi} Wdh. geschafft → ${plusTxt(w, up)} 💪`, up: true };
-  if (up > w && tooEasy) return { w: up, reps: Math.max(lo, minR - 2), note: `Letztes Mal zu leicht (RIR Ø ${rirTxt} statt ${tgt}) → ${plusTxt(w, up)} 💪`, up: true };
+  // Großer Sprung (z. B. Steckgewichte, kleine Hanteln): Start-Wdh. realistisch senken statt stur das untere Ziel
+  const big = w > 0 && (up - w) / w > 0.1;
+  const upReps = (from) => (big ? Math.max(3, lo - 2, Math.min(from, Math.round(hi * (w / up) ** 2))) : from);
+  const bigTxt = big ? ' Großer Sprung – weniger Wdh. sind am Anfang normal.' : '';
+  if (up > w && minR >= hi) return { w: up, reps: upReps(lo), note: `Alle Sätze mit ${hi} Wdh. geschafft → ${plusTxt(w, up)} 💪${bigTxt}`, up: true };
+  if (up > w && tooEasy) return { w: up, reps: upReps(Math.max(lo, minR - 2)), note: `Letztes Mal zu leicht (RIR Ø ${rirTxt} statt ${tgt}) → ${plusTxt(w, up)} 💪${bigTxt}`, up: true };
+  // Fast geschafft: 1. Satz am oberen Ziel, kein Satz mehr als 1 Wdh. darunter – und die Reserve war da (RIR eingetragen)
+  if (up > w && !big && maxR >= hi && minR >= hi - 1 && avgRir != null && avgRir >= Math.max(1, tgt) && !zeros)
+    return { w: up, reps: lo, note: `Oberes Ziel praktisch erreicht (${top.map((x) => x.r).join(' / ')}) und noch Reserve → ${plusTxt(w, up)} 💪`, up: true };
   if (up <= w && (minR >= hi || tooEasy)) return { w, reps: hi, note: `Schwerstes verfügbares Gewicht erreicht – mehr Wdh., langsamer runter oder eine schwerere Variante.`, up: true };
-  if (maxR < lo) return { w: lighter(ex.id, w * 0.9, w, ex.inc), reps: lo, note: 'Letztes Mal zu schwer – heute etwas leichter, saubere Technik.' };
+  if (maxR < lo) {
+    // knapp darunter → eine Stufe zurück; deutlich darunter → ca. 10 % leichter (mindestens eine Stufe)
+    const down = stepW(ex.id, w, ex.inc, -1);
+    const nw = maxR >= lo - 2 ? down : Math.min(down, lighter(ex.id, w * 0.9, w, ex.inc));
+    return { w: nw > 0 ? nw : w, reps: lo, note: maxR >= lo - 2 ? `Letztes Mal knapp unter ${lo} Wdh. – eine Stufe leichter und sauber hocharbeiten.` : 'Letztes Mal zu schwer – heute etwas leichter, saubere Technik.' };
+  }
   if (zeros && tgt >= 1) return { w, reps: Math.max(lo, minR), note: `Letztes Mal bis zum Limit (RIR 0) – gleiches Ziel, diesmal mit Reserve.${failTip}` };
   return { w, reps: Math.min(hi, minR + 1), note: `Gleiches Gewicht, Ziel: ${Math.min(hi, minR + 1)} Wdh. pro Satz.${failTip}` };
 }
@@ -801,32 +837,32 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
     if (cb) {
       sets = Math.max(1, Math.min(cb.maxSets || 9, sets - cb.setsMinus));
       if (last) {
-        w = Math.max(...last.sets.map((s) => s.w || 0));
+        w = workW(last.sets);
         reps = ex.reps[0];
       }
       if (w) w = snapW(ex.id, w * cb.factor, ex.inc);
       rir = Math.max(rir, cb.rir);
-      note = `Wiedereinstieg ${cb.step + 1}/${cb.total}: ~${Math.round((1 - cb.factor) * 100)} % leichter${last ? ` als vor der Pause (${String(Math.max(...last.sets.map((s) => s.w || 0))).replace('.', ',')} kg)` : ''}.`;
+      note = `Wiedereinstieg ${cb.step + 1}/${cb.total}: ~${Math.round((1 - cb.factor) * 100)} % leichter${last ? ` als vor der Pause (${String(workW(last.sets)).replace('.', ',')} kg)` : ''}.`;
     } else if (exGap >= 28 && w && !cw.deload) {
       w = lighter(ex.id, w * 0.9, w, ex.inc);
       reps = ex.reps[0];
       note = `Länger nicht gemacht (${exGap} Tage) – heute ~10 % leichter zum Reinkommen.`;
     } else if (cw.deload) {
+      // Deload nach aktuellem Stand (Bell 2023, Coleman 2024): Volumen halbieren und weit weg vom Limit bleiben,
+      // das Gewicht aber fast halten (−5 %) – so bleibt die Kraft erhalten, während sich der Körper erholt.
       sets = Math.max(1, Math.ceil(sets / 2));
-      if (pr.up && last) {
-        w = Math.max(...last.sets.map((s) => s.w || 0));
-        reps = ex.reps[0];
-      }
-      if (w) w = lighter(ex.id, w * 0.9, w, ex.inc);
+      if (last) w = workW(last.sets);
+      reps = ex.reps[0];
+      if (w) w = lighter(ex.id, w * 0.95, w, ex.inc);
       rir = 4;
-      note = 'Deload-Woche: leichter und weniger Sätze – die Erholung macht dich nächste Woche stärker.';
+      note = 'Deload-Woche: halbe Sätze, Gewicht fast wie gewohnt, aber weit weg vom Limit – so erholst du dich, ohne Kraft zu verlieren.';
     } else if (fm.mode === 'light') {
       sets = Math.max(2, sets - 1);
-      if (w) w = lighter(ex.id, w * 0.9, w, ex.inc);
       if (pr.up && last) {
-        w = Math.max(...last.sets.map((s) => s.w || 0));
+        w = workW(last.sets);
         reps = ex.reps[0];
       }
+      if (w) w = lighter(ex.id, w * 0.9, w, ex.inc);
       note = 'Heute leichter – sauber und mit Reserve trainieren.';
     } else if (fm.mode === 'push' && ex.main && !pr.up) {
       reps = Math.min(ex.reps[1], reps + 1);
@@ -890,10 +926,31 @@ export function buildSession(sessionId, setup = setupOf(), form = getDay(todayKe
       adaptedFrom: adaptedFrom && !adaptedFrom.keep ? adaptedFrom : null,
     };
   });
+  // Obergrenze pro Einheit: Ab ca. 11 Sätzen pro Muskel (Hilfsmuskel = ½) bringt mehr in derselben Einheit
+  // kaum noch zusätzliches Wachstum (Pelland et al. 2024) – überzählige Sätze bei den letzten Übungen kürzen.
+  if (!tpl.away) {
+    const CAP = 11;
+    const load = {};
+    const parts = (it) => {
+      const [pri, sec] = mgOf(it.exId).split('|');
+      return [...(pri || '').split(',').filter(Boolean).map((m) => [m, 1]), ...(sec || '').split(',').filter(Boolean).map((m) => [m, 0.5])];
+    };
+    out.forEach((it) => !it.plyo && parts(it).forEach(([m, k]) => (load[m] = (load[m] || 0) + it.sets.length * k)));
+    for (let i = out.length - 1; i >= 0; i--) {
+      const it = out[i];
+      const pm = priMg(it.exId);
+      if (it.plyo || !(load[pm] > CAP)) continue;
+      const cut = Math.min(it.sets.length - 2, Math.ceil(load[pm] - CAP));
+      if (cut <= 0) continue;
+      it.sets = it.sets.slice(0, it.sets.length - cut);
+      parts(it).forEach(([m, k]) => (load[m] -= cut * k));
+      it.note = `${it.note ? it.note + ' ' : ''}(${cut} Satz weniger: ${MUSCLE_LABEL[pm]} hat heute schon genug Sätze – mehr bringt in einer Einheit kaum etwas.)`;
+    }
+  }
   // Supersätze: zwei Nebenübungen für verschiedene Muskeln im Wechsel – spart Zeit, gleicher Effekt
   if (prefsOf().supersets && !tpl.away) pairSupersets(out);
   const mode = cb ? 'comeback' : cw.deload ? 'deload' : fm.mode;
-  const modeLabel = cb ? comebackText(cb) : cw.deload ? 'Deload-Woche: halbe Sätze, ~10 % weniger Gewicht' : fm.label || (gameWeek ? 'Spielwoche: 1 Satz weniger pro Übung, Gewichte bleiben – frische Beine fürs Spiel.' : null);
+  const modeLabel = cb ? comebackText(cb) : cw.deload ? 'Deload-Woche: halbe Sätze, Gewicht fast gleich, viel Reserve' : fm.label || (gameWeek ? 'Spielwoche: 1 Satz weniger pro Übung, Gewichte bleiben – frische Beine fürs Spiel.' : null);
   return { sessionId, name: tpl.name, focus: tpl.focus, items: out, mode, modeLabel, notes, pains: fm.pains, cycle: cw, comeback: cb ? { gap: cb.gap, step: cb.step, total: cb.total, restartCycle: !!cb.restartCycle, sick: !!cb.sick } : null };
 }
 

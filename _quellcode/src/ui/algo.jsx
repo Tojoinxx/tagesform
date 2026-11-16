@@ -42,7 +42,7 @@ export function AlgoSheet() {
             <b>Dann Gewicht:</b> Schaffst du in <u>allen</u> Sätzen das obere Ende (z. B. 3 × 12), schlägt die App beim nächsten Mal mehr Gewicht vor und du startest wieder unten (8 Wdh.).
           </li>
           <li>
-            <b>Zu schwer?</b> Schaffst du nicht mal das untere Ende, geht das Gewicht um ca. 10 % runter.
+            <b>Zu schwer?</b> Knapp unter dem unteren Ende: eine Stufe leichter. Deutlich darunter: ca. 10 % runter. Maßstab ist das Gewicht, mit dem du die meisten Sätze gemacht hast – ein einzelner zu schwerer Satz verfälscht nichts. <b>Fast geschafft?</b> Erreichst du oben fast alle Wiederholungen und hattest noch Reserve (RIR eingetragen), geht es auch schon hoch.
           </li>
         </ol>
         <table class="algo__table">
@@ -102,7 +102,7 @@ export function AlgoSheet() {
           ))}
         </div>
         <p class="small">
-          Du bist gerade in <b>Woche {cw.n}: {cw.label}</b>. Weiter geht es nur nach Wochen, in denen du wirklich im Gym warst – wer neu einsteigt, beginnt immer mit Woche 1, und Wochen ohne Training (krank, Urlaub, keine Zeit) zählen nicht.
+          Du bist gerade in <b>Woche {cw.n}: {cw.label}</b>. Weiter geht es nur nach Wochen, in denen du <b>mindestens die Hälfte deiner geplanten Gym-Einheiten</b> geschafft hast (bei 3 geplanten also 2). Wer neu einsteigt, beginnt mit Woche 1; Wochen ohne oder mit nur einer Einheit (krank, Urlaub, keine Zeit) wiederholen die Zykluswoche. Das kostet nichts: Schon eine fordernde Einheit pro Woche erhält Kraft und Muskeln (Bickel 2011, Spiering 2021) – sie baut nur zu wenig Ermüdung auf, um schon Richtung Deload zu zählen.
         </p>
         <p class="small muted">
           <b>RIR</b> = „Reps in Reserve“: wie viele Wiederholungen du am Satzende noch geschafft hättest. RIR 2 heißt: aufhören, wenn noch 2 gehen würden. Kleine Isolationsübungen gehen 1 Wdh. näher ran.
@@ -291,7 +291,10 @@ export function AlgoSheet() {
             <b>Urlaub:</b> Ohne Gym gibt es einen Erhaltungsplan (Körpergewicht oder Kurzhanteln, plus Laufen nach Wunsch). Studien zeigen: Schon etwa ⅓ des normalen Volumens und 1–2 Einheiten pro Woche erhalten Kraft und Muskeln, wenn die Sätze fordernd sind. Wer im Urlaub so weitertrainiert, braucht danach nur einen kurzen Wiedereinstieg.
           </li>
           <li>
-            <b>Deload (Woche 5):</b> halbe Sätze, leichter. Die Studienlage dazu ist noch dünn – kurze Entlastung kostet aber keine Muskeln und hilft Gelenken und Kopf, gerade neben Vereinssport.
+            <b>Steigerung:</b> Erst mehr Wiederholungen, dann mehr Gewicht – beides baut gleich gut auf (Plotkin 2022). Gezählt wird dein <b>Arbeitsgewicht</b> (das Gewicht der meisten Sätze), ein einzelner zu schwerer Satz verfälscht nichts. Mehr Gewicht gibt es, wenn alle Sätze das obere Ziel erreichen – oder fast (z. B. 10/10/9) und du noch Reserve hattest. Knapp unter dem Bereich geht es eine Stufe zurück statt pauschal −10 %. Im Training greift die App bei späteren Sätzen erst ein, wenn du unter deinen Bereich fällst: 1–2 Wdh. weniger durch Ermüdung sind normal, und Sätze mit 0–3 Wdh. Reserve wirken ähnlich gut (Robinson 2024).
+          </li>
+          <li>
+            <b>Deload (Woche 5):</b> halbe Sätze, weit weg vom Limit – das Gewicht bleibt fast gleich (−5 %). Eine komplette Pause brachte in Studien keinen Vorteil und kostete etwas Kraft (Coleman 2024); Fachleute empfehlen deshalb, vor allem das Volumen zu senken (Bell 2023). Das hilft Gelenken und Kopf, gerade neben Vereinssport. <b>Pro Einheit</b> plant die App höchstens ca. 11 Sätze pro Muskel (Hilfsmuskel = ½) – darüber bringt mehr in derselben Einheit kaum noch etwas (Pelland 2024).
           </li>
         </ul>
       </Sec>
@@ -334,6 +337,9 @@ export function AlgoSheet() {
           <li>Refalo et al. (2023): Nähe zum Muskelversagen und Hypertrophie. Sports Med.</li>
           <li>Plotkin et al. (2022): Progression über Wiederholungen vs. Gewicht. PeerJ.</li>
           <li>Coleman et al. (2024): Effekte einer Deload-Woche. PeerJ.</li>
+          <li>Bell et al. (2023): Deloading – Delphi-Konsens von Trainern und Forschern. Sports Med Open.</li>
+          <li>Robinson et al. (2024): Nähe zum Versagen – Dosis-Wirkung für Kraft und Hypertrophie. Sports Med.</li>
+          <li>Singer et al. (2024): Satzpausen und Muskelwachstum – Meta-Analyse. Front Sports Act Living.</li>
           <li>Bosquet et al. (2013): Trainingspause und Muskelleistung – Meta-Analyse. Scand J Med Sci Sports.</li>
           <li>Ogasawara et al. (2013): Durchgehendes vs. periodisches Krafttraining mit Pausen. Eur J Appl Physiol.</li>
           <li>Bickel, Cross & Bamman (2011): Mindestdosis zum Erhalt von Kraft und Muskelmasse. Med Sci Sports Exerc.</li>

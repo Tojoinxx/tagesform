@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Tagesform</title>
 <meta name="description" content="Training & Ernährung – dein eigener Coach.">
-<meta name="theme-color" content="#f2f3f6" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0b0d10" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef1f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c111c" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -34,7 +34,7 @@
   window.__tfRescue=function(msg){
     if(document.getElementById('tf-rescue'))return;
     var d=document.createElement('div');d.id='tf-rescue';
-    d.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;justify-content:center;gap:12px;padding:28px;background:#0b0d10;color:#eef0f3;font:16px/1.45 -apple-system,system-ui,sans-serif';
+    d.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;justify-content:center;gap:12px;padding:28px;background:#0c111c;color:#f2efe7;font:16px/1.45 -apple-system,system-ui,sans-serif';
     var e=(msg||errs.slice(-3).join(' · ')||'Keine Fehlermeldung – vermutlich hängt die Verbindung oder der Zwischenspeicher.');
     d.innerHTML='<b style="font-size:21px">Tagesform startet gerade nicht</b><span style="opacity:.8">Deine Daten sind sicher in deinem Konto gespeichert.</span><code style="font-size:12px;opacity:.7;background:#1a1d22;padding:10px;border-radius:10px;white-space:pre-wrap;word-break:break-word"></code><button style="padding:14px;border-radius:12px;border:0;background:#0fb36d;color:#fff;font-size:17px;font-weight:600" onclick="location.reload()">Neu laden</button><button style="padding:14px;border-radius:12px;border:1px solid #333;background:transparent;color:#eef0f3;font-size:16px" onclick="this.textContent=\'Wird repariert …\';__tfRepair()">Zwischenspeicher leeren &amp; neu laden</button>';
     d.querySelector('code').textContent=e;
