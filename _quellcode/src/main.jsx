@@ -22,6 +22,7 @@ import { BreakSheet } from './ui/breaks.jsx';
 import { SummarySheet } from './ui/progress.jsx';
 import { WorkoutEditSheet, WeightFixSheet } from './ui/wedit.jsx';
 import { Stats } from './ui/stats.jsx';
+import { CycleReviewSheet } from './ui/review.jsx';
 import { importFromHealth } from './lib/health.js';
 import { installViewportFix, blockPinchZoom } from './lib/viewport.js';
 import { PlanLinkSheet, planFromQuery } from './ui/planlink.jsx';
@@ -33,7 +34,7 @@ installViewportFix();
 blockPinchZoom();
 setS({ day: todayKey() });
 
-const SHEETS = { add: AddSheet, amount: AmountSheet, entry: EntrySheet, custom: CustomSheet, photo: PhotoSheet, label: LabelSheet, barcode: BarcodeSheet, suggest: SuggestSheet, exercise: ExerciseSheet, algo: AlgoSheet, pick: ExercisePicker, import: ImportSheet, wellness: WellnessSheet, rir: RirSheet, exopts: ExOptsSheet, break: BreakSheet, summary: SummarySheet, planlink: PlanLinkSheet, voice: VoiceSheet, activeconflict: ActiveConflictSheet, planchanges: PlanChangesSheet, formcheck: FormCheckSheet, checkview: CheckViewSheet, checkcompare: CheckCompareSheet, wedit: WorkoutEditSheet, wfix: WeightFixSheet };
+const SHEETS = { add: AddSheet, amount: AmountSheet, entry: EntrySheet, custom: CustomSheet, photo: PhotoSheet, label: LabelSheet, barcode: BarcodeSheet, suggest: SuggestSheet, exercise: ExerciseSheet, algo: AlgoSheet, pick: ExercisePicker, import: ImportSheet, wellness: WellnessSheet, rir: RirSheet, exopts: ExOptsSheet, break: BreakSheet, summary: SummarySheet, planlink: PlanLinkSheet, voice: VoiceSheet, activeconflict: ActiveConflictSheet, planchanges: PlanChangesSheet, formcheck: FormCheckSheet, checkview: CheckViewSheet, checkcompare: CheckCompareSheet, wedit: WorkoutEditSheet, wfix: WeightFixSheet, cyclereview: CycleReviewSheet };
 
 function SheetHost() {
   const s = useS();

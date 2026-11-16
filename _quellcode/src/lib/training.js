@@ -1588,3 +1588,117 @@ export function applyFeedback(items, sore = {}) {
   if (out.some((o) => o.d)) saveTraining({ mgAdj: cur });
   return out;
 }
+
+// ---------- Zyklus-Rückblick (am Ende eines 5-Wochen-Zyklus): Bilanz + gezielte Vorschläge statt neuem Plan ----------
+/** Schlüssel des Zyklus, für den jetzt ein Rückblick ansteht (Deload-Woche oder erste Woche danach), sonst null */
+export function reviewDue(k = todayKey()) {
+  const cw = cycleWeek(k);
+  if (cw.off || !workoutLog().length) return null;
+  const key = cw.index === 4 ? (cw.early ? 'e' + weekStart(k) : 'c' + cw.c) : cw.index === 0 && cw.c > 0 ? 'c' + (cw.c - 1) : null;
+  if (!key) return null;
+  return S.training && S.training.reviewDone === key ? null : key;
+}
+
+export function cycleReview(k = todayKey()) {
+  const setup = setupOf();
+  const from = addDays(k, -35);
+  const log = workoutLog().filter((w) => w.date >= from && w.date <= k && (w.items || []).length && !isAwaySession(w.sessionId));
+  const chron = log.slice().reverse();
+  const rot = [...new Set(rotationOf(setup))];
+  const inPlan = {};
+  rot.forEach((sid) => planIds(sid, setup).forEach((id) => (inPlan[id] = inPlan[id] || sid)));
+  const allPlan = Object.keys(inPlan);
+  // Übungen: erstes vs. letztes Arbeitsgewicht/Wdh. im Zeitraum
+  const exs = [];
+  for (const id of allPlan) {
+    const ex = EXERCISES[id];
+    if (!ex) continue;
+    const pts = chron
+      .map((w) => (w.items || []).find((it) => it.exId === id))
+      .filter((it) => it && it.sets && it.sets.some((s) => s.r > 0))
+      .map((it) => {
+        const w = workW(it.sets);
+        const top = it.sets.filter((s) => (s.w || 0) === w);
+        return { w, r: top.reduce((a, s) => a + s.r, 0) / top.length, fb: it.fb };
+      });
+    const sess = chron.filter((w) => w.sessionId === inPlan[id]).length;
+    const a = pts[0];
+    const z = pts[pts.length - 1];
+    exs.push({
+      id,
+      name: ex.name,
+      sid: inPlan[id],
+      n: pts.length,
+      sess,
+      dW: a && z ? Math.round((z.w - a.w) * 100) / 100 : 0,
+      dR: a && z && z.w === a.w ? Math.round((z.r - a.r) * 10) / 10 : 0,
+      lastW: z ? z.w : null,
+      stalled: !!stallInfo(id),
+      joint: pts.filter((p) => p.fb && (p.fb.joint === 'schmerz' || p.fb.joint === 'zwickt')).length,
+      skipped: sess >= 3 && pts.length <= sess / 2,
+      unit: ex.unit,
+      weighted: ex.inc > 0,
+    });
+  }
+  // Muskeln: Ø Sätze pro Trainingswoche gegen Zielbereich
+  const weeks = [...new Set(log.map((w) => weekStart(w.date)))];
+  const mus = [];
+  if (weeks.length) {
+    const sum = {};
+    weeks.forEach((ws) => Object.entries(setsPerMuscle(ws)).forEach(([g, v]) => (sum[g] = (sum[g] || 0) + v)));
+    for (const g of Object.keys(sum)) {
+      const avg = sum[g] / weeks.length;
+      const t = volTarget(g, setup);
+      mus.push({ g, label: MUSCLE_LABEL[g], avg: Math.round(avg * 10) / 10, t, low: avg < t[0] - 0.5, high: avg > t[1] + 1 });
+    }
+  }
+  // Vorschläge
+  const sug = [];
+  const taken = allPlan.slice();
+  for (const e of exs) {
+    const why = e.joint >= 2 ? `Gelenke haben ${e.joint}× gezwickt` : e.stalled ? 'seit 4 Einheiten kein Fortschritt' : e.skipped ? `oft ausgelassen (${e.n} von ${e.sess} Einheiten)` : null;
+    if (!why) continue;
+    const alt = substitute(e.id, setup, { taken });
+    if (!alt) continue;
+    taken.push(alt.id);
+    sug.push({ id: 'swap:' + e.id, kind: 'swap', sid: e.sid, from: e.id, to: alt.id, title: `${e.name} → ${alt.name}`, why: `${why} – ${e.joint >= 2 ? 'eine gelenkschonendere Variante für denselben Muskel.' : e.stalled ? 'eine Variante setzt einen neuen Reiz, der Muskel bleibt derselbe.' : 'vielleicht liegt dir diese Variante für denselben Muskel mehr.'}`, on: e.joint >= 2 || e.stalled });
+  }
+  for (const m of mus.filter((x) => x.low)) {
+    const cand = exs.filter((e) => priMg(e.id) === m.g && e.n > 0 && !sug.some((s) => s.from === e.id));
+    const e = cand.sort((a, b) => b.n - a.n)[0];
+    if (!e) continue;
+    const ex = EXERCISES[e.id];
+    const cur = (S.training.exOpts && S.training.exOpts[e.id] && S.training.exOpts[e.id].sets) || (ex.main && setup.experience === 'erfahren' ? 4 : setup.experience === 'anfaenger' && !ex.main ? 2 : 3);
+    if (cur >= 5) continue;
+    sug.push({ id: 'sets:' + e.id, kind: 'sets', ex: e.id, n: cur + 1, title: `${m.label}: ${e.name} mit ${cur + 1} statt ${cur} Sätzen`, why: `Ø ${String(m.avg).replace('.', ',')} Sätze pro Woche – Ziel sind ${m.t[0]}–${m.t[1]}.`, on: true });
+  }
+  const planned = (Number(setup.perWeek) || 3) * Math.max(1, Math.min(5, weeks.length || 1));
+  return {
+    sessions: log.length,
+    planned,
+    weeks: weeks.length,
+    up: exs.filter((e) => e.n >= 2 && (e.dW > 0 || e.dR >= 1)).sort((a, b) => b.dW - a.dW || b.dR - a.dR),
+    flat: exs.filter((e) => e.n >= 3 && e.dW <= 0 && e.dR < 1),
+    mus: mus.filter((m) => m.low || m.high),
+    sug,
+  };
+}
+
+/** Ausgewählte Vorschläge übernehmen und Rückblick als erledigt merken */
+export function applyReview(sugs, extra = {}, key = null) {
+  const tr = S.training || {};
+  const custom = { ...(tr.custom || {}) };
+  const exOpts = { ...(tr.exOpts || {}) };
+  for (const s of sugs) {
+    if (s.kind === 'swap') {
+      // in allen Einheiten tauschen, in denen die Übung vorkommt
+      [...new Set(rotationOf())].forEach((sid) => {
+        const ids = planIds(sid);
+        if (ids.includes(s.from)) custom[sid] = ids.map((x) => (x === s.from ? s.to : x)).filter((x, i, a) => a.indexOf(x) === i);
+      });
+    } else if (s.kind === 'sets') exOpts[s.ex] = { ...(exOpts[s.ex] || {}), sets: s.n };
+  }
+  const patch = { custom, exOpts, ...(key ? { reviewDone: key } : {}) };
+  if (extra.setup) patch.setup = { ...setupOf(), ...extra.setup };
+  saveTraining(patch);
+}

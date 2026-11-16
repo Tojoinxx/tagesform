@@ -3622,3 +3622,24 @@ button.streak { border: 0; font: inherit; font-size: 14px; cursor: pointer; }
 /* Farbschein oben etwas kräftiger, dafür kürzer */
 .tint { height: 260px; opacity: 0.7; }
 .sportoff { margin-top: 8px; }
+
+/* Zyklus-Rückblick */
+.cta--review .cta__icon { background: linear-gradient(135deg, #7c5cff, #4b7bff); }
+.rev__stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+.rev__stats > div { background: var(--card2); border-radius: 14px; padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
+.rev__stats b { font-family: var(--display); font-size: 30px; line-height: 1; }
+.rev__stats b small { font-size: 16px; color: var(--muted); font-weight: 600; }
+.rev__stats span { font-size: 12.5px; color: var(--muted); }
+.rev__list { list-style: none; margin: 0; padding: 0; }
+.rev__list li { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 14.5px; }
+.rev__list li + li { border-top: 1px solid var(--line); }
+.rev__list li > span:nth-of-type(1) { flex: 1; min-width: 0; }
+.rev__up { color: var(--accent); }
+.rev__low { color: #f2994a; }
+.rev__sug { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.rev__sugrow { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--card2); cursor: pointer; }
+.rev__sugrow input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--accent); flex: none; }
+.rev__sugrow span { display: flex; flex-direction: column; gap: 3px; }
+.rev__sugrow b { font-size: 14.5px; }
+.rev__q { margin-top: 12px; }
+.rev__foot { display: flex; flex-direction: column; gap: 8px; }

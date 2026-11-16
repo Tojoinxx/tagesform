@@ -9,7 +9,7 @@ import { Last7Card } from './form.jsx';
 import { workoutLog, weekStreak, isSportEntry, breakOn, recoveryMap, setsPerMuscle, volTarget, weeklyVolume, MUSCLE_LABEL, setupOf } from '../lib/training.js';
 import { BodyMap } from './bodymap.jsx';
 import { useState } from 'preact/hooks';
-import { S, toast } from '../lib/store.js';
+import { S, toast, openSheet } from '../lib/store.js';
 import { addDays, weekStart, todayKey, n1 } from '../lib/util.js';
 import { nav } from './router.js';
 import { Dumbbell, BatteryCharging, Layers, CalendarDays } from 'lucide-preact';
@@ -183,6 +183,11 @@ function TrainingStats() {
       {any && <RecoveryCard />}
       {any && <CalendarCard />}
       <ProgressCard />
+      {any && (
+        <button class="btn btn--block btn--sm" onClick={() => openSheet('cyclereview', {})}>
+          Zyklus-Rückblick ansehen
+        </button>
+      )}
       {any && <VolumeCard />}
       <StrengthCharts />
       <WorkoutHistoryCard />

@@ -4,6 +4,7 @@ import { weekStreak, setSportOff, sportOffOn, sportPlannedOn, EXPERIENCE, setupO
 import { TrainingOptionsCard } from './planeditor.jsx';
 import { BreakCard, SickPanel, CardioPanel, endBreak, breakEmoji } from './breaks.jsx';
 import { weekStart, addDays, isoWeek } from '../lib/util.js';
+import { ReviewCard } from './review.jsx';
 import { SESSIONS, ROTATIONS, EXERCISES, SPLITS } from '../lib/exercises.js';
 import { todayKey, uid, n1, fmtShortDate } from '../lib/util.js';
 import { Chip, Seg, Field } from './common.jsx';
@@ -675,6 +676,7 @@ export function Training() {
 
       {hasSetup && !editing && !fresh && (
         <>
+          <ReviewCard />
           {!s.active && <TodayCard setup={setup} />}
           <BreakCard />
           <h4 class="sect sect--page">Dein Wochenrhythmus</h4>
