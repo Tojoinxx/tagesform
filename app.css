@@ -3643,3 +3643,19 @@ button.streak { border: 0; font: inherit; font-size: 14px; cursor: pointer; }
 .rev__sugrow b { font-size: 14.5px; }
 .rev__q { margin-top: 12px; }
 .rev__foot { display: flex; flex-direction: column; gap: 8px; }
+
+/* Eigenes Gerätefoto */
+.exanim--own img { position: static; width: 100%; height: 100%; object-fit: cover; opacity: 1; animation: none; }
+.exphoto { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0 4px; }
+.exphoto__btn { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.exphoto__btn.is-busy { opacity: 0.6; pointer-events: none; }
+.exphoto .btn--link { display: inline-flex; align-items: center; gap: 4px; }
+
+/* Übungsauswahl: größere Bilder, Muskelgruppe über dem Namen */
+.exanim--pick { width: 96px; height: 72px; border-radius: 12px; flex: none; }
+.frow--pick { contain-intrinsic-size: auto 88px; }
+.frow--pick .pickrow { gap: 14px; padding: 8px 0; align-items: center; }
+.frow--pick .frow__name { display: flex; flex-direction: column; gap: 1px; }
+.frow--pick .frow__name b { font-weight: 600; font-size: 15.5px; line-height: 1.25; }
+.pickrow__grp { font-size: 12px; font-weight: 600; color: var(--accent); }
+.pick__eq { margin-top: -2px; }

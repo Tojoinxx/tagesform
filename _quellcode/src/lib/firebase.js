@@ -73,7 +73,7 @@ export async function rulesCheck() {
   }
 }
 
-const TF_COLS = ['tf_days', 'tf_foods', 'tf_weeks', 'tf_checks', 'tf_checkpics'];
+const TF_COLS = ['tf_days', 'tf_foods', 'tf_weeks', 'tf_checks', 'tf_checkpics', 'tf_expics'];
 const TF_META = ['profile', 'ai', 'training', 'active'];
 
 /** Alle Tagesform-Daten des angemeldeten Nutzers löschen (Kartenschatz bleibt unberührt) */

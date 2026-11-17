@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'preact/hooks';
-import { useS, S, openSheet, closeSheet, saveActive, saveTraining, toast } from '../lib/store.js';
+import { useS, S, openSheet, closeSheet, saveActive, saveTraining, toast, saveExPic, delExPic } from '../lib/store.js';
 import { guideOf, imgOf } from '../lib/exguide.js';
 import { EXERCISES, SESSIONS } from '../lib/exercises.js';
 import { buildSession, swapOptions, itemFor, setupOf, planIds, isCustom, mgOf, sessionOf, prefsOf, exOf, sportExtras, sportOf, isAvailable, isExcluded, excludedMap, equipList, equipLabel, defaultReps, MUSCLE_LABEL, soreOf } from '../lib/training.js';
 import { ExHistory } from './progress.jsx';
 import { BodyMap, musclesOf } from './bodymap.jsx';
 import { getDay } from '../lib/store.js';
-import { todayKey, n1, uid, norm, fuzzyIn } from '../lib/util.js';
+import { todayKey, n1, uid, norm, fuzzyIn, downscaleImage } from '../lib/util.js';
 import { Sheet, Chip } from './common.jsx';
-import { Repeat, ChevronLeft, Play, CalendarDays, Clock, MapPin, TriangleAlert, ExternalLink, Lightbulb, Check, Gauge, Search, Plus, X, ArrowUp, ArrowDown, SlidersHorizontal, Ban, RotateCcw, StickyNote } from 'lucide-preact';
+import { Repeat, ChevronLeft, Play, CalendarDays, Clock, MapPin, TriangleAlert, ExternalLink, Lightbulb, Check, Gauge, Search, Plus, X, ArrowUp, ArrowDown, SlidersHorizontal, Ban, RotateCcw, StickyNote, Camera, ImageOff } from 'lucide-preact';
 import { nav } from './router.js';
 
 export function startWorkout(sessionId, items, opts = {}) {
@@ -89,6 +89,13 @@ export function ActiveConflictSheet({ sessionId }) {
 
 /** Bewegung als Animation: Start- und Endposition blenden ineinander */
 export function ExAnim({ id, size = 'md', play = true }) {
+  const own = S.exPics && S.exPics[id];
+  if (own)
+    return (
+      <div class={`exanim exanim--${size} exanim--own`} aria-hidden="true">
+        <img src={own.img} alt="" decoding="async" />
+      </div>
+    );
   return (
     <div class={`exanim exanim--${size}${play ? ' exanim--play' : ''}`} aria-hidden="true">
       <img src={imgOf(id, 0)} alt="" loading="lazy" decoding="async" />
@@ -175,6 +182,42 @@ export function ExNote({ exId, compact }) {
   );
 }
 
+/** Eigenes Foto vom Gerät im Studio aufnehmen – ersetzt das Standardbild überall in der App */
+export function ExPhotoBar({ exId }) {
+  useS();
+  const own = S.exPics && S.exPics[exId];
+  const [busy, setBusy] = useState(false);
+  const onFile = async (e) => {
+    const f = e.currentTarget.files && e.currentTarget.files[0];
+    e.currentTarget.value = '';
+    if (!f) return;
+    setBusy(true);
+    try {
+      const { dataUrl } = await downscaleImage(f, 720, 0.74);
+      await saveExPic(exId, dataUrl);
+      toast('Foto gespeichert – so erkennst du dein Gerät sofort');
+    } catch (err) {
+      toast('Foto konnte nicht gespeichert werden');
+    }
+    setBusy(false);
+  };
+  return (
+    <div class="exphoto">
+      <label class={'btn btn--sm exphoto__btn' + (busy ? ' is-busy' : '')}>
+        <Camera size={16} /> {busy ? 'Speichere …' : own ? 'Foto ändern' : 'Foto von deinem Gerät'}
+        <input type="file" accept="image/*" capture="environment" onChange={onFile} hidden />
+      </label>
+      {own ? (
+        <button class="btn--link small muted" onClick={() => (delExPic(exId), toast('Wieder das Standardbild'))}>
+          <ImageOff size={14} /> Standardbild
+        </button>
+      ) : (
+        <span class="small muted">z. B. das Technogym-Gerät in deinem Studio</span>
+      )}
+    </div>
+  );
+}
+
 export function ExerciseSheet({ exId, item }) {
   useS();
   const ex = EXERCISES[exId];
@@ -182,7 +225,8 @@ export function ExerciseSheet({ exId, item }) {
   return (
     <Sheet title={ex.name} tall>
       <ExAnim id={exId} size="lg" />
-      {g.imageNote && <p class="small muted">{g.imageNote}</p>}
+      <ExPhotoBar exId={exId} />
+      {g.imageNote && !(S.exPics && S.exPics[exId]) && <p class="small muted">{g.imageNote}</p>}
       <div class="exdetail__head">
         <span class="excard__group">{g.group}</span>
         <h2>{ex.name}</h2>
@@ -305,6 +349,14 @@ const CATS = [
   ['po', 'Po'],
   ['rumpf', 'Bauch'],
 ];
+const EQ = [
+  ['alle', 'Alle Geräte'],
+  ['maschine', 'Maschinen'],
+  ['kabel', 'Kabelzug'],
+  ['hantel', 'Hanteln'],
+  ['kg', 'Körpergewicht'],
+];
+const eqOf = (e) => (e.equip === 'Maschine' ? 'maschine' : e.equip === 'Kabel' ? 'kabel' : /Langhantel|Kurzhantel|SZ|Kettlebell/.test(e.equip) && !/Körpergewicht/.test(e.equip) ? 'hantel' : 'kg');
 const catOf = (id) => {
   const pri = mgOf(id).split('|')[0].split(',')[0];
   if (pri === 'bizeps' || pri === 'trizeps') return 'arme';
@@ -339,11 +391,13 @@ function PickRow({ e, onPick }) {
           closeSheet();
         }}
       >
-        <ExAnim id={e.id} size="xs" play={false} />
+        <ExAnim id={e.id} size="pick" play={false} />
         <span class="frow__name">
-          {e.name}
+          <span class="pickrow__grp">{pickIndex()[e.id].group}</span>
+          <b>{e.name}</b>
           <small class="muted">
-            {pickIndex()[e.id].group} · {e.equip}
+            {e.equip}
+            {S.exPics && S.exPics[e.id] ? ' · 📷 dein Foto' : ''}
             {isExcluded(e.id) ? ' · ausgeschlossen' : ''}
           </small>
         </span>
@@ -356,13 +410,14 @@ function PickRow({ e, onPick }) {
 export function ExercisePicker({ title = 'Übung auswählen', exclude = [], suggest = [], onPick }) {
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('alle');
+  const [eq, setEq] = useState('alle');
   const restricted = !!equipList();
   const [onlyAvail, setOnlyAvail] = useState(true);
   const idx = pickIndex();
   const all = _pickSorted.filter((e) => !exclude.includes(e.id) && (!restricted || !onlyAvail || isAvailable(e.id)));
   const qn = norm(q);
   const terms = qn.split(' ').filter(Boolean);
-  const inCat = (e) => cat === 'alle' || idx[e.id].cat === cat;
+  const inCat = (e) => (cat === 'alle' || idx[e.id].cat === cat) && (eq === 'alle' || eqOf(e) === eq);
   const has = (e, t) => idx[e.id].hay.includes(t);
   // 1. alle Wörter genau  2. mit Tippfehlern („leiegnd“)  3. die meisten Wörter
   let list = all.filter((e) => inCat(e) && terms.every((t) => has(e, t)));
@@ -378,13 +433,13 @@ export function ExercisePicker({ title = 'Übung auswählen', exclude = [], sugg
   }
   // Erst die ersten Treffer zeigen, den Rest einen Moment später – Tippen & Öffnen bleiben flüssig
   const [shown, setShown] = useState(25);
-  useEffect(() => setShown(25), [qn, cat, onlyAvail]);
+  useEffect(() => setShown(25), [qn, cat, eq, onlyAvail]);
   useEffect(() => {
     if (shown >= list.length) return;
     const t = setTimeout(() => setShown((n) => n + 30), 30);
     return () => clearTimeout(t);
   }, [shown, list.length]);
-  const sugg = !qn && cat === 'alle' ? suggest.filter((id) => EXERCISES[id] && !exclude.includes(id) && (!restricted || !onlyAvail || isAvailable(id))).map((id) => EXERCISES[id]) : [];
+  const sugg = !qn && cat === 'alle' && eq === 'alle' ? suggest.filter((id) => EXERCISES[id] && !exclude.includes(id) && (!restricted || !onlyAvail || isAvailable(id))).map((id) => EXERCISES[id]) : [];
   return (
     <Sheet title={title} tall>
       <div class="search">
@@ -394,6 +449,13 @@ export function ExercisePicker({ title = 'Übung auswählen', exclude = [], sugg
       <div class="chips chips--scroll">
         {CATS.map(([id, l]) => (
           <Chip small active={cat === id} onClick={() => setCat(id)}>
+            {l}
+          </Chip>
+        ))}
+      </div>
+      <div class="chips chips--scroll pick__eq">
+        {EQ.map(([id, l]) => (
+          <Chip small active={eq === id} onClick={() => setEq(id)}>
             {l}
           </Chip>
         ))}
@@ -422,7 +484,7 @@ export function ExercisePicker({ title = 'Übung auswählen', exclude = [], sugg
           const inPlan = exclude.filter((id) => EXERCISES[id] && terms.every((t) => idx[id].hay.includes(t) || fuzzyIn(idx[id].hay, t))).map((id) => EXERCISES[id].name);
           return inPlan.length ? <p class="small pick__inplan">✓ Schon in dieser Einheit: {inPlan.join(', ')}</p> : null;
         })()}
-      <h4 class="sect">{near ? `Nichts Genaues – ähnliche Übungen (${list.length})` : qn || cat !== 'alle' ? `${list.length} Treffer` : `Alle Übungen (${list.length})`}</h4>
+      <h4 class="sect">{near ? `Nichts Genaues – ähnliche Übungen (${list.length})` : qn || cat !== 'alle' || eq !== 'alle' ? `${list.length} Treffer` : `Alle Übungen (${list.length})`}</h4>
       <ul class="flist">
         {list.slice(0, shown).map((e) => (
           <PickRow key={e.id} e={e} onPick={onPick} />

@@ -165,6 +165,13 @@ function startWatching() {
     }),
   );
   unsubs.push(
+    b.watchCol('tf_expics', (list) => {
+      const exPics = {};
+      list.forEach((x) => x.img && (exPics[x.id] = x));
+      setS({ exPics });
+    }),
+  );
+  unsubs.push(
     b.watchCol('tf_weeks', (list) => {
       const weeks = {};
       list.forEach((w) => (weeks[w.id] = w));
@@ -352,4 +359,17 @@ export const currentWeekStart = () => weekStart(todayKey());
 
 export function exportAll() {
   return { exportedAt: new Date().toISOString(), profile: S.profile, training: S.training, foods: S.foods, days: S.days, weeks: S.weeks, formchecks: S.checks };
+}
+
+/** Eigenes Foto für eine Übung (z. B. das Gerät im eigenen Studio) – ersetzt das Standardbild */
+export function saveExPic(exId, img) {
+  const doc = { img, at: Date.now() };
+  setS({ exPics: { ...(S.exPics || {}), [exId]: { id: exId, ...doc } } });
+  return backend.set('tf_expics/' + exId, doc);
+}
+export function delExPic(exId) {
+  const n = { ...(S.exPics || {}) };
+  delete n[exId];
+  setS({ exPics: n });
+  return backend.del('tf_expics/' + exId);
 }
