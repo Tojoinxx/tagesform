@@ -1366,6 +1366,7 @@ export function VoiceSheet({ dayKey, meal: meal0, back, text: text0 = '' }) {
   const [state, setState] = useState({ status: 'idle' });
   const [items, setItems] = useState([]);
   const [text, setText] = useState(text0);
+  const [analyzed, setAnalyzed] = useState(null); // Text, auf dem das aktuelle Ergebnis beruht
   const [title, setTitle] = useState('');
   const [level, setLevel] = useState(0);
   const [ms, setMs] = useState(0);
@@ -1389,6 +1390,7 @@ export function VoiceSheet({ dayKey, meal: meal0, back, text: text0 = '' }) {
     try {
       const r = await analyzeMealSpeech(input, o);
       if (r.transcript) setText(r.transcript);
+      setAnalyzed((r.transcript || (input && input.text) || '').trim());
       // Mahlzeit nur ändern, wenn sie wirklich gesagt/geschrieben wurde („zum Frühstück“, „mittags“ …).
       // Die KI rät sonst gern „Snack“ – dann bleibt die Mahlzeit, über die du hinzugefügt hast.
       const said = mealFromText(r.transcript || (input && input.text) || '');
@@ -1450,6 +1452,9 @@ export function VoiceSheet({ dayKey, meal: meal0, back, text: text0 = '' }) {
     closeSheet();
   };
   const setMealT = (m) => ((mealTouched.current = true), setMeal(m));
+  // Text geändert, aber noch nicht neu ausgewertet → der große Knopf wertet zuerst neu aus, statt das alte Ergebnis einzutragen
+  const dirty = (state.status === 'done' || state.status === 'error') && text.trim().length >= 2 && analyzed != null && text.trim() !== analyzed;
+  const reanalyze = () => analyze({ text: text.trim() });
 
   if (!ai) {
     return (
@@ -1478,10 +1483,24 @@ export function VoiceSheet({ dayKey, meal: meal0, back, text: text0 = '' }) {
       tall
       onBack={back && !recording ? () => openSheet(back.name, back.props) : undefined}
       footer={
-        state.status === 'done' && (
-          <button class="btn btn--primary btn--block" disabled={!chosen.length} onClick={save}>
-            Eintragen · {n0(total)} kcal
-          </button>
+        dirty ? (
+          <div class="voice__foot">
+            <p class="small voice__dirty">Du hast den Text geändert – das Ergebnis oben ist noch vom alten Text.</p>
+            <button class="btn btn--primary btn--block" onClick={reanalyze}>
+              Änderung übernehmen & neu auswerten
+            </button>
+            {state.status === 'done' && (
+              <button class="btn--link small muted" onClick={() => setText(analyzed)}>
+                Änderung verwerfen
+              </button>
+            )}
+          </div>
+        ) : (
+          state.status === 'done' && (
+            <button class="btn btn--primary btn--block" disabled={!chosen.length} onClick={save}>
+              Eintragen · {n0(total)} kcal
+            </button>
+          )
         )
       }
     >
@@ -1538,16 +1557,18 @@ export function VoiceSheet({ dayKey, meal: meal0, back, text: text0 = '' }) {
         </div>
       )}
 
-      {state.status === 'done' && <AiItems items={items} setItem={setItem} setItems={setItems} meal={meal} setMeal={setMealT} title={title} setTitle={setTitle} hint={state.hint} />}
+      {state.status === 'done' && <div class={dirty ? 'voice__stale' : ''}><AiItems items={items} setItem={setItem} setItems={setItems} meal={meal} setMeal={setMealT} title={title} setTitle={setTitle} hint={state.hint} /></div>}
 
       {!recording && state.status !== 'loading' && (
         <details class="more" open={state.status !== 'idle' || !canRecord()}>
           <summary>{text ? 'Verstanden – Text korrigieren' : 'Lieber schreiben'}</summary>
-          <textarea class="input voice__text" rows={3} placeholder="z. B. 250 g Spaghetti Bolognese und ein Apfel" value={text} onInput={(e) => setText(e.currentTarget.value)} />
+          <textarea class={'input voice__text' + (dirty ? ' voice__text--dirty' : '')} rows={3} placeholder="z. B. 250 g Spaghetti Bolognese und ein Apfel" value={text} onInput={(e) => setText(e.currentTarget.value)} />
           <div class="row">
-            <button class="btn btn--sm" disabled={text.trim().length < 2} onClick={() => analyze({ text: text.trim() })}>
-              <RefreshCw size={16} /> {state.status === 'done' ? 'Neu auswerten' : 'Auswerten'}
-            </button>
+            {!dirty && (
+              <button class="btn btn--sm" disabled={text.trim().length < 2} onClick={reanalyze}>
+                <RefreshCw size={16} /> {state.status === 'done' ? 'Neu auswerten' : 'Auswerten'}
+              </button>
+            )}
             {state.status !== 'idle' && canRecord() && (
               <button class="btn btn--sm" onClick={start}>
                 <Mic size={16} /> Nochmal sprechen

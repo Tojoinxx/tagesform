@@ -3659,3 +3659,9 @@ button.streak { border: 0; font: inherit; font-size: 14px; cursor: pointer; }
 .frow--pick .frow__name b { font-weight: 600; font-size: 15.5px; line-height: 1.25; }
 .pickrow__grp { font-size: 12px; font-weight: 600; color: var(--accent); }
 .pick__eq { margin-top: -2px; }
+
+/* Sprach-Eintrag: Text geändert, aber noch nicht ausgewertet */
+.voice__foot { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.voice__dirty { margin: 0; color: #f2b84a; text-align: center; }
+.voice__stale { opacity: 0.45; pointer-events: none; transition: opacity 0.2s; }
+.voice__text--dirty { border-color: #f2b84a; box-shadow: 0 0 0 2px color-mix(in srgb, #f2b84a 30%, transparent); }
