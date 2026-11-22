@@ -118,15 +118,55 @@ async function readStream(r, onChunk, armStall, signal) {
   if (buf.trim().startsWith('data:')) handle(JSON.parse(buf.trim().slice(5)));
 }
 
-const STALL_MS = 25000; // so lange ohne neue Daten → nächstes Modell
-const TOTAL_MS = 100000; // danach endgültig aufgeben
+const STALL_MS = 20000; // so lange ohne neue Daten → Versuch gilt als hängend
+const TOTAL_MS = 90000; // danach endgültig aufgeben
+
+// Zuletzt schnell funktionierendes Modell merken (nur auf diesem Gerät) – kommt beim nächsten Mal zuerst dran
+const PREF_KEY = 'tf.ai.fast.v1';
+const prefModel = () => {
+  try {
+    const j = JSON.parse(localStorage.getItem(PREF_KEY) || 'null');
+    return j && Date.now() - j.at < 6 * 3600e3 ? j.model : null;
+  } catch (e) {
+    return null;
+  }
+};
+const notePref = (model) => {
+  try {
+    localStorage.setItem(PREF_KEY, JSON.stringify({ model, at: Date.now() }));
+  } catch (e) {}
+};
+const noteBad = (model) => {
+  try {
+    const j = JSON.parse(localStorage.getItem(PREF_KEY) || 'null');
+    if (j && j.model === model) localStorage.removeItem(PREF_KEY);
+  } catch (e) {}
+};
+
+/**
+ * Denk-Einstellung je Modell: Gemini 3+ kennt thinkingLevel, 2.x nur thinkingBudget.
+ * fast = einfache Aufgaben (Sprache, Text, Etikett, Schätzung): so wenig Nachdenken wie möglich → deutlich schneller.
+ */
+function thinkCfg(model, fast, level) {
+  const v = verOf(model);
+  const lite = /flash-lite/.test(model);
+  if (level === 0) return null;
+  if (v >= 3) return { thinkingLevel: fast ? 'minimal' : lite ? 'low' : 'low', includeThoughts: !fast };
+  if (/-pro/.test(model)) return { thinkingBudget: fast ? 128 : 512, includeThoughts: !fast };
+  return { thinkingBudget: fast ? 0 : 512, includeThoughts: !fast };
+}
 
 /**
  * Anfrage an Gemini, Antwort als JSON-Objekt.
  * onProgress({ step: 'send'|'think'|'write'|'retry', model, thought, names, chars }) – für die Fortschrittsanzeige
  * signal: AbortSignal zum Abbrechen
+ * fast: einfache Aufgabe – minimales Nachdenken, schneller Zweitversuch
+ *
+ * Tempo: Kommt vom ersten Modell nach ein paar Sekunden noch nichts zurück, startet parallel ein zweites
+ * („Hedging“). Die schnellere Antwort gewinnt, die andere wird abgebrochen. Das spart die langen Hänger,
+ * wenn ein Modell gerade überlastet ist.
  */
-export async function askJson(prompt, { image, images, temperature = 0.4, onProgress, signal } = {}) {
+export async function askJson(prompt, { image, images, temperature = 0.4, onProgress, signal, fast = false } = {}) {
   const prog = (p) => {
     try {
       onProgress && onProgress(p);
@@ -145,40 +185,48 @@ export async function askJson(prompt, { image, images, temperature = 0.4, onProg
     models = await discoverModels(key);
     saveAi({ models });
   }
-  const parts = [{ text: prompt + '\n(Falls du vorher nachdenkst: fasse deine Gedanken kurz auf Deutsch zusammen.)' }];
+  const pm = prefModel();
+  if (pm && models.includes(pm)) models = [pm, ...models.filter((m) => m !== pm)];
+
+  const parts = [{ text: fast ? prompt : prompt + '\n(Falls du vorher nachdenkst: fasse deine Gedanken kurz auf Deutsch zusammen.)' }];
   if (image) parts.push({ inline_data: { mime_type: image.mime, data: image.base64 } });
   (images || []).forEach((im) => {
     if (im.label) parts.push({ text: im.label });
     parts.push({ inline_data: { mime_type: im.mime, data: im.base64 } });
   });
   const t0 = Date.now();
-  let lastErr;
-  let first = true;
-  for (const model of models) {
-    for (const thinking of [true, false]) {
-      if (signal && signal.aborted) throw abortErr();
-      if (Date.now() - t0 > TOTAL_MS) break;
-      if (!first) prog({ step: 'retry', model: prettyModel(model), reason: lastErr && (lastErr.friendly || lastErr.message) });
-      first = false;
-      prog({ step: 'send', model: prettyModel(model) });
-      const generationConfig = { responseMimeType: 'application/json', temperature };
-      if (thinking) generationConfig.thinkingConfig = { thinkingLevel: 'low', includeThoughts: true };
-      // eigener Abbruch: Nutzer, Stillstand oder Gesamtzeit
-      const ctl = new AbortController();
-      let why = null;
-      const kill = (w) => {
-        why = w;
-        ctl.abort();
-      };
-      const onUser = () => kill('user');
-      if (signal) signal.addEventListener('abort', onUser);
-      let stall;
-      const armStall = () => {
-        clearTimeout(stall);
-        stall = setTimeout(() => kill('stall'), STALL_MS);
-      };
-      armStall();
-      const total = setTimeout(() => kill('total'), Math.max(5000, TOTAL_MS - (Date.now() - t0)));
+  const heavy = (images && images.length > 1) || !!image;
+  const HEDGE_MS = fast ? (heavy ? 9000 : 6000) : heavy ? 14000 : 10000;
+
+  // Warteschlange der Versuche: jedes Modell mit Denk-Einstellung, bei Problemen ohne
+  const queue = models.map((m) => ({ model: m, level: 1 }));
+  let lastErr = null;
+  let shown = null; // Modell, dessen Fortschritt angezeigt wird
+  const running = new Set();
+  const userAbort = () => running.forEach((a) => a.kill('user'));
+  if (signal) signal.addEventListener('abort', userAbort);
+
+  const attempt = ({ model, level }) => {
+    const ctl = new AbortController();
+    const a = { model, level, why: null, first: false };
+    a.kill = (w) => {
+      if (!a.why) a.why = w;
+      ctl.abort();
+    };
+    running.add(a);
+    let stall;
+    const armStall = () => {
+      clearTimeout(stall);
+      stall = setTimeout(() => a.kill('stall'), STALL_MS);
+    };
+    armStall();
+    const total = setTimeout(() => a.kill('total'), Math.max(5000, TOTAL_MS - (Date.now() - t0)));
+    if (!shown) shown = model;
+    const mine = () => shown === model;
+    const generationConfig = { responseMimeType: 'application/json', temperature };
+    const tc = thinkCfg(model, fast, level);
+    if (tc) generationConfig.thinkingConfig = tc;
+    a.promise = (async () => {
       try {
         const r = await fetch(`${BASE}/models/${model}:streamGenerateContent?alt=sse`, {
           method: 'POST',
@@ -188,9 +236,9 @@ export async function askJson(prompt, { image, images, temperature = 0.4, onProg
         });
         if (!r.ok) {
           const err = await apiError(r);
-          lastErr = err;
-          if (r.status === 400 && thinking && /thinking|thought/i.test(err.message)) continue; // ohne Denk-Einstellung erneut
-          if (r.status === 404 || r.status === 429 || r.status >= 500) break; // nächstes Modell
+          // Denk-Einstellung passt nicht zum Modell → gleiches Modell ohne
+          if (r.status === 400 && level && /thinking|thought|budget/i.test(err.message)) err.retryPlain = true;
+          else if (!(r.status === 404 || r.status === 429 || r.status >= 500)) err.fatal = true;
           throw err;
         }
         let text = '';
@@ -200,13 +248,17 @@ export async function askJson(prompt, { image, images, temperature = 0.4, onProg
           (chunk) => {
             const cand = chunk && chunk.candidates && chunk.candidates[0];
             if (!cand) return;
+            if (!a.first) {
+              a.first = true;
+              shown = model; // wer zuerst Daten liefert, wird angezeigt
+            }
             if (cand.finishReason) finish = cand.finishReason;
             ((cand.content && cand.content.parts) || []).forEach((p) => {
               if (!p.text) return;
-              if (p.thought) prog({ step: 'think', model: prettyModel(model), thought: thoughtLine(p.text) });
+              if (p.thought) mine() && prog({ step: 'think', model: prettyModel(model), thought: thoughtLine(p.text) });
               else {
                 text += p.text;
-                prog({ step: 'write', model: prettyModel(model), chars: text.length, names: partialNames(text) });
+                mine() && prog({ step: 'write', model: prettyModel(model), chars: text.length, names: partialNames(text) });
               }
             });
           },
@@ -214,42 +266,92 @@ export async function askJson(prompt, { image, images, temperature = 0.4, onProg
           ctl.signal,
         );
         if (!text) {
-          lastErr = new Error('Leere KI-Antwort' + (finish ? ' (' + finish + ')' : ''));
-          break;
+          const e = new Error('Leere KI-Antwort' + (finish ? ' (' + finish + ')' : ''));
+          throw e;
         }
-        return extractJson(text);
+        try {
+          return extractJson(text);
+        } catch (e) {
+          e.retryPlain = !!level; // kaputtes JSON → ohne Nachdenken nochmal
+          throw e;
+        }
       } catch (e) {
-        if (why === 'user' || (signal && signal.aborted)) throw abortErr();
-        if (why === 'stall' || why === 'total') {
-          lastErr = new Error('Zeitüberschreitung');
-          lastErr.friendly = 'Die KI hat zu lange nicht geantwortet – vermutlich gerade überlastet. Bitte gleich nochmal versuchen.';
-          if (why === 'total') break;
-          break; // nächstes Modell
+        if (a.why === 'user') throw abortErr();
+        if (a.why === 'hedge-lost') {
+          const x = new Error('überholt');
+          x.lost = true;
+          throw x;
         }
-        if (e.status && e.status !== 404 && e.status !== 429 && e.status < 500) throw e;
-        lastErr = e;
-        if (!e.status) {
-          if (e instanceof SyntaxError || /JSON/.test(e.message || '')) continue; // kaputte Antwort → ohne Denken nochmal
-          if (!navigator.onLine) {
-            const off = new Error('offline');
-            off.friendly = 'Du bist offline – für die KI brauchst du Internet.';
-            throw off;
-          }
-          break;
+        if (a.why === 'stall' || a.why === 'total') {
+          const x = new Error('Zeitüberschreitung');
+          x.friendly = 'Die KI hat zu lange nicht geantwortet – vermutlich gerade überlastet. Bitte gleich nochmal versuchen.';
+          x.timeout = a.why;
+          throw x;
         }
+        if (!e.status && !e.retryPlain && typeof navigator !== 'undefined' && !navigator.onLine) {
+          const off = new Error('offline');
+          off.friendly = 'Du bist offline – für die KI brauchst du Internet.';
+          off.fatal = true;
+          throw off;
+        }
+        throw e;
       } finally {
         clearTimeout(stall);
         clearTimeout(total);
-        if (signal) signal.removeEventListener('abort', onUser);
+        running.delete(a);
+      }
+    })();
+    return a;
+  };
+
+  try {
+    prog({ step: 'send', model: prettyModel(queue[0].model) });
+    let active = [attempt(queue.shift())];
+    for (;;) {
+      if (signal && signal.aborted) throw abortErr();
+      // Warten: auf eine Antwort, einen Fehler – oder bis Zeit fürs parallele Zweitmodell ist
+      const waitHedge = active.length === 1 && queue.length && !active[0].first ? new Promise((res) => setTimeout(() => res('hedge'), Math.max(0, HEDGE_MS - (Date.now() - t0)))) : null;
+      const settled = await Promise.race([
+        ...active.map((a) => a.promise.then((v) => ({ a, v }), (e) => ({ a, e }))),
+        ...(waitHedge ? [waitHedge.then(() => ({ hedge: true }))] : []),
+      ]);
+      if (settled.hedge) {
+        if (active.length === 1 && !active[0].first && queue.length && Date.now() - t0 < TOTAL_MS - 10000) {
+          const next = queue.shift();
+          prog({ step: 'retry', model: prettyModel(next.model), reason: 'antwortet langsam – frage parallel ein zweites Modell' });
+          active.push(attempt(next));
+        }
+        continue;
+      }
+      const { a, v, e } = settled;
+      if (!e) {
+        active.filter((x) => x !== a).forEach((x) => x.kill('hedge-lost'));
+        notePref(a.model);
+        return v;
+      }
+      active = active.filter((x) => x !== a);
+      if (e.aborted) throw e;
+      if (e.lost) continue;
+      if (e.fatal) {
+        active.forEach((x) => x.kill('hedge-lost'));
+        throw e;
+      }
+      lastErr = e;
+      noteBad(a.model);
+      if (e.retryPlain) queue.unshift({ model: a.model, level: 0 });
+      if (e.status === 404) saveAi({ models: null }); // Modellliste veraltet → beim nächsten Mal neu ermitteln
+      if (!active.length) {
+        if (!queue.length || Date.now() - t0 > TOTAL_MS) throw lastErr;
+        const next = queue.shift();
+        shown = null;
+        prog({ step: 'retry', model: prettyModel(next.model), reason: e.friendly || e.message });
+        active = [attempt(next)];
       }
     }
-    if (Date.now() - t0 > TOTAL_MS) break;
+  } finally {
+    if (signal) signal.removeEventListener('abort', userAbort);
+    running.forEach((x) => x.kill('hedge-lost'));
   }
-  if (lastErr && lastErr.status === 404) {
-    // Modellliste veraltet -> beim nächsten Mal neu ermitteln
-    saveAi({ models: null });
-  }
-  throw lastErr || new Error('KI-Anfrage fehlgeschlagen');
 }
 
 function abortErr() {

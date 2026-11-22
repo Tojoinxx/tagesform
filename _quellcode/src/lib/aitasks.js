@@ -65,7 +65,7 @@ ${audio ? '- Schreib zuerst wörtlich auf, was gesagt wurde (transcript).\n' : '
 ${text ? 'Text: "' + String(text).slice(0, 1500) + '"' : ''}
 Antworte NUR mit JSON in genau diesem Format:
 {"transcript":"${audio ? 'was gesagt wurde' : ''}","title":"kurzer Name der Mahlzeit","meal":"","items":[{"name":"Vollkornbrot","grams":100,"per100":{"kcal":220,"p":7,"c":40,"f":1.5,"fiber":7,"sugar":3,"satFat":0.3,"salt":1.1},"fruitVeg":false,"confidence":"hoch"}],"hint":"Kurzer Hinweis, falls etwas unklar war, sonst leer"}`;
-  const j = await askJson(prompt, { image: audio, temperature: 0.2, ...opts });
+  const j = await askJson(prompt, { image: audio, temperature: 0.2, fast: true, ...opts });
   const items = (j.items || [])
     .map((it) => ({
       name: String(it.name || 'Unbekannt'),
@@ -102,7 +102,7 @@ Gib die wahrscheinlichste Bedeutung als EIN Lebensmittel/Gericht/Produkt zurück
 - alternatives: bis zu 2 andere mögliche Bedeutungen als kurze Namen (z. B. bei mehrdeutigen Begriffen), sonst leer
 Antworte NUR mit JSON:
 {"name":"Name auf Deutsch","brand":"Marke oder leer","unit":"g","per100":{"kcal":0,"p":0,"c":0,"f":0,"fiber":0,"sugar":0,"satFat":0,"salt":0},"portions":[{"label":"1 Stück","g":100}],"fruitVeg":false,"confidence":"mittel","alternatives":[]}`;
-  const j = await askJson(prompt, { temperature: 0.2, ...opts });
+  const j = await askJson(prompt, { temperature: 0.2, fast: true, ...opts });
   const per100 = per100Of(j.per100);
   if (!(per100.kcal > 0 || per100.p + per100.c + per100.f > 0)) throw Object.assign(new Error('keine Werte'), { friendly: 'Dazu konnte die KI keine Werte schätzen.' });
   const r = {
@@ -134,7 +134,7 @@ Gib die Werte PRO 100 g bzw. 100 ml an. Steht nur ein Wert pro Portion da, rechn
 Energie in kcal (nicht kJ). Wenn der Produktname oder die Marke sichtbar ist, gib sie an.
 Antworte NUR mit JSON:
 {"name":"Produktname oder leer","brand":"Marke oder leer","unit":"g oder ml","per100":{"kcal":0,"p":0,"c":0,"f":0,"fiber":0,"sugar":0,"satFat":0,"salt":0},"servingG":0,"packageG":0,"readable":true}`;
-  const j = await askJson(prompt, { image, temperature: 0, ...opts });
+  const j = await askJson(prompt, { image, temperature: 0, fast: true, ...opts });
   return {
     name: j.name || '',
     brand: j.brand || '',

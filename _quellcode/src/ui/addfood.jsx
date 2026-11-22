@@ -1046,7 +1046,7 @@ export function PhotoSheet({ dayKey, meal: meal0, file }) {
     (async () => {
       try {
         const o = hasAi() ? job.start() : null;
-        const im = await downscaleImage(file, 1280);
+        const im = await downscaleImage(file, 1024, 0.8);
         setImg(im);
         if (!hasAi()) setState({ status: 'error', noKey: true, error: 'Für die Foto-Erkennung brauchst du einmalig einen kostenlosen KI-Schlüssel.' });
         else run(im, undefined, o);
