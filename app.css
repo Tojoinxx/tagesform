@@ -3694,3 +3694,5 @@ button.streak { border: 0; font: inherit; font-size: 14px; cursor: pointer; }
 .up { color: var(--accent); }
 .down { color: #f2994a; }
 .sect svg { vertical-align: -2px; }
+.setmenu { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; padding: 8px; border-radius: 12px; background: var(--card2); }
+.setmenu__del { margin-left: auto; color: #ef5b4a; display: inline-flex; align-items: center; gap: 4px; }

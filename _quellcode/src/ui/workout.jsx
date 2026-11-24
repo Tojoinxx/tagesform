@@ -7,7 +7,7 @@ import { guideOf } from '../lib/exguide.js';
 import { swapOptions, itemFor, prefsOf, warmupFor, platesFor, limitsOf, liveAdjust, planIds, repsAt, priMg, MUSCLE_LABEL, applyFeedback, soreOf } from '../lib/training.js';
 import { buildSummary } from './progress.jsx';
 import { uid, n1, num, vibrate, fmtShortDate } from '../lib/util.js';
-import { Check, Plus, Info, Repeat, X, Timer, Flag, Trash2, ExternalLink, Search, Flame } from 'lucide-preact';
+import { Check, Plus, Info, Repeat, X, Timer, Flag, Trash2, ExternalLink, Search, Flame, Minus } from 'lucide-preact';
 import { nav } from './router.js';
 
 /** Batterie wie bei MCI: 0 = leer (am Limit) … 3+ = voll (viel Reserve) */
@@ -185,6 +185,7 @@ export function Workout() {
   const [swapFor, setSwapFor] = useState(null);
   const [cueFor, setCueFor] = useState(null);
   const [rirOpen, setRirOpen] = useState(null); // {i, j}
+  const [setMenu, setSetMenu] = useState(null); // {i, j} – Menü an der Satznummer
   const saveT = useRef();
 
   // App frisch geöffnet: laufendes Training kommt evtl. erst kurz nach dem Start aus der Datenbank
@@ -261,9 +262,18 @@ export function Workout() {
     return !w.items.some((x, a) => a > i && priMg(x.exId) === mg);
   };
   // Satzart: normal → Dropsatz → bis zum Versagen → normal
-  const cycleType = (i, j) => {
+  // Einen bestimmten Satz löschen (auch erledigte)
+  const deleteSet = (i, j) => {
+    const it = w.items[i];
+    if (it.sets.length <= 1) return toast('Mindestens ein Satz bleibt – sonst die ganze Übung entfernen (⋯ an der Übung)');
+    persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...x, sets0: x.sets0 ?? x.sets.length, sets: x.sets.filter((_, b) => b !== j) })) }, true);
+    setSetMenu(null);
+    toast(`Satz ${j + 1} entfernt`);
+  };
+  const setType = (i, j, nt) => {
     const cur = w.items[i].sets[j].type || '';
-    const nt = cur === '' ? 'drop' : cur === 'drop' ? 'fail' : '';
+    setSetMenu(null);
+    if (cur === nt) return;
     const it = w.items[i];
     // Dropsatz: ca. 20–25 % leichter als der Satz davor vorschlagen
     const prev = it.sets[j - 1];
@@ -275,6 +285,7 @@ export function Workout() {
     upSet(i, j, patch, true);
     toast(nt === 'drop' ? 'Dropsatz: direkt ohne Pause mit weniger Gewicht weiter' : nt === 'fail' ? 'Satz bis zum Versagen (RIR 0)' : 'Normaler Satz');
   };
+  const cycleType = (i, j) => setSetMenu(setMenu && setMenu.i === i && setMenu.j === j ? null : { i, j });
   // Ziel-Wdh. für einen Satz: bei anderem Gewicht als geplant umgerechnet
   const repsFor = (it, st) => (it.adjusted && Number(st.w) === Number(it.adjusted.to) ? null : repsAt(it, st.w)) ?? it.target.reps;
   // Gewicht tippen: gleich in die folgenden offenen Sätze mit demselben Gewicht übernehmen
@@ -354,7 +365,11 @@ export function Workout() {
   const removeSet = (i) => {
     const it = w.items[i];
     if (it.sets.length <= 1) return;
-    persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...x, sets0: x.sets0 ?? x.sets.length, sets: x.sets.slice(0, -1) })) }, true);
+    // bevorzugt den letzten offenen Satz entfernen, sonst den letzten
+    let j = -1;
+    for (let b = it.sets.length - 1; b >= 0; b--) if (!it.sets[b].done) { j = b; break; }
+    if (j < 0) j = it.sets.length - 1;
+    persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...x, sets0: x.sets0 ?? x.sets.length, sets: x.sets.filter((_, b) => b !== j) })) }, true);
   };
   // Aufwärmsätze: Vorschlag, bis man sie anfasst – dann im Training gespeichert. Zählen nicht als Arbeitssätze.
   const warmOf = (it, i) => {
@@ -590,7 +605,7 @@ export function Workout() {
               {it.sets.map((st, j) => (
                 <>
                 <div class={'sets__row' + (st.done ? ' sets__row--done' : '')}>
-                  <button class={'sets__n sets__type tnum' + (st.type ? ' sets__type--' + st.type : '')} onClick={() => cycleType(i, j)} aria-label={`Satz ${j + 1}: ${TYPE_LABEL[st.type || '']} – Satzart ändern`}>
+                  <button class={'sets__n sets__type tnum' + (st.type ? ' sets__type--' + st.type : '')} onClick={() => cycleType(i, j)} aria-label={`Satz ${j + 1}: ${TYPE_LABEL[st.type || '']} – Satzart ändern oder löschen`}>
                     {st.type === 'drop' ? 'D' : st.type === 'fail' ? 'V' : j + 1}
                   </button>
                   <input
@@ -620,6 +635,22 @@ export function Workout() {
                     <Check size={20} />
                   </button>
                 </div>
+                {setMenu && setMenu.i === i && setMenu.j === j && (
+                  <div class="setmenu">
+                    {[
+                      ['', 'Normal'],
+                      ['drop', 'Dropsatz'],
+                      ['fail', 'Bis Versagen'],
+                    ].map(([t, l]) => (
+                      <button class={'chip chip--sm' + ((st.type || '') === t ? ' chip--on' : '')} onClick={() => setType(i, j, t)}>
+                        {l}
+                      </button>
+                    ))}
+                    <button class="chip chip--sm setmenu__del" onClick={() => deleteSet(i, j)} aria-label={`Satz ${j + 1} löschen`}>
+                      <Trash2 size={14} /> Löschen
+                    </button>
+                  </div>
+                )}
                 {rirOpen && rirOpen.i === i && rirOpen.j === j && (
                   <div class="rirpick">
                     <span class="small">Wie viele Wdh. wären noch gegangen?{it.target && it.target.rir != null ? ` (Ziel: ${it.target.rir})` : ''}</span>
@@ -647,12 +678,12 @@ export function Workout() {
               <button class="btn--link small" onClick={() => addSet(i)}>
                 <Plus size={14} /> Satz
               </button>
-              {it.sets.length > 1 && !it.sets[it.sets.length - 1].done && (
-                <button class="btn--link small muted" onClick={() => removeSet(i)}>
-                  – Satz
+              {it.sets.length > 1 && (
+                <button class="btn--link small" onClick={() => removeSet(i)}>
+                  <Minus size={14} /> Satz
                 </button>
               )}
-              {i === 0 && !it.sets.some((x) => x.type) && <span class="small muted sets__typehint">Satznummer antippen → Dropsatz / bis zum Versagen</span>}
+              {i === 0 && <span class="small muted sets__typehint">Nummer antippen: Satzart/Löschen</span>}
             </div>
             {askFb(it, i) && <FbCard it={it} onSet={(fb) => persist({ ...w, items: w.items.map((x, a) => (a !== i ? x : { ...x, fb })) }, true)} />}
           </section>
