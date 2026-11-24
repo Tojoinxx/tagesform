@@ -3696,3 +3696,23 @@ button.streak { border: 0; font: inherit; font-size: 14px; cursor: pointer; }
 .sect svg { vertical-align: -2px; }
 .setmenu { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; padding: 8px; border-radius: 12px; background: var(--card2); }
 .setmenu__del { margin-left: auto; color: #ef5b4a; display: inline-flex; align-items: center; gap: 4px; }
+
+/* Querformat auf dem Handy sperren: iOS ignoriert die Ausrichtung im Manifest → Hinweis statt verzogener Ansicht */
+@media (orientation: landscape) and (max-height: 520px) and (hover: none) and (pointer: coarse) {
+  html::after {
+    content: '📱\A Bitte Handy hochkant halten';
+    white-space: pre;
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+    background: var(--bg, #0c111c);
+    color: var(--text, #f2efe7);
+    font: 600 22px/1.6 var(--display, system-ui), sans-serif;
+  }
+  body { overflow: hidden; }
+}
