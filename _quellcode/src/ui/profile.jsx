@@ -119,6 +119,9 @@ export function TargetsCard({ p, set }) {
         {p.goal === 'abnehmen' ? ', davon ein moderates Defizit' : p.goal === 'aufbauen' ? ', plus kleiner Überschuss' : ''}. Eiweiß {p.goal === 'abnehmen' ? '2,0' : p.goal === 'aufbauen' ? '1,8' : '1,6'} g pro kg Körpergewicht.
       </p>
       <label class="check">
+        <input type="checkbox" checked={p.carbCycle !== false} onChange={(e) => set({ carbCycle: e.currentTarget.checked })} /> Kalorien je nach Tag: an Trainings-, Handball- und Spieltagen mehr Kohlenhydrate, an freien Tagen weniger (Wochensumme gleich)
+      </label>
+      <label class="check">
         <input type="checkbox" checked={manual} onChange={(e) => set({ targetsManual: e.currentTarget.checked, targets: e.currentTarget.checked ? { ...auto } : null })} /> Zielwerte selbst festlegen
       </label>
     </div>

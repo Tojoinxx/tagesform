@@ -3665,3 +3665,32 @@ button.streak { border: 0; font: inherit; font-size: 14px; cursor: pointer; }
 .voice__dirty { margin: 0; color: #f2b84a; text-align: center; }
 .voice__stale { opacity: 0.45; pointer-events: none; transition: opacity 0.2s; }
 .voice__text--dirty { border-color: #f2b84a; box-shadow: 0 0 0 2px color-mix(in srgb, #f2b84a 30%, transparent); }
+.sleepq { margin-top: 8px; }
+.sleephint { margin: 8px 0 0; padding: 8px 12px; border-radius: 12px; background: color-mix(in srgb, #7c5cff 14%, var(--card)); }
+.wellness__sub { margin-top: 20px; font-size: 1.15rem; }
+
+/* Kalorien je nach Tag */
+.daykind { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; justify-content: center; margin: 10px 0 2px; padding: 8px 12px; border-radius: 12px; background: var(--card2); font-size: 13.5px; text-align: center; }
+.daykind span { color: var(--muted); }
+.daykind--train b, .daykind--game b, .daykind--load b { color: var(--accent); }
+.gamehint { border-left: 4px solid #ff8a3d; }
+.gamehint p { margin: 4px 0 0; }
+
+/* Monats-/Jahresrückblick */
+.recap__nav { display: flex; align-items: center; justify-content: space-between; margin: 12px 0 8px; }
+.recap__title { font-family: var(--display); font-weight: 700; font-size: 30px; margin: 0; }
+.recap__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.recap__tile { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 14px; background: var(--card2); }
+.recap__tile span { font-size: 12.5px; color: var(--muted); }
+.recap__tile b { font-family: var(--display); font-size: 30px; line-height: 1.05; }
+.recap__tile small { font-size: 12px; }
+.recap__tile--big { grid-column: 1 / -1; background: color-mix(in srgb, var(--accent) 14%, var(--card2)); }
+.recap__tile--big b { font-size: 48px; }
+.recap__list { list-style: none; margin: 0; padding: 0; }
+.recap__list li { display: grid; grid-template-columns: 1fr auto; gap: 0 10px; padding: 8px 0; font-size: 14.5px; }
+.recap__list li + li { border-top: 1px solid var(--line); }
+.recap__list li small { grid-column: 1 / -1; }
+.recap__btns { gap: 6px; }
+.up { color: var(--accent); }
+.down { color: #f2994a; }
+.sect svg { vertical-align: -2px; }

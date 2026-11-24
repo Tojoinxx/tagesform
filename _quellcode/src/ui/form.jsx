@@ -18,6 +18,15 @@ export const ENERGY = [
   { v: 5, e: '💪', l: 'top' },
 ];
 const SLEEP = ['< 6 h', '6 h', '7 h', '8 h', '9 h +'];
+export const SLEEPQ = [
+  ['erholsam', '😌 erholsam'],
+  ['okay', '😐 okay'],
+  ['unruhig', '😵 unruhig'],
+];
+const sleepHint = (f) =>
+  f.sleep === '< 6 h' || (f.sleepQ === 'unruhig' && (f.sleep === '6 h' || (f.energy && f.energy <= 3)))
+    ? 'Wenig Erholung – dein Training wird heute leichter (1 Satz weniger, ca. 10 % weniger Gewicht).'
+    : null;
 const SORE = ['keiner', 'leicht', 'stark'];
 export const AREAS = ['Schulter', 'Nacken', 'Rücken oben', 'Rücken unten', 'Ellbogen', 'Handgelenk', 'Hüfte', 'Knie', 'Sprunggelenk', 'Wade', 'Oberschenkel'];
 const OTHER = ['Laufen / Cardio', 'Mobility', 'Sonstiges'];
@@ -55,7 +64,7 @@ export function FormCard() {
         <div class="formsumcard__txt">
           <b>Tagesform: {e.l}</b>
           <span class="small muted">
-            {[day.form.sleep && `Schlaf ${day.form.sleep}`, day.form.soreness && day.form.soreness !== 'keiner' && `Muskelkater ${day.form.soreness}`, ...(day.form.pains || []).map((p) => `${p.area} ${p.level}/10`)].filter(Boolean).join(' · ') || 'keine Beschwerden'}
+            {[day.form.sleep && `Schlaf ${day.form.sleep}${day.form.sleepQ ? ` (${day.form.sleepQ})` : ''}`, day.form.soreness && day.form.soreness !== 'keiner' && `Muskelkater ${day.form.soreness}`, ...(day.form.pains || []).map((p) => `${p.area} ${p.level}/10`)].filter(Boolean).join(' · ') || 'keine Beschwerden'}
           </span>
         </div>
         <button class="iconbtn" onClick={() => setOpen(true)} aria-label="Tagesform ändern">
@@ -86,6 +95,14 @@ export function FormCard() {
           </Chip>
         ))}
       </div>
+      <div class="chips chips--wrap sleepq">
+        {SLEEPQ.map(([v, l]) => (
+          <Chip small active={f.sleepQ === v} onClick={() => setF({ ...f, sleepQ: f.sleepQ === v ? '' : v })}>
+            {l}
+          </Chip>
+        ))}
+      </div>
+      {sleepHint(f) && <p class="small sleephint">{sleepHint(f)}</p>}
       <h3>Muskelkater</h3>
       <div class="chips chips--wrap">
         {SORE.map((x) => (
@@ -319,6 +336,15 @@ export function WellnessSheet({ sessionId }) {
               </Chip>
             ))}
           </div>
+          <h2 class="wellness__sub">Und wie gut?</h2>
+          <div class="chips chips--wrap">
+            {SLEEPQ.map(([v, l]) => (
+              <Chip active={f.sleepQ === v} onClick={() => setF({ ...f, sleepQ: f.sleepQ === v ? '' : v })}>
+                {l}
+              </Chip>
+            ))}
+          </div>
+          {sleepHint(f) && <p class="small sleephint">{sleepHint(f)}</p>}
         </div>
       )}
       {step === 2 && (

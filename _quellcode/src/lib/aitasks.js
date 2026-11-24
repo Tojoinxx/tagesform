@@ -1,4 +1,5 @@
 // KI-Aufgaben: Essensfoto, Nährwerttabelle, Essensvorschläge, Wochen-Fazit
+import { dayTargets } from './daytargets.js';
 import { askJson } from './ai.js';
 import { S, frequentFoods, getDay, lastNDaysSums } from './store.js';
 import { daySums, mealLabel, targetsOf, scale } from './nutrition.js';
@@ -148,7 +149,7 @@ Antworte NUR mit JSON:
 
 // ---------- Was soll ich essen? ----------
 export function suggestContext(dayKey, meal) {
-  const t = targetsOf(S.profile);
+  const t = dayTargets(S.profile, dayKey);
   const s = daySums(getDay(dayKey));
   const rest = {
     kcal: Math.round(t.kcal - s.kcal),

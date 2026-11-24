@@ -184,9 +184,17 @@ function TrainingStats() {
       {any && <CalendarCard />}
       <ProgressCard />
       {any && (
-        <button class="btn btn--block btn--sm" onClick={() => openSheet('cyclereview', {})}>
-          Zyklus-Rückblick ansehen
-        </button>
+        <div class="row recap__btns">
+          <button class="btn btn--sm btn--grow" onClick={() => openSheet('recap', { mode: 'monat' })}>
+            Monatsrückblick
+          </button>
+          <button class="btn btn--sm btn--grow" onClick={() => openSheet('recap', { mode: 'jahr' })}>
+            Jahresrückblick
+          </button>
+          <button class="btn btn--sm btn--grow" onClick={() => openSheet('cyclereview', {})}>
+            Zyklus
+          </button>
+        </div>
       )}
       {any && <VolumeCard />}
       <StrengthCharts />

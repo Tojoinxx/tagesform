@@ -665,9 +665,12 @@ export function formMode(form) {
   const pains = (form.pains || []).filter((p) => p.level >= 4);
   // Mit Angabe pro Muskel wird gezielt angepasst – dann macht starker Muskelkater nicht die ganze Einheit leicht
   const globalSore = form.soreness === 'stark' && !Object.keys(soreOf(form)).length;
-  if (form.energy <= 2 || form.sleep === '< 6 h' || globalSore)
+  // Schlaf: unter 6 h, oder knapp (6 h) bzw. unruhig bei mittlerer Form → Erholung zuerst (Krafttraining nach kurzem Schlaf: weniger Leistung, höheres Verletzungsrisiko)
+  const poorSleep = form.sleep === '< 6 h' || (form.sleepQ === 'unruhig' && (form.sleep === '6 h' || form.energy <= 3));
+  if (form.sleep === '< 6 h' || (poorSleep && form.energy <= 4)) return { mode: 'light', label: `Wenig${form.sleepQ === 'unruhig' ? ' bzw. unruhig' : ''} geschlafen – leichte Version: 1 Satz weniger, ca. 10 % weniger Gewicht`, pains, sleep: true };
+  if (form.energy <= 2 || globalSore)
     return { mode: 'light', label: 'Leichte Version: 1 Satz weniger, ca. 10 % weniger Gewicht', pains };
-  if (form.energy >= 5) return { mode: 'push', label: 'Top-Form: Versuch heute bei den Hauptübungen eine Wdh. mehr', pains };
+  if (form.energy >= 5 && !poorSleep) return { mode: 'push', label: 'Top-Form: Versuch heute bei den Hauptübungen eine Wdh. mehr', pains };
   return { mode: 'normal', label: null, pains };
 }
 
@@ -1001,8 +1004,8 @@ export function itemFor(exId, setup = setupOf()) {
 }
 
 // ---------- Wochenrhythmus ----------
-const isHB = (setup, d) => (setup.handballDays || []).includes(d) || setup.gameDay === d;
-const isGame = (setup, d) => setup.gameDay === d;
+export const isHB = (setup, d) => (setup.handballDays || []).includes(d) || setup.gameDay === d;
+export const isGame = (setup, d) => setup.gameDay === d;
 
 /** Spieltag dieser Woche: Eintrag für die Woche (Training-Tab) oder der übliche Spieltag in der Saison */
 export function gameDayForWeek(setup, ws) {
@@ -1317,7 +1320,7 @@ export function fatigueState(k = todayKey()) {
   const cw = cycleWeek(k);
   if (cw.deload || cw.index === 0 || comebackState(k)) return null;
   const forms = Array.from({ length: 7 }, (_, i) => getDay(addDays(k, -i)).form).filter((f) => f && f.energy && !f.skipped);
-  const low = forms.filter((f) => f.energy <= 2 || f.soreness === 'stark' || f.sleep === '< 6 h').length;
+  const low = forms.filter((f) => f.energy <= 2 || f.soreness === 'stark' || f.sleep === '< 6 h' || (f.sleepQ === 'unruhig' && f.sleep !== '8 h' && f.sleep !== '9 h +')).length;
   const log = workoutLog().filter((w) => w.date > addDays(k, -11) && w.date <= k && !isAwaySession(w.sessionId));
   const light = log.filter((w) => w.mode === 'light').length;
   let drops = 0;

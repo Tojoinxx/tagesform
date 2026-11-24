@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import { maybeUpdateTdee } from '../lib/body.js';
+import { dayTargets, gameHint } from '../lib/daytargets.js';
 import { saveProfile, toast } from '../lib/store.js';
 import { useS, getDay, patchDay, openSheet, setS } from '../lib/store.js';
 import { daySums, mealSums, MEALS, targetsOf } from '../lib/nutrition.js';
@@ -138,7 +139,8 @@ export function Today() {
   }, [s.profile && s.profile.tdeeAuto]);
   const k = s.day;
   const day = getDay(k);
-  const t = targetsOf(s.profile);
+  const t = dayTargets(s.profile, k);
+  const gh = gameHint(k);
   const sum = daySums(day);
   const rest = t.kcal - sum.kcal;
   const isToday = k === todayKey();
@@ -164,6 +166,12 @@ export function Today() {
       </header>
       <WeekStrip k={k} target={t.kcal} />
       {isToday && <TodayTrainingTile />}
+      {gh && (
+        <section class="card gamehint">
+          <b>{gh.title}</b>
+          <p class="small">{gh.text}</p>
+        </section>
+      )}
       {isToday && <FormCheckDue />}
 
       <section class="card summary">
@@ -181,6 +189,15 @@ export function Today() {
             <b class="tnum">{n0(t.kcal)}</b>
           </div>
         </div>
+        {t.kind && t.delta !== 0 && (
+          <p class={'daykind daykind--' + t.kind}>
+            <b>{t.kind === 'rest' ? '🛋️' : t.kind === 'game' ? '🤾' : t.kind === 'load' ? '🍝' : '🏋️'} {t.label}</b>
+            <span>
+              {t.delta > 0 ? '+' : '−'}
+              {n0(Math.abs(t.delta))} kcal {t.delta > 0 ? 'mehr' : 'weniger'} Kohlenhydrate · Wochensumme bleibt gleich
+            </span>
+          </p>
+        )}
         <div class="summary__bars">
           <Bar label="Eiweiß" value={sum.p} max={t.p} color="var(--p)" />
           <Bar label="Kohlenhydrate" value={sum.c} max={t.c} color="var(--c)" />
@@ -342,6 +359,7 @@ function WeekStrip({ k, target }) {
         const hbPlanned = hasPlan && ((setup.handballDays || []).includes(wd) || setup.gameDay === wd);
         const gym = plan.find((p) => p.d === wd);
         const brk = hasPlan ? breakOn(key) : null;
+        const tgt = dayTargets(S.profile, key).kcal || target;
         return (
           <button
             role="tab"
@@ -352,7 +370,7 @@ function WeekStrip({ k, target }) {
           >
             <span class="wk__wd">{WD_SHORT[wd]}</span>
             <span class="wk__ringwrap">
-              <MiniRing pct={sum.kcal / target} over={sum.kcal > target * 1.1} />
+              <MiniRing pct={sum.kcal / tgt} over={sum.kcal > tgt * 1.1} />
               <span class="wk__num tnum">{d.getDate()}</span>
             </span>
             <span class="wk__ic">
