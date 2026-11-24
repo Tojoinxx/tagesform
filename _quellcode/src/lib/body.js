@@ -59,9 +59,13 @@ export function expenditure(k = todayKey(), profile = S.profile || {}) {
   const formula = calcTargets({ ...profile, tdeeLearned: null }).tdee;
   const win = 28;
   const keys = Array.from({ length: win }, (_, i) => addDays(k, -win + i)); // bis gestern (heute ist meist unvollständig)
-  const logged = keys.filter((d) => isLogged(S.days[d]));
+  // Nur Tage, die vollständig aussehen: mindestens 55 % des Formel-Verbrauchs eingetragen.
+  // Halb eingetragene Tage (z. B. nur Frühstück und Mittag) würden den Verbrauch viel zu niedrig rechnen.
+  const minK = formula * 0.55;
+  const logged = keys.filter((d) => isLogged(S.days[d]) && daySums(S.days[d]).kcal >= minK);
+  const partial = keys.filter((d) => isLogged(S.days[d]) && daySums(S.days[d]).kcal < minK).length;
   const wIn = series.filter((p) => p.k >= keys[0] && p.k <= keys[keys.length - 1]);
-  if (logged.length < 10 || wIn.length < 4) return { ok: false, formula, logged: logged.length, weighIns: wIn.length };
+  if (logged.length < 10 || wIn.length < 4) return { ok: false, formula, logged: logged.length, weighIns: wIn.length, partial };
   const first = wIn[0];
   const last = wIn[wIn.length - 1];
   const span = dayDiff(first.k, last.k);
@@ -71,6 +75,8 @@ export function expenditure(k = todayKey(), profile = S.profile || {}) {
   const observed = intake - (deltaKg * 7700) / span;
   // Vertrauen: mehr eingetragene Tage → mehr Gewicht auf den beobachteten Wert
   const conf = Math.min(1, (logged.length - 6) / 18);
+  // Unplausibel weit weg von der Formel → vermutlich unvollständig eingetragen; nicht übernehmen
+  if (observed < formula * 0.7 || observed > formula * 1.45) return { ok: false, implausible: true, observed: Math.round(observed), formula, logged: logged.length, weighIns: wIn.length, partial };
   const kcal = Math.round((observed * conf + formula * (1 - conf)) / 10) * 10;
   return { ok: true, kcal, observed: Math.round(observed), formula, intake: Math.round(intake), deltaKg, span, logged: logged.length, weighIns: wIn.length, conf };
 }

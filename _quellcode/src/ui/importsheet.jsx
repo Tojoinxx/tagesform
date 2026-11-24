@@ -81,7 +81,7 @@ export function ImportSheet() {
     >
       {!d && (
         <>
-          <p class="small muted">Füge hier den Code ein, den du von Claude bekommen hast. Er enthält deine Einheiten, Übungen, Satzzahlen und aktuellen Gewichte.</p>
+          <p class="small muted">Füge hier den Code ein, den du bekommen hast (z. B. von einem Freund oder aus dem Chat mit Claude). Er enthält deine Einheiten, Übungen, Satzzahlen und aktuellen Gewichte.</p>
           <textarea class="input importbox" value={text} onInput={(e) => setText(e.currentTarget.value)} placeholder="Code hier einfügen …" />
           {err && <div class="notice notice--warn small">{err}</div>}
         </>

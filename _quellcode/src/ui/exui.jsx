@@ -223,7 +223,7 @@ export function ExerciseSheet({ exId, item }) {
   const ex = EXERCISES[exId];
   const g = guideOf(exId);
   return (
-    <Sheet title={ex.name} tall>
+    <Sheet title="Übung" tall>
       <ExAnim id={exId} size="lg" />
       <ExPhotoBar exId={exId} />
       {g.imageNote && !(S.exPics && S.exPics[exId]) && <p class="small muted">{g.imageNote}</p>}
@@ -361,6 +361,7 @@ const catOf = (id) => {
   const pri = mgOf(id).split('|')[0].split(',')[0];
   if (pri === 'bizeps' || pri === 'trizeps') return 'arme';
   if (['quad', 'beinbeuger', 'waden', 'adduktoren'].includes(pri)) return 'beine';
+  if (pri === 'nacken') return 'schulter';
   return pri;
 };
 
@@ -376,7 +377,10 @@ const pickIndex = () => {
   }
   // Reihenfolge einmal festlegen: nach Muskelgruppe, dann alphabetisch
   const coll = new Intl.Collator('de');
-  const rank = (id) => CATS.findIndex((c) => c[0] === _pickIdx[id].cat);
+  const rank = (id) => {
+    const r = CATS.findIndex((c) => c[0] === _pickIdx[id].cat);
+    return r < 0 ? 99 : r;
+  };
   _pickSorted = Object.values(EXERCISES).sort((a, b) => rank(a.id) - rank(b.id) || coll.compare(a.name, b.name));
   return _pickIdx;
 };

@@ -3716,3 +3716,27 @@ button.streak { border: 0; font: inherit; font-size: 14px; cursor: pointer; }
   }
   body { overflow: hidden; }
 }
+
+/* QA-Feinschliff */
+.sesshead h1 { text-transform: none; }
+.algo__table td:nth-child(2), .algo__table td:nth-child(3) { white-space: normal; }
+.algo__table { table-layout: fixed; word-break: normal; overflow-wrap: anywhere; }
+/* waagerecht scrollbare Chip-Reihen: rechts ausblenden, damit man sieht, dass es weitergeht */
+.chips--scroll { -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); padding-right: 24px; }
+
+/* Kleine Handys (≤ 359 px, z. B. iPhone SE 1) */
+@media (max-width: 359px) {
+  .grid2 > *, .duo > * { min-width: 0; }
+  .duo { gap: 8px; }
+  .dots { flex-wrap: wrap; }
+  .mini__btns .btn--fv { flex: 1; min-width: 0; padding-inline: 6px; }
+  .chips:not(.chips--scroll) { flex-wrap: wrap; }
+  .grid2 { gap: 8px; }
+  .mini { padding: 12px 10px; }
+  .mini__head span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .summary__side { min-width: 0; font-size: 12px; }
+  .summary__side b { font-size: 17px; }
+  .summary__top .ring { transform: scale(0.88); margin: -8px; }
+  .btn--grow { min-width: 0; }
+  .pick__eq, .chips--scroll { max-width: 100%; }
+}

@@ -1675,11 +1675,14 @@ export function cycleReview(k = todayKey()) {
     if (cur >= 5) continue;
     sug.push({ id: 'sets:' + e.id, kind: 'sets', ex: e.id, n: cur + 1, title: `${m.label}: ${e.name} mit ${cur + 1} statt ${cur} Sätzen`, why: `Ø ${String(m.avg).replace('.', ',')} Sätze pro Woche – Ziel sind ${m.t[0]}–${m.t[1]}.`, on: true });
   }
-  const planned = (Number(setup.perWeek) || 3) * Math.max(1, Math.min(5, weeks.length || 1));
+  // Zeitraum in Wochen: 5, oder kürzer, wenn du noch nicht so lange trainierst
+  const oldest = chron.length ? chron[0].date : k;
+  const spanW = Math.max(1, Math.min(5, Math.ceil((daysBetween(oldest, k) + 1) / 7)));
+  const planned = (Number(setup.perWeek) || 3) * spanW;
   return {
     sessions: log.length,
     planned,
-    weeks: weeks.length,
+    weeks: spanW,
     up: exs.filter((e) => e.n >= 2 && (e.dW > 0 || e.dR >= 1)).sort((a, b) => b.dW - a.dW || b.dR - a.dR),
     flat: exs.filter((e) => e.n >= 3 && e.dW <= 0 && e.dR < 1),
     mus: mus.filter((m) => m.low || m.high),

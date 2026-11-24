@@ -202,6 +202,8 @@ function App() {
   );
 }
 
+// Nur für automatische Tests (Adresse mit ?qa): Fenster direkt öffnen
+if (/[?&]qa\b/.test(location.search)) window.__tfOpen = openSheet;
 render(<App />, document.getElementById('app'));
 boot();
 

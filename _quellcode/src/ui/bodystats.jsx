@@ -113,8 +113,13 @@ function ExpenditureCard() {
       ) : (
         <>
           <p class="small">Die App lernt aus deinem Gewichtstrend und dem, was du isst, wie viel du wirklich verbrauchst – genauer als jede Formel.</p>
+          {e.implausible && (
+            <p class="small warn">
+              Rechnerisch kämen nur ~{kc(e.observed)} kcal heraus – das passt nicht zu deinem Gewichtsverlauf. Wahrscheinlich fehlen an manchen Tagen Mahlzeiten oder Getränke. Trag ein paar Tage alles ein, dann wird es genau.
+            </p>
+          )}
           <p class="small muted">
-            Dafür fehlen noch Daten (letzte 4 Wochen): <b>{e.logged}/10</b> Tage vollständig eingetragen, <b>{e.weighIns}/4</b> Wiegungen. Bis dahin gilt die Formel: ~{kc(e.formula)} kcal.
+            {e.implausible ? 'Für eine genaue Rechnung:' : 'Dafür fehlen noch Daten (letzte 4 Wochen):'} <b>{e.logged}/10</b> Tage vollständig eingetragen{e.partial ? ` (${e.partial} Tage nur teilweise – zählen nicht)` : ''}, {e.weighIns >= 4 ? <>Wiegungen ✓.</> : <><b>{e.weighIns}/4</b> Wiegungen.</>} Bis dahin gilt die Formel: ~{kc(e.formula)} kcal.
           </p>
           {p.tdeeAuto && (
             <button class="btn btn--sm" onClick={() => enable(false)}>
