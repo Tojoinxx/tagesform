@@ -15,6 +15,7 @@ import {
   deleteFood,
   toggleFav,
   favFoods,
+  oftenFoods,
 } from '../lib/store.js';
 import { MEALS, makeEntry, scale, mealLabel, fvFor } from '../lib/nutrition.js';
 import { BASE_FOODS } from '../lib/basefoods.js';
@@ -151,7 +152,9 @@ function CopyMeal({ dayKey, meal }) {
   for (let i = 1; i <= 7 && opts.length < 3; i++) {
     const k = addDays(dayKey, -i);
     const es = ((S.days[k] && S.days[k].entries) || []).filter((e) => e.meal === meal);
-    if (es.length) opts.push({ k, i, es, kcal: es.reduce((a, e) => a + (Number(e.kcal) || 0), 0) });
+    const sig = es.map((e) => e.name).sort().join('|');
+    // gleiche Mahlzeit wie an einem näheren Tag → nicht doppelt anbieten
+    if (es.length && !opts.some((o) => o.sig === sig)) opts.push({ k, i, es, sig, kcal: es.reduce((a, e) => a + (Number(e.kcal) || 0), 0) });
   }
   if (!opts.length) return null;
   const copy = (o) => {
@@ -196,8 +199,10 @@ export function AddSheet({ dayKey, meal: meal0, q: q0 = '' }) {
   const [q, setQ] = useState(q0);
   const [off, setOff] = useState({ status: 'idle', list: [], q: '' });
   const local = useMemo(() => localSearch(q), [q, S.foods]);
-  const recents = recentFoods(25);
-  const favs = favFoods();
+  const often = oftenFoods(meal, 8);
+  const oftenIds = new Set(often.map((f) => f.id));
+  const recents = recentFoods(25).filter((f) => !oftenIds.has(f.id));
+  const favs = favFoods().filter((f) => !oftenIds.has(f.id));
   const back = { name: 'add', props: { dayKey, meal, q } };
 
   const pick = (food) => openSheet('amount', { dayKey, meal, food: withSaved(food), back });
@@ -285,6 +290,16 @@ export function AddSheet({ dayKey, meal: meal0, q: q0 = '' }) {
 
       {!q.trim() && (
         <>
+          {often.length > 0 && (
+            <>
+              <h4 class="sect">Oft bei {mealLabel(meal)}</h4>
+              <ul class="flist">
+                {often.map((f) => (
+                  <FoodRow food={f} onPick={pick} onQuick={quick} star />
+                ))}
+              </ul>
+            </>
+          )}
           <CopyMeal dayKey={dayKey} meal={meal} />
           {favs.length > 0 && (
             <>
@@ -296,9 +311,9 @@ export function AddSheet({ dayKey, meal: meal0, q: q0 = '' }) {
               </ul>
             </>
           )}
-          {recents.length > 0 ? (
+          {recents.length > 0 || often.length > 0 ? (
             <>
-              <h4 class="sect">Zuletzt gegessen</h4>
+              {recents.some((f) => !f.fav) && <h4 class="sect">Zuletzt gegessen</h4>}
               <ul class="flist">
                 {recents.filter((f) => !f.fav).map((f) => (
                   <FoodRow food={f} onPick={pick} onQuick={quick} star />

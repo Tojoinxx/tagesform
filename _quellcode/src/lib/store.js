@@ -341,6 +341,33 @@ export function recentFoods(limit = 30) {
     .sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0))
     .slice(0, limit);
 }
+/**
+ * Was du regelmäßig isst/trinkst – passend zur Mahlzeit: Einträge der letzten 60 Tage,
+ * dieselbe Mahlzeit zählt viermal so stark wie andere, ältere Tage zählen weniger (Halbwertszeit 3 Wochen).
+ * Nur Lebensmittel, die mindestens 2× eingetragen wurden und schon mal bei dieser Mahlzeit dabei waren.
+ */
+export function oftenFoods(meal, limit = 8) {
+  const now = Date.now();
+  const score = {};
+  const cnt = {};
+  const inMeal = {};
+  for (const k of Object.keys(S.days)) {
+    const age = (now - new Date(k + 'T12:00:00').getTime()) / 864e5;
+    if (age > 60 || age < -1) continue;
+    const decay = Math.pow(0.5, Math.max(0, age) / 21);
+    for (const e of (S.days[k] && S.days[k].entries) || []) {
+      if (!e.foodId || !S.foods[e.foodId]) continue;
+      cnt[e.foodId] = (cnt[e.foodId] || 0) + 1;
+      if (e.meal === meal) inMeal[e.foodId] = (inMeal[e.foodId] || 0) + 1;
+      score[e.foodId] = (score[e.foodId] || 0) + (e.meal === meal ? 1 : 0.25) * decay;
+    }
+  }
+  return Object.keys(score)
+    .filter((id) => cnt[id] >= 2 && inMeal[id] >= 1)
+    .sort((a, b) => score[b] - score[a])
+    .slice(0, limit)
+    .map((id) => S.foods[id]);
+}
 export function frequentFoods(limit = 25) {
   return Object.values(S.foods)
     .filter((f) => f.uses > 0)
