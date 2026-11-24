@@ -118,8 +118,12 @@ export function planChanges(w) {
       out.push({ id: 'swap:' + it.swappedFromId, kind: 'swap', from: it.swappedFromId, to: it.exId, text: `${EXERCISES[it.swappedFromId] ? EXERCISES[it.swappedFromId].name : it.swappedFrom} → ${it.name}`, on: true });
     else if (it.added && done > 0 && !plan.includes(it.exId)) out.push({ id: 'add:' + it.exId, kind: 'add', to: it.exId, text: `${it.name} dazu`, on: true });
     else if (!done && !it.added && plan.includes(it.swappedFromId || it.exId)) out.push({ id: 'skip:' + (it.swappedFromId || it.exId), kind: 'skip', from: it.swappedFromId || it.exId, text: `${it.name} weglassen`, on: false });
+    const planned = it.sets0 != null ? it.sets0 : it.sets.length;
     if (done > 0 && it.sets0 != null && it.sets.length !== it.sets0 && done === it.sets.length)
       out.push({ id: 'sets:' + it.exId, kind: 'sets', ex: it.exId, n: done, text: `${it.name}: ${done} statt ${it.sets0} Sätze`, on: true });
+    // Sätze einfach offen gelassen (nicht gelöscht) → anbieten, aber nicht vorausgewählt (oft nur Zeitmangel)
+    else if (done > 0 && done < planned && !it.sets.slice(done).some((x) => x.done))
+      out.push({ id: 'sets:' + it.exId, kind: 'sets', ex: it.exId, n: done, text: `${it.name}: ${done} statt ${planned} Sätze`, on: false });
   });
   return out;
 }
