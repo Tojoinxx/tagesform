@@ -11,7 +11,7 @@ const SHIFT = 0.15; // Anteil des Tagesziels, der zwischen Trainings- und Ruheta
 export function dayKind(k, setup0 = setupOf()) {
   const d = (S.days && S.days[k]) || {};
   const tk = todayKey();
-  const done = (d.workouts || []).some((w) => (w.items || []).length) || (d.training || []).length > 0;
+  const done = (d.workouts || []).some((w) => (w.items || []).length) || (d.training || []).length > 0 || (S.active && S.active.dayKey === k);
   const gameDone = (d.training || []).some((t) => /spiel/i.test(t.type || t.session || ''));
   if (gameDone) return 'game';
   if (k < tk) return done ? 'train' : 'rest';
@@ -33,7 +33,7 @@ export function dayKind(k, setup0 = setupOf()) {
 let _cache = { days: null, tr: null, tk: null, m: {} };
 function weekKinds(ws, setup) {
   const tk = todayKey();
-  if (_cache.days !== S.days || _cache.tr !== S.training || _cache.tk !== tk) _cache = { days: S.days, tr: S.training, tk, m: {} };
+  if (_cache.days !== S.days || _cache.tr !== S.training || _cache.tk !== tk || _cache.act !== !!S.active) _cache = { days: S.days, tr: S.training, tk, act: !!S.active, m: {} };
   if (!(ws in _cache.m)) {
     try {
       _cache.m[ws] = Array.from({ length: 7 }, (_, i) => dayKind(addDays(ws, i), setup));
@@ -55,6 +55,8 @@ const LABEL = {
 export function dayTargets(profile = S.profile, k = todayKey()) {
   const base = targetsOf(profile);
   if (!profile || profile.carbCycle === false) return { ...base, kind: null, delta: 0 };
+  // Ohne Trainingsplan weiß die App nicht, wann trainiert wird → keine Verschiebung raten
+  if (!(S.training && S.training.setup)) return { ...base, kind: null, delta: 0 };
   const setup = setupOf();
   const ws = weekStart(k);
   const kinds = weekKinds(ws, setup);

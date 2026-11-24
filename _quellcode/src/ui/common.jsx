@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { S, useS, closeSheet } from '../lib/store.js';
+import { S, useS, closeSheet, setS } from '../lib/store.js';
 import { X, Minus, Plus, ChevronLeft } from 'lucide-preact';
 import { n0, num } from '../lib/util.js';
 
@@ -178,6 +178,17 @@ export function Toast() {
   return (
     <div class={'toast toast--' + s.toast.kind} role="status" key={s.toast.id}>
       {s.toast.text}
+      {s.toast.action && (
+        <button
+          class="toast__act"
+          onClick={() => {
+            s.toast.action.fn();
+            setS({ toast: null });
+          }}
+        >
+          {s.toast.action.label}
+        </button>
+      )}
     </div>
   );
 }

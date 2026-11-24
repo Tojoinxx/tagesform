@@ -1,8 +1,8 @@
 // Datenschutz & Privatsphäre: Speicherort der Fotos, Sicherheits-Check, wer worauf zugreifen kann, Export & Löschen
 import { useEffect, useState } from 'preact/hooks';
-import { useS, S, toast, exportAll, wipeAll } from '../lib/store.js';
+import { useS, S, toast, exportAll, wipeAll, importAll } from '../lib/store.js';
 import { picsInCloud, movePics, checkList } from '../lib/checks.js';
-import { Download, ShieldCheck, ShieldAlert, Shield, Trash2, Lock } from 'lucide-preact';
+import { Download, Upload, ShieldCheck, ShieldAlert, Shield, Trash2, Lock } from 'lucide-preact';
 import { Spinner } from './common.jsx';
 
 function RulesCheck() {
@@ -124,8 +124,8 @@ export function PrivacyCard() {
 
       <button
         class="btn"
-        onClick={() => {
-          const blob = new Blob([JSON.stringify(exportAll(), null, 2)], { type: 'application/json' });
+        onClick={async () => {
+          const blob = new Blob([JSON.stringify(await exportAll(), null, 2)], { type: 'application/json' });
           const a = document.createElement('a');
           a.href = URL.createObjectURL(blob);
           a.download = `tagesform-export-${new Date().toISOString().slice(0, 10)}.json`;
@@ -135,6 +135,29 @@ export function PrivacyCard() {
       >
         <Download size={16} /> Meine Daten herunterladen (JSON)
       </button>
+      <label class="btn">
+        <Upload size={16} /> Sicherung einspielen
+        <input
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={async (e) => {
+            const f = e.currentTarget.files && e.currentTarget.files[0];
+            e.currentTarget.value = '';
+            if (!f) return;
+            try {
+              const data = JSON.parse(await f.text());
+              const nd = Object.keys(data.days || {}).length;
+              if (!confirm(`Sicherung vom ${String(data.exportedAt || '').slice(0, 10) || '?'} einspielen? ${nd} Tage, Plan und Profil werden übernommen – gleiche Tage hier werden durch die Sicherung ersetzt.`)) return;
+              importAll(data);
+              toast(`✓ Sicherung eingespielt (${nd} Tage)`);
+            } catch (err) {
+              toast(err && err.message && /Tagesform/.test(err.message) ? err.message : 'Datei konnte nicht gelesen werden', 'error');
+            }
+          }}
+        />
+      </label>
+      <p class="small muted">Tipp ohne Konto: Ab und zu herunterladen – bei Handywechsel oder gelöschtem Browser-Speicher holst du damit alles zurück.</p>
 
       {!wipe.open ? (
         <button class="btn btn--danger" onClick={() => setWipe({ open: true, txt: '', account: false })}>

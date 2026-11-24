@@ -3740,3 +3740,7 @@ button.streak { border: 0; font: inherit; font-size: 14px; cursor: pointer; }
   .btn--grow { min-width: 0; }
   .pick__eq, .chips--scroll { max-width: 100%; }
 }
+
+/* Hinweis mit Aktion (Rückgängig) */
+.toast { display: flex; align-items: center; gap: 12px; }
+.toast__act { background: none; border: 0; color: #7fd6a8; font: inherit; font-weight: 750; padding: 6px 2px; margin: -6px 0; cursor: pointer; white-space: nowrap; }

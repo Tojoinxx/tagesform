@@ -39,10 +39,10 @@ export function useS() {
 
 // ---------- Toast & Sheets ----------
 let toastTimer;
-export function toast(text, kind = 'ok') {
+export function toast(text, kind = 'ok', action = null) {
   clearTimeout(toastTimer);
-  setS({ toast: { text, kind, id: Date.now() } });
-  toastTimer = setTimeout(() => setS({ toast: null }), kind === 'error' ? 4200 : 2400);
+  setS({ toast: { text, kind, id: Date.now(), action } });
+  toastTimer = setTimeout(() => setS({ toast: null }), action ? 5000 : kind === 'error' ? 4200 : 2400);
 }
 export const openSheet = (name, props = {}) => setS({ sheet: { name, props, id: Date.now() } });
 export const closeSheet = () => setS({ sheet: null });
@@ -84,6 +84,9 @@ function localBackend() {
       setTimeout(() => fire(s), 0);
       return () => subs.delete(s);
     },
+    async getCol(path, before) {
+      return colOf(path).filter((d) => !before || d.id < before);
+    },
     set(path, data, merge = true) {
       db[path] = merge ? { ...(db[path] || {}), ...data } : { ...data };
       save();
@@ -118,7 +121,8 @@ function stopWatching() {
 function startWatching() {
   stopWatching();
   const b = backend;
-  setS({ profile: null, profileLoaded: false, ai: null, training: null, active: null, activeLoaded: false, days: {}, foods: {}, weeks: {}, checks: {} });
+  setS({ profile: null, profileLoaded: false, ai: null, training: null, active: null, activeLoaded: false, days: {}, foods: {}, weeks: {}, checks: {}, oldDays: null });
+  _oldP = null;
   const fallback = setTimeout(() => !S.profileLoaded && setS({ profileLoaded: true }), 7000);
   unsubs.push(() => clearTimeout(fallback));
   unsubs.push(
@@ -150,11 +154,11 @@ function startWatching() {
     b.watchCol(
       'tf_days',
       (list) => {
-        const days = {};
+        const days = { ...(S.oldDays || {}) };
         list.forEach((d) => (days[d.id] = d));
         setS({ days });
       },
-      addDays(todayKey(), -120),
+      DAYS_SINCE(),
     ),
   );
   unsubs.push(
@@ -276,7 +280,15 @@ export function updateEntry(k, id, patch) {
   patchDay(k, (d) => ({ entries: (d.entries || []).map((e) => (e.id === id ? { ...e, ...patch } : e)) }));
 }
 export function removeEntry(k, id) {
+  const gone = (getDay(k).entries || []).find((e) => e.id === id);
   patchDay(k, (d) => ({ entries: (d.entries || []).filter((e) => e.id !== id) }));
+  return gone;
+}
+/** Löschen mit „Rückgängig“ im Hinweis */
+export function removeEntryUndo(k, id) {
+  const gone = removeEntry(k, id);
+  if (!gone) return;
+  toast(`${gone.name || 'Eintrag'} gelöscht`, 'ok', { label: 'Rückgängig', fn: () => addEntries(k, [gone]) });
 }
 
 /** Lebensmittel merken (für „Zuletzt“, eigene Produkte, Meine Portionen) */
@@ -384,8 +396,46 @@ export function lastNDaysSums(n = 7, endKey = todayKey()) {
 
 export const currentWeekStart = () => weekStart(todayKey());
 
-export function exportAll() {
+// Tage älter als 120 Tage werden nicht live beobachtet (Tempo) – bei Bedarf einmal nachladen
+const DAYS_SINCE = () => addDays(todayKey(), -120);
+let _oldP = null;
+export function loadAllDays() {
+  if (S.oldDays) return Promise.resolve(S.days);
+  if (!backend || !backend.getCol) return Promise.resolve(S.days);
+  if (!_oldP)
+    _oldP = backend
+      .getCol('tf_days', DAYS_SINCE())
+      .then((list) => {
+        const old = {};
+        list.forEach((d) => (old[d.id] = d));
+        setS({ oldDays: old, days: { ...old, ...S.days } });
+        return S.days;
+      })
+      .catch(() => ((_oldP = null), S.days));
+  return _oldP;
+}
+export async function exportAll() {
+  await loadAllDays();
   return { exportedAt: new Date().toISOString(), profile: S.profile, training: S.training, foods: S.foods, days: S.days, weeks: S.weeks, formchecks: S.checks };
+}
+
+/** Sicherung (JSON aus „Meine Daten herunterladen“) wieder einspielen. Vorhandenes wird pro Tag/Produkt ergänzt bzw. überschrieben. */
+export function importAll(data) {
+  if (!data || typeof data !== 'object' || !(data.days || data.profile)) throw new Error('Das ist keine Tagesform-Sicherung.');
+  const strip = ({ id, ...rest }) => rest;
+  let n = 0;
+  if (data.profile) backend.set('tf_meta/profile', { ...strip(data.profile), onboarded: true, updatedAt: Date.now() }), n++;
+  if (data.training) backend.set('tf_meta/training', { ...strip(data.training), updatedAt: Date.now() }), n++;
+  for (const [col, obj] of [['tf_days', data.days], ['tf_foods', data.foods], ['tf_weeks', data.weeks]]) {
+    for (const [id, d] of Object.entries(obj || {})) {
+      if (!d || typeof d !== 'object' || !/^[\w:.-]+$/.test(id)) continue;
+      backend.set(col + '/' + id, strip(d), false);
+      n++;
+    }
+  }
+  _oldP = null;
+  setS({ oldDays: null });
+  return n;
 }
 
 /** Eigenes Foto für eine Übung (z. B. das Gerät im eigenen Studio) – ersetzt das Standardbild */

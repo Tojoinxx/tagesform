@@ -1,7 +1,7 @@
-import { useS, S, closeSheet, openSheet, saveTraining, toast } from '../lib/store.js';
+import { useS, S, closeSheet, openSheet, saveTraining, toast, loadAllDays } from '../lib/store.js';
 import { exHistory, progressStats, recommend, setupOf, sessionOf, buildSession, isAwaySession, e1rm, workoutLog, priMg, MUSCLE_LABEL, strengthLevel } from '../lib/training.js';
 import { LineChart, dateLbl } from './charts.jsx';
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { EXERCISES, SESSIONS } from '../lib/exercises.js';
 import { fmtShortDate, n1, n0, isoWeek, todayKey } from '../lib/util.js';
 import { Sheet } from './common.jsx';
@@ -48,6 +48,7 @@ export function Spark({ values, labels = [], unit = '', h = 96 }) {
 
 /** Verlauf einer Übung: Kraft-Kurve + letzte Einheiten + Bestleistung */
 export function ExHistory({ exId }) {
+  useEffect(() => void loadAllDays(), []); // ganze Historie für Rekorde & Verläufe
   const ex = EXERCISES[exId];
   const h = exHistory(exId, 30);
   if (!h.length) return <p class="small muted">Noch keine Einheiten mit dieser Übung – nach dem ersten Training siehst du hier deinen Verlauf.</p>;
@@ -255,6 +256,7 @@ export function buildSummary(w, record) {
 
 /** Fortschritt auf einen Blick */
 export function ProgressCard() {
+  useEffect(() => void loadAllDays(), []); // ganze Historie für Rekorde & Verläufe
   useS();
   const st = progressStats();
   const total = st.weeks.reduce((a, w) => a + w.n + w.away, 0);
@@ -331,6 +333,7 @@ const addDaysK = (k, n) => {
 };
 
 export function StrengthCharts() {
+  useEffect(() => void loadAllDays(), []); // ganze Historie für Rekorde & Verläufe
   useS();
   const [mg, setMg] = useState('alle');
   const [all, setAll] = useState(false);

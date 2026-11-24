@@ -143,6 +143,11 @@ export function cloudBackend(uid, onError) {
         (e) => onError && onError(e),
       );
     },
+    async getCol(path, before) {
+      const q = before ? query(col(path), where(documentId(), '<', before)) : col(path);
+      const snap = await getDocs(q);
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    },
     set(path, data, merge = true) {
       guard(setDoc(ref(path), data, { merge }));
     },

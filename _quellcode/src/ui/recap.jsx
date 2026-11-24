@@ -1,6 +1,6 @@
 // Monats- und Jahresrückblick: Einheiten, bewegte Tonnen, neue Rekorde, Gewichtsverlauf – auf einer Seite
-import { useState } from 'preact/hooks';
-import { useS, S } from '../lib/store.js';
+import { useState, useEffect } from 'preact/hooks';
+import { useS, S, loadAllDays } from '../lib/store.js';
 import { Sheet, Seg } from './common.jsx';
 import { workoutLog, e1rm, isSportEntry } from '../lib/training.js';
 import { EXERCISES } from '../lib/exercises.js';
@@ -102,6 +102,10 @@ export function RecapSheet({ mode: mode0 = 'monat' }) {
   const [y, setY] = useState(now.getFullYear());
   const [m, setM] = useState(now.getMonth());
   const [from, to] = range(mode, y, m);
+  // Ältere Tage (> 4 Monate) erst bei Bedarf laden
+  useEffect(() => {
+    if (from < addDays(todayKey(), -110)) loadAllDays();
+  }, [from]);
   const st = recapStats(from, to);
   const prev = mode === 'jahr' ? range('jahr', y - 1) : range('monat', m ? y : y - 1, m ? m - 1 : 11);
   const pst = recapStats(prev[0], prev[1]);

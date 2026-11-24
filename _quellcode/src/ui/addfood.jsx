@@ -7,7 +7,7 @@ import {
   toast,
   addEntries,
   updateEntry,
-  removeEntry,
+  removeEntry, removeEntryUndo,
   rememberFood,
   saveMyPortion,
   recentFoods,
@@ -523,8 +523,7 @@ export function AmountSheet({ dayKey, meal: meal0, food: food0, entry, back }) {
             <button
               class="btn btn--danger-ghost"
               onClick={() => {
-                removeEntry(dayKey, entry.id);
-                toast('Gelöscht');
+                removeEntryUndo(dayKey, entry.id);
                 closeSheet();
               }}
               aria-label="Eintrag löschen"
@@ -670,8 +669,7 @@ function QuickEditSheet({ dayKey, entry }) {
           <button
             class="btn btn--danger-ghost"
             onClick={() => {
-              removeEntry(dayKey, entry.id);
-              toast('Gelöscht');
+              removeEntryUndo(dayKey, entry.id);
               closeSheet();
             }}
             aria-label="Eintrag löschen"

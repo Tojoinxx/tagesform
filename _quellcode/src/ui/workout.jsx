@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { useS, S, saveActive, clearActive, patchDay, toast, getDay, openSheet, closeSheet, saveTraining } from '../lib/store.js';
+import { useS, S, saveActive, clearActive, patchDay, toast, getDay, openSheet, closeSheet, saveTraining, loadAllDays } from '../lib/store.js';
 import { EXERCISES } from '../lib/exercises.js';
 import { Sheet } from './common.jsx';
 import { ExAnim, ExNote } from './exui.jsx';
 import { guideOf } from '../lib/exguide.js';
 import { swapOptions, itemFor, prefsOf, warmupFor, platesFor, limitsOf, liveAdjust, planIds, repsAt, priMg, MUSCLE_LABEL, applyFeedback, soreOf } from '../lib/training.js';
 import { buildSummary } from './progress.jsx';
-import { uid, n1, num, vibrate, fmtShortDate } from '../lib/util.js';
+import { uid, n1, num, vibrate, fmtShortDate, todayKey } from '../lib/util.js';
 import { Check, Plus, Info, Repeat, X, Timer, Flag, Trash2, ExternalLink, Search, Flame, Minus } from 'lucide-preact';
 import { nav } from './router.js';
 
@@ -27,6 +27,7 @@ export function Battery({ v, size = 26 }) {
 
 const mmss = (sec) => {
   const s = Math.max(0, Math.round(sec));
+  if (s >= 3600) return `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 
@@ -182,6 +183,7 @@ export function PlanChangesSheet({ sessionId, name, changes: ch0, summary }) {
 }
 
 export function Workout() {
+  useEffect(() => void loadAllDays(), []); // Rekorde gegen die ganze Historie prüfen
   const s = useS();
   const [w, setW] = useState(() => (S.active ? JSON.parse(JSON.stringify(S.active)) : null));
   const [now, setNow] = useState(Date.now());
@@ -309,10 +311,18 @@ export function Workout() {
     // Gewicht in die folgenden, noch offenen Sätze übernehmen
     const next = {
       ...w,
+      lastAt: Date.now(),
       items: w.items.map((x, a) =>
         a !== i ? x : { ...x, sets: x.sets.map((y, b) => (b === j ? { ...y, r, w: wt, done: true } : b > j && !y.done && (y.w === '' || y.w == null || y.w === st.w) ? { ...y, w: wt } : y)) },
       ),
     };
+    // Vertippt? (z. B. 700 statt 70 kg) – sofort Bescheid geben, bevor es in Rekorde & Steigerung eingeht
+    const ref = num(it.target && it.target.w) || (it.sets.find((x, b) => b !== j && x.done && num(x.w) > 0) || {}).w;
+    if (wt > 0 && num(ref) > 0 && Math.abs(wt - num(ref)) >= 10 && (wt > num(ref) * 1.8 || wt < num(ref) * 0.35)) {
+      toast(`⚠️ ${n1(wt)} kg bei ${it.name} – vertippt? Geplant waren ${n1(num(ref))} kg. Gewicht antippen zum Korrigieren.`, 'error');
+    } else if (it.unit !== 'Sek.' && r > 60) {
+      toast(`⚠️ ${r} Wiederholungen – vertippt?`, 'error');
+    }
     const pf = prefsOf();
     const askRir = it.unit !== 'Sek.' && !it.plyo && pf.rirPrompt;
     // ohne RIR-Abfrage gleich nach Wiederholungen anpassen, sonst nach der RIR-Antwort
@@ -417,7 +427,9 @@ export function Workout() {
     }
     if (doneSets < totalSets && !confirm(`${totalSets - doneSets} Sätze sind noch offen. Trotzdem beenden?`)) return;
     clearTimeout(saveT.current);
-    const minutes = Math.max(5, Math.round(elapsed / 60));
+    // Vergessen zu beenden? Dann zählt die Zeit bis zum letzten abgehakten Satz (+ 3 Min.), höchstens 4 Std.
+    const span = elapsed > 3 * 3600 && w.lastAt ? (w.lastAt - w.startedAt) / 1000 + 180 : elapsed;
+    const minutes = Math.min(240, Math.max(5, Math.round(span / 60)));
     const record = {
       id: w.id || uid(),
       sessionId: w.sessionId,
@@ -465,6 +477,11 @@ export function Workout() {
       <div class="woprogress">
         <div style={{ width: (doneSets / Math.max(1, totalSets)) * 100 + '%' }} />
       </div>
+      {elapsed > 4 * 3600 && (
+        <div class="notice notice--warn small">
+          Läuft schon seit {Math.floor(elapsed / 3600)} Std. – vergessen zu beenden? Tipp einfach auf <b>Beenden</b>: Gezählt wird die Zeit bis zum letzten Satz, und das Training wird {w.dayKey === todayKey() ? 'für heute' : <>für den Starttag (<b>{fmtShortDate(w.dayKey)}</b>)</>} eingetragen.
+        </div>
+      )}
       {w.modeLabel && <div class={'notice small ' + (w.mode === 'light' || w.mode === 'comeback' ? 'notice--info' : 'notice--ok')}>{w.modeLabel}</div>}
 
       {w.items.map((it, i) => {
