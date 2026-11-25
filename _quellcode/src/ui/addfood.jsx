@@ -5,7 +5,7 @@ import {
   openSheet,
   closeSheet,
   toast,
-  addEntries,
+  addEntries, addedToast,
   updateEntry,
   removeEntry, removeEntryUndo,
   rememberFood,
@@ -88,6 +88,19 @@ function localSearch(q) {
   return { own: own.slice(0, 15), base: base.slice(0, 20) };
 }
 
+/** Live-Zähler im Hinzufügen-Fenster: man sieht sofort, dass etwas dazugekommen ist */
+function MealSoFar({ dayKey, meal }) {
+  useS();
+  const es = (getDay(dayKey).entries || []).filter((e) => e.meal === meal);
+  if (!es.length) return null;
+  const kcal = es.reduce((a, e) => a + (+e.kcal || 0), 0);
+  return (
+    <div class="sofar" key={es.length}>
+      <Check size={15} /> Bei {mealLabel(meal)}: <b>{es.length} {es.length === 1 ? 'Eintrag' : 'Einträge'}</b> · {n0(kcal)} kcal
+    </div>
+  );
+}
+
 const withSaved = (food) => {
   const saved = S.foods[food.id];
   return saved ? { ...food, ...saved, per100: saved.per100 || food.per100, portions: food.portions && food.portions.length ? food.portions : saved.portions } : food;
@@ -95,8 +108,9 @@ const withSaved = (food) => {
 
 function FoodRow({ food, onPick, onQuick, star }) {
   const v = food.per100;
+  const [added, setAdded] = useState(false);
   return (
-    <li class="frow">
+    <li class={'frow' + (added ? ' frow--added' : '')}>
       {star && (
         <button class={'frow__star' + (food.fav ? ' on' : '')} onClick={() => toast(toggleFav(food) ? `⭐ ${food.name} ist jetzt Favorit` : `${food.name} kein Favorit mehr`)} aria-label={food.fav ? `${food.name}: Favorit entfernen` : `${food.name} als Favorit merken`}>
           <Star size={17} />
@@ -113,8 +127,16 @@ function FoodRow({ food, onPick, onQuick, star }) {
         </span>
       </button>
       {onQuick && food.lastGrams ? (
-        <button class="frow__quick" onClick={() => onQuick(food)} aria-label={`${food.name} mit ${food.lastGrams} ${food.unit || 'g'} hinzufügen`}>
-          <Plus size={18} />
+        <button
+          class={'frow__quick' + (added ? ' frow__quick--ok' : '')}
+          onClick={() => {
+            onQuick(food);
+            setAdded(true);
+            setTimeout(() => setAdded(false), 1600);
+          }}
+          aria-label={`${food.name} mit ${food.lastGrams} ${food.unit || 'g'} hinzufügen`}
+        >
+          {added ? <Check size={18} /> : <Plus size={18} />}
         </button>
       ) : null}
     </li>
@@ -159,7 +181,7 @@ function CopyMeal({ dayKey, meal }) {
   if (!opts.length) return null;
   const copy = (o) => {
     const gid = {};
-    addEntries(
+    const list = addEntries(
       dayKey,
       o.es.map(({ id, at, ...e }) => {
         // zusammengehörige Gerichte (KI-Mahlzeiten) bleiben zusammen
@@ -168,7 +190,7 @@ function CopyMeal({ dayKey, meal }) {
       }),
     );
     vibrate();
-    toast(`${o.es.length} ${o.es.length === 1 ? 'Eintrag' : 'Einträge'} übernommen (${n0(o.kcal)} kcal)`);
+    addedToast(dayKey, list, `${o.es.length} ${o.es.length === 1 ? 'Eintrag' : 'Einträge'} übernommen`, mealLabel(meal));
     closeSheet();
   };
   const name = (i) => (i === 1 ? 'Gestern' : i === 2 ? 'Vorgestern' : `Vor ${i} Tagen`);
@@ -208,9 +230,9 @@ export function AddSheet({ dayKey, meal: meal0, q: q0 = '' }) {
   const pick = (food) => openSheet('amount', { dayKey, meal, food: withSaved(food), back });
   const quick = (food) => {
     const f = rememberFood(withSaved(food), food.lastGrams);
-    addEntries(dayKey, [makeEntry({ food: f, grams: food.lastGrams, meal })]);
+    const list = addEntries(dayKey, [makeEntry({ food: f, grams: food.lastGrams, meal })]);
     vibrate();
-    toast(`${food.name} (${n0(food.lastGrams)} ${food.unit || 'g'}) → ${mealLabel(meal)}`);
+    addedToast(dayKey, list, `${food.name} hinzugefügt`, `${n0(food.lastGrams)} ${food.unit || 'g'} → ${mealLabel(meal)}`);
   };
   const [est, setEst] = useState({ status: 'idle', q: '' });
   const estJob = useAiJob();
@@ -260,6 +282,7 @@ export function AddSheet({ dayKey, meal: meal0, q: q0 = '' }) {
 
   return (
     <Sheet title={`${mealLabel(meal)} hinzufügen`} tall>
+      <MealSoFar dayKey={dayKey} meal={meal} />
       <MealChips meal={meal} setMeal={setMeal} />
       <div class="tiles">
         <PhotoButton icon={<Camera size={22} />} label="Foto vom Essen" onFile={(file) => openSheet('photo', { dayKey, meal, file })} />
@@ -506,9 +529,9 @@ export function AmountSheet({ dayKey, meal: meal0, food: food0, entry, back }) {
     } else {
       const f2 = editable ? { ...food, per100: { ...p100 }, fv: fvFood } : food;
       const remembered = f2.source === 'ai' ? f2 : rememberFood(f2, g);
-      addEntries(dayKey, [makeEntry({ food: remembered, grams: g, meal })]);
+      const list = addEntries(dayKey, [makeEntry({ food: remembered, grams: g, meal })]);
       vibrate();
-      toast(`${food.name} → ${mealLabel(meal)}`);
+      addedToast(dayKey, list, `${food.name} hinzugefügt`, `${n0(g)} ${food.unit || 'g'} → ${mealLabel(meal)}`);
     }
     closeSheet();
   };
@@ -736,10 +759,11 @@ export function CustomSheet({ dayKey, meal: meal0, barcode, prefill = {}, back, 
 
   const save = () => {
     if (mode === 'quick') {
-      addEntries(dayKey, [
+      const list = addEntries(dayKey, [
         { id: uid(), meal, name: f.name.trim(), brand: '', grams: 0, unit: 'g', per100: null, kcal: Math.round(num(f.kcal)), p: num(f.p), c: num(f.c), f: num(f.f), fiber: 0, sugar: 0, fv: 0, source: 'manual', at: Date.now() },
       ]);
-      toast(`${f.name.trim()} → ${mealLabel(meal)}`);
+      vibrate();
+      addedToast(dayKey, list, `${f.name.trim()} hinzugefügt`, mealLabel(meal));
       closeSheet();
       return;
     }
@@ -1076,7 +1100,7 @@ export function PhotoSheet({ dayKey, meal: meal0, file }) {
   const save = () => {
     const n = saveDish(dayKey, items, meal, title, 'ai-photo');
     vibrate();
-    toast(`${n > 1 ? `„${title || 'Mahlzeit'}“ (${n} Teile)` : n + ' Eintrag'} → ${mealLabel(meal)}`);
+    toast(`✓ ${n > 1 ? `„${title || 'Mahlzeit'}“ (${n} Teile)` : title || '1 Eintrag'} hinzugefügt`, 'add', null, `${n0(total)} kcal → ${mealLabel(meal)}`);
     closeSheet();
   };
 
@@ -1461,7 +1485,7 @@ export function VoiceSheet({ dayKey, meal: meal0, back, text: text0 = '' }) {
   const save = () => {
     const n = saveDish(dayKey, items, meal, title, text0 ? 'ai-text' : 'ai-voice');
     vibrate();
-    toast(`${n > 1 ? `„${title || 'Mahlzeit'}“ (${n} Teile)` : n + ' Eintrag'} → ${mealLabel(meal)}`);
+    toast(`✓ ${n > 1 ? `„${title || 'Mahlzeit'}“ (${n} Teile)` : title || '1 Eintrag'} hinzugefügt`, 'add', null, `${n0(total)} kcal → ${mealLabel(meal)}`);
     closeSheet();
   };
   const setMealT = (m) => ((mealTouched.current = true), setMeal(m));

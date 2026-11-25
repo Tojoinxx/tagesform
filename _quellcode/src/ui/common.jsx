@@ -177,7 +177,14 @@ export function Toast() {
   if (!s.toast) return null;
   return (
     <div class={'toast toast--' + s.toast.kind} role="status" key={s.toast.id}>
-      {s.toast.text}
+      {s.toast.sub ? (
+        <span class="toast__txt">
+          {s.toast.text}
+          <small>{s.toast.sub}</small>
+        </span>
+      ) : (
+        s.toast.text
+      )}
       {s.toast.action && (
         <button
           class="toast__act"

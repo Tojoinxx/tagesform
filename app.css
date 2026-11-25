@@ -3744,3 +3744,32 @@ button.streak { border: 0; font: inherit; font-size: 14px; cursor: pointer; }
 /* Hinweis mit Aktion (Rückgängig) */
 .toast { display: flex; align-items: center; gap: 12px; }
 .toast__act { background: none; border: 0; color: #7fd6a8; font: inherit; font-weight: 750; padding: 6px 2px; margin: -6px 0; cursor: pointer; white-space: nowrap; }
+
+/* Deutliche Bestätigung nach dem Eintragen */
+.toast--add {
+  width: calc(100% - 24px);
+  max-width: 440px;
+  background: #1e7a4c;
+  color: #fff;
+  padding: 14px 16px;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: left;
+  justify-content: space-between;
+  box-shadow: 0 10px 30px rgba(10, 60, 35, 0.35);
+  animation: toastPop 0.32s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.toast__txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.toast__txt small { font-size: 13px; font-weight: 550; opacity: 0.88; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toast--add .toast__act { color: #fff; background: rgba(255, 255, 255, 0.18); padding: 8px 12px; margin: 0; border-radius: 10px; font-size: 14px; }
+@keyframes toastPop { from { transform: translate(-50%, -14px) scale(0.92); opacity: 0; } to { transform: translate(-50%, 0) scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .toast--add { animation: none; } }
+
+/* Schnell-Plus wird kurz zum Haken */
+.frow__quick--ok { background: #1e7a4c !important; color: #fff !important; transform: scale(1.08); transition: transform 0.15s; }
+.frow--added { background: color-mix(in srgb, #1e7a4c 12%, transparent); transition: background 0.3s; border-radius: 12px; }
+
+/* Live-Zähler im Hinzufügen-Fenster */
+.sofar { display: flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--ok-ink, #1e7a4c); background: color-mix(in srgb, #1e7a4c 10%, transparent); padding: 8px 12px; border-radius: 10px; margin: 0 0 10px; animation: sofarPulse 0.5s ease-out; }
+@keyframes sofarPulse { 0% { background: color-mix(in srgb, #1e7a4c 35%, transparent); } 100% { background: color-mix(in srgb, #1e7a4c 10%, transparent); } }

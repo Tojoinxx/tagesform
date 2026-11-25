@@ -39,10 +39,10 @@ export function useS() {
 
 // ---------- Toast & Sheets ----------
 let toastTimer;
-export function toast(text, kind = 'ok', action = null) {
+export function toast(text, kind = 'ok', action = null, sub = null) {
   clearTimeout(toastTimer);
-  setS({ toast: { text, kind, id: Date.now(), action } });
-  toastTimer = setTimeout(() => setS({ toast: null }), action ? 5000 : kind === 'error' ? 4200 : 2400);
+  setS({ toast: { text, kind, id: Date.now(), action, sub } });
+  toastTimer = setTimeout(() => setS({ toast: null }), kind === 'add' ? 4000 : action ? 5000 : kind === 'error' ? 4200 : 2400);
 }
 export const openSheet = (name, props = {}) => setS({ sheet: { name, props, id: Date.now() } });
 export const closeSheet = () => setS({ sheet: null });
@@ -274,7 +274,14 @@ export function patchDay(k, patch) {
 }
 
 export function addEntries(k, entries) {
-  patchDay(k, (d) => ({ entries: [...(d.entries || []), ...entries.map((e) => ({ ...e, id: e.id || uid() }))] }));
+  const list = entries.map((e) => ({ ...e, id: e.id || uid() }));
+  patchDay(k, (d) => ({ entries: [...(d.entries || []), ...list] }));
+  return list;
+}
+/** Gut sichtbare Bestätigung nach dem Eintragen – mit „Rückgängig“ */
+export function addedToast(k, list, title, meal) {
+  const kcal = list.reduce((a, e) => a + (+e.kcal || 0), 0);
+  toast(`✓ ${title}`, 'add', { label: 'Rückgängig', fn: () => patchDay(k, (d) => ({ entries: (d.entries || []).filter((e) => !list.some((x) => x.id === e.id)) })) }, `${Math.round(kcal)} kcal · ${meal}`);
 }
 export function updateEntry(k, id, patch) {
   patchDay(k, (d) => ({ entries: (d.entries || []).map((e) => (e.id === id ? { ...e, ...patch } : e)) }));
